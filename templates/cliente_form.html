@@ -4,11 +4,30 @@
 <h1 class="text-xl font-bold mb-4">{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente</h1>
 <form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4">
   {% set c = cliente %}
-  <input name="nombre" placeholder="Nombre" required value="{{ c[1] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="identificacion" placeholder="Identificación" required value="{{ c[2] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="telefono" placeholder="Teléfono" value="{{ c[3] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="barrio" placeholder="Barrio" value="{{ c[4] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="direccion" placeholder="Dirección" value="{{ c[5] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  {% set fd = form_data or {} %}
+  <h2 class="text-sm uppercase tracking-wide text-slate-300 font-semibold">Datos del cliente</h2>
+  <input name="nombre" placeholder="Nombre" required value="{{ c[1] if c else (fd.get('nombre', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="identificacion" placeholder="Identificación" required value="{{ c[2] if c else (fd.get('identificacion', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="telefono" placeholder="Teléfono" value="{{ c[3] if c else (fd.get('telefono', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="barrio" placeholder="Barrio" value="{{ c[4] if c else (fd.get('barrio', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="direccion" placeholder="Dirección" value="{{ c[5] if c else (fd.get('direccion', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+
+  {% if crear_prestamo_junto %}
+  <div class="pt-2 mt-2 border-t border-slate-700"></div>
+  <h2 class="text-sm uppercase tracking-wide text-slate-300 font-semibold">Datos del préstamo</h2>
+  <input name="monto" type="number" min="0" step="0.01" placeholder="Monto a prestar" required value="{{ fd.get('monto', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="tasa" type="number" min="0" step="0.01" placeholder="Tasa de interés (%)" required value="{{ fd.get('tasa', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="cuotas" type="number" min="1" step="1" placeholder="Número de cuotas" required value="{{ fd.get('cuotas', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <select name="frecuencia" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    {% set freq = fd.get('frecuencia', 'mensual') %}
+    <option value="diaria" {% if freq == 'diaria' %}selected{% endif %}>Diaria</option>
+    <option value="semanal" {% if freq == 'semanal' %}selected{% endif %}>Semanal</option>
+    <option value="quincenal" {% if freq == 'quincenal' %}selected{% endif %}>Quincenal</option>
+    <option value="mensual" {% if freq == 'mensual' %}selected{% endif %}>Mensual</option>
+  </select>
+  <input name="fecha" type="date" required value="{{ fd.get('fecha', hoy) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  {% endif %}
+
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
 </form>
 {% endblock %}

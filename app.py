@@ -176,17 +176,68 @@ def clientes_list():
 def clientes_nuevo():
     uid, _, is_admin = ctx_user()
     if request.method == "POST":
-        db.get_or_create_cliente(
-            request.form.get("nombre", "").strip(),
-            request.form.get("identificacion", "").strip(),
-            request.form.get("telefono", "").strip(),
-            request.form.get("barrio", "").strip(),
-            request.form.get("direccion", "").strip(),
-            uid,
-        )
-        flash("Cliente guardado.", "ok")
-        return redirect(url_for("clientes_list"))
-    return render_template("cliente_form.html", cliente=None)
+        try:
+            nombre = request.form.get("nombre", "").strip()
+            identificacion = request.form.get("identificacion", "").strip()
+            telefono = request.form.get("telefono", "").strip()
+            barrio = request.form.get("barrio", "").strip()
+            direccion = request.form.get("direccion", "").strip()
+
+            if not nombre or not identificacion:
+                raise ValueError("Nombre e identificación son obligatorios.")
+
+            cid = db.get_or_create_cliente(
+                nombre,
+                identificacion,
+                telefono,
+                barrio,
+                direccion,
+                uid,
+            )
+
+            fecha = request.form.get("fecha", today_str())
+            freq = request.form.get("frecuencia", "mensual").lower().strip()
+            if freq not in ("diaria", "semanal", "quincenal", "mensual"):
+                raise ValueError("Frecuencia inválida.")
+
+            cuotas = int(request.form.get("cuotas", "1"))
+            monto = float(request.form.get("monto", "0"))
+            tasa = float(request.form.get("tasa", "0"))
+
+            if cuotas < 1:
+                raise ValueError("El número de cuotas debe ser mayor o igual a 1.")
+            if monto <= 0:
+                raise ValueError("El monto debe ser mayor a 0.")
+            if tasa < 0:
+                raise ValueError("La tasa no puede ser negativa.")
+
+            interes = monto * (tasa / 100.0)
+            total = monto + interes
+            cuota = total / cuotas
+            dias = {"diaria": 1, "semanal": 7, "quincenal": 15, "mensual": 30}[freq]
+            venc = add_days(fecha, dias * cuotas)
+
+            db.nuevo_prestamo(
+                cid, fecha, freq, cuotas, monto, tasa, interes, total, cuota, venc, uid, is_admin
+            )
+            flash("Cliente y préstamo guardados.", "ok")
+            return redirect(url_for("clientes_list"))
+        except Exception as e:
+            flash(str(e), "error")
+            return render_template(
+                "cliente_form.html",
+                cliente=None,
+                crear_prestamo_junto=True,
+                form_data=request.form,
+                hoy=today_str(),
+            )
+    return render_template(
+        "cliente_form.html",
+        cliente=None,
+        crear_prestamo_junto=True,
+        form_data={},
+        hoy=today_str(),
+    )
 
 
 @app.route("/clientes/<int:cid>/editar", methods=["GET", "POST"])
@@ -209,7 +260,7 @@ def clientes_editar(cid):
         )
         flash("Cliente actualizado.", "ok")
         return redirect(url_for("clientes_list"))
-    return render_template("cliente_form.html", cliente=row)
+    return render_template("cliente_form.html", cliente=row, crear_prestamo_junto=False, form_data={})
 
 
 @app.route("/clientes/<int:cid>/eliminar", methods=["POST"])
