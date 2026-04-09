@@ -15,6 +15,17 @@
 {% if is_admin %}
 <a href="{{ url_for('admin_usuarios') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-accent font-semibold mb-3">Usuarios (admin)</a>
 <a href="{{ url_for('backup_sql') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-semibold mb-3">Descargar backup .sql</a>
+
+<form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="space-y-3 bg-panel rounded-2xl border border-rose-900/50 p-4 mb-6">
+  <h2 class="font-semibold text-rose-300 text-sm">Restaurar desde backup (.sql)</h2>
+  <p class="text-xs text-slate-400">Solo archivos generados con &quot;Descargar backup&quot; de esta misma app. Esto <strong class="text-rose-200">borra los datos actuales</strong> y los reemplaza por el archivo.</p>
+  <input type="file" name="sql_file" accept=".sql,text/plain" required class="block w-full text-sm text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-panel2 file:text-accent">
+  <label class="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+    <input type="checkbox" name="confirm_restore" value="si" required class="mt-0.5 rounded border-slate-600">
+    <span>Entiendo que se sobrescribirá toda la base con este archivo.</span>
+  </label>
+  <button type="submit" class="w-full py-3 rounded-xl border border-rose-500 text-rose-200 font-bold hover:bg-rose-950/50">Restaurar base de datos</button>
+</form>
 {% endif %}
 
 <a href="{{ url_for('logout') }}" class="block text-center py-3 rounded-xl border border-rose-800 text-rose-400">Cerrar sesión</a>

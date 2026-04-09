@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 from functools import wraps
 from io import BytesIO
+from itertools import groupby
 
 import psycopg2
 from flask import (
@@ -19,7 +20,14 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
 import recibos
-from utils_web import add_days
+from utils_web import (
+    add_days,
+    fecha_proximo_pago_texto,
+    frecuencia_label,
+    url_maps,
+    url_tel,
+    url_whatsapp,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambia-esto-en-produccion")
@@ -88,7 +96,16 @@ def admin_required(f):
 @app.context_processor
 def inject_globals():
     _, __, is_admin = ctx_user()
-    return {"fmt_money": fmt_money, "today_str": today_str, "is_admin": is_admin}
+    return {
+        "fmt_money": fmt_money,
+        "today_str": today_str,
+        "is_admin": is_admin,
+        "fecha_proximo_pago_texto": fecha_proximo_pago_texto,
+        "frecuencia_label": frecuencia_label,
+        "url_tel": url_tel,
+        "url_whatsapp": url_whatsapp,
+        "url_maps": url_maps,
+    }
 
 
 @app.route("/setup", methods=["GET", "POST"])
@@ -353,8 +370,14 @@ def prestamos_pago(pid):
 @login_required
 def pagos_list():
     uid, _, is_admin = ctx_user()
-    rows = db.listar_pagos(None, uid, is_admin)
-    return render_template("pagos.html", pagos=rows)
+    prestamo_filtro = request.args.get("prestamo_id", type=int)
+    rows = db.listar_pagos(prestamo_filtro, uid, is_admin)
+    grupos = [(fecha, list(items)) for fecha, items in groupby(rows, key=lambda r: r[3])]
+    return render_template(
+        "pagos.html",
+        pagos_grupos=grupos,
+        filtro_prestamo_id=prestamo_filtro,
+    )
 
 
 @app.route("/pagos/<int:pago_id>/eliminar", methods=["POST"])
@@ -366,6 +389,8 @@ def pagos_eliminar(pago_id):
         flash("Pago eliminado.", "ok")
     else:
         flash("No se pudo eliminar el pago.", "error")
+    if prestamo_id:
+        return redirect(url_for("pagos_list", prestamo_id=prestamo_id))
     return redirect(url_for("pagos_list"))
 
 
@@ -453,6 +478,37 @@ def backup_sql():
         download_name=f"financiera_backup_{today_str()}.sql",
         mimetype="application/sql",
     )
+
+
+@app.route("/backup/restore", methods=["POST"])
+@admin_required
+def backup_restore():
+    if request.form.get("confirm_restore") != "si":
+        flash("Confirma la restauración para continuar.", "error")
+        return redirect(url_for("configuracion"))
+    up = request.files.get("sql_file")
+    if not up or up.filename == "":
+        flash("Selecciona un archivo .sql exportado desde esta app.", "error")
+        return redirect(url_for("configuracion"))
+    raw = up.read()
+    if len(raw) > 25 * 1024 * 1024:
+        flash("El archivo es demasiado grande (máx. 25 MB).", "error")
+        return redirect(url_for("configuracion"))
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        flash("El archivo debe estar en UTF-8.", "error")
+        return redirect(url_for("configuracion"))
+    if "TRUNCATE" not in text.upper() or "INSERT INTO" not in text.upper():
+        flash("El archivo no parece un respaldo válido de Financiera NP.", "error")
+        return redirect(url_for("configuracion"))
+    try:
+        db.restore_database_sql(text)
+    except Exception as e:
+        flash(f"No se pudo restaurar: {e}", "error")
+        return redirect(url_for("configuracion"))
+    flash("Base restaurada desde el archivo. Vuelve a iniciar sesión si es necesario.", "ok")
+    return redirect(url_for("configuracion"))
 
 
 @app.route("/prestamos/<int:pid>/notas", methods=["GET", "POST"])

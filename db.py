@@ -314,7 +314,8 @@ def listar_prestamos(
     q = f"""
         SELECT p.id, c.nombre, c.identificacion, p.monto, p.tasa, p.cuotas,
                p.valor_cuota, p.fecha, p.vencimiento, p.estado, p.pagadas,
-               p.total_pagar, p.frecuencia, p.proximo_pago, p.notas
+               p.total_pagar, p.frecuencia, p.proximo_pago, p.notas,
+               c.id, c.telefono, c.direccion, c.barrio
         FROM prestamos p
         JOIN clientes c ON c.id = p.cliente_id
         WHERE 1=1 {scope}
@@ -472,10 +473,10 @@ def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
     """
     args = list(sparams)
     if prestamo_id:
-        base += " AND pagos.prestamo_id = %s ORDER BY pagos.id DESC"
+        base += " AND pagos.prestamo_id = %s ORDER BY pagos.fecha DESC, pagos.id DESC"
         args.append(prestamo_id)
     else:
-        base += " ORDER BY pagos.id DESC"
+        base += " ORDER BY pagos.fecha DESC, pagos.id DESC"
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(base, tuple(args))
@@ -604,3 +605,39 @@ def export_database_sql() -> str:
                 )
     lines.append("COMMIT;")
     return "\n".join(lines)
+
+
+def restore_database_sql(sql: str) -> None:
+    """
+    Ejecuta un volcado .sql generado por export_database_sql() (BEGIN/TRUNCATE/INSERTs/COMMIT).
+    Advertencia: borra y repuebla datos según el script.
+    """
+    chunks: list[str] = []
+    buf: list[str] = []
+    for line in sql.splitlines():
+        s = line.strip()
+        if not s or s.startswith("--"):
+            continue
+        buf.append(line)
+        if s.endswith(";"):
+            stmt = "\n".join(buf).strip()
+            if stmt:
+                chunks.append(stmt)
+            buf = []
+    if buf:
+        stmt = "\n".join(buf).strip()
+        if stmt:
+            chunks.append(stmt)
+
+    conn = psycopg2.connect(_dsn())
+    try:
+        conn.autocommit = False
+        cur = conn.cursor()
+        for stmt in chunks:
+            cur.execute(stmt)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
