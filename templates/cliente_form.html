@@ -26,8 +26,107 @@
     <option value="mensual" {% if freq == 'mensual' %}selected{% endif %}>Mensual</option>
   </select>
   <input name="fecha" type="date" required value="{{ fd.get('fecha', hoy) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <button
+    id="btn-simular"
+    type="button"
+    class="w-full py-3 rounded-xl font-bold bg-transparent hover:brightness-110"
+    style="border:1px solid #22D3EE;color:#22D3EE;"
+  >
+    Simular crédito
+  </button>
+  <p id="sim-error" class="hidden text-sm font-semibold" style="color:#ef4444;">Completa Monto, Tasa y Cuotas para simular</p>
+  <div
+    id="sim-resultado"
+    class="hidden rounded-2xl p-4 border-2 text-white space-y-1.5"
+    style="background:#1F2937;border-color:#22D3EE;"
+  >
+    <h3 class="text-base font-bold mb-2 text-white">💰 Simulación del crédito</h3>
+    <div class="flex justify-between gap-4 text-sm">
+      <span class="text-white">Monto prestado:</span>
+      <span id="sim-monto" class="font-bold shrink-0" style="color:#22D3EE;"></span>
+    </div>
+    <div class="flex justify-between gap-4 text-sm">
+      <span class="text-white">Interés (<span id="sim-tasa-lbl"></span>%):</span>
+      <span id="sim-interes" class="font-bold shrink-0" style="color:#22D3EE;"></span>
+    </div>
+    <div class="flex justify-between gap-4 text-sm">
+      <span class="text-white">Total a pagar:</span>
+      <span id="sim-total" class="font-bold shrink-0" style="color:#22D3EE;"></span>
+    </div>
+    <div class="flex justify-between gap-4 text-sm">
+      <span class="text-white">Valor por cuota:</span>
+      <span id="sim-cuota" class="font-bold shrink-0" style="color:#22D3EE;"></span>
+    </div>
+    <div class="flex justify-between gap-4 text-sm">
+      <span class="text-white">Número de cuotas:</span>
+      <span id="sim-cuotas" class="font-bold shrink-0" style="color:#22D3EE;"></span>
+    </div>
+    <div class="flex justify-between gap-4 text-sm">
+      <span class="text-white">Frecuencia:</span>
+      <span id="sim-frecuencia" class="font-bold shrink-0" style="color:#22D3EE;"></span>
+    </div>
+  </div>
   {% endif %}
 
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
 </form>
+{% if crear_prestamo_junto %}
+<script>
+  (function () {
+    const btn = document.getElementById("btn-simular");
+    const err = document.getElementById("sim-error");
+    const box = document.getElementById("sim-resultado");
+    if (!btn || !err || !box) return;
+
+    const montoEl = document.querySelector('input[name="monto"]');
+    const tasaEl = document.querySelector('input[name="tasa"]');
+    const cuotasEl = document.querySelector('input[name="cuotas"]');
+    const freqEl = document.querySelector('select[name="frecuencia"]');
+
+    const fmtMoney = (n) =>
+      "$" + new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(n);
+
+    const simular = function () {
+      const rawMonto = (montoEl?.value || "").trim();
+      const rawTasa = (tasaEl?.value || "").trim();
+      const rawCuotas = (cuotasEl?.value || "").trim();
+      const monto = parseFloat(rawMonto);
+      const tasa = parseFloat(rawTasa);
+      const cuotas = parseInt(rawCuotas, 10);
+      const frecuencia = (freqEl?.selectedOptions?.[0]?.textContent || "").trim();
+
+      if (
+        rawMonto === "" ||
+        rawTasa === "" ||
+        rawCuotas === "" ||
+        !Number.isFinite(monto) ||
+        !Number.isFinite(tasa) ||
+        !Number.isFinite(cuotas) ||
+        cuotas < 1
+      ) {
+        err.classList.remove("hidden");
+        box.classList.add("hidden");
+        return;
+      }
+
+      const interes = monto * (tasa / 100);
+      const total = monto + interes;
+      const valorCuota = total / cuotas;
+
+      document.getElementById("sim-monto").textContent = fmtMoney(monto);
+      document.getElementById("sim-tasa-lbl").textContent = tasa.toString();
+      document.getElementById("sim-interes").textContent = fmtMoney(interes);
+      document.getElementById("sim-total").textContent = fmtMoney(total);
+      document.getElementById("sim-cuota").textContent = fmtMoney(valorCuota);
+      document.getElementById("sim-cuotas").textContent = cuotas.toString();
+      document.getElementById("sim-frecuencia").textContent = frecuencia;
+
+      err.classList.add("hidden");
+      box.classList.remove("hidden");
+    };
+
+    btn.addEventListener("click", simular);
+  })();
+</script>
+{% endif %}
 {% endblock %}
