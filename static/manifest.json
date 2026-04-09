@@ -1,0 +1,18 @@
+{
+  "name": "Financiera Nuevo Progreso",
+  "short_name": "Financiera NP",
+  "description": "Gestión de préstamos y pagos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

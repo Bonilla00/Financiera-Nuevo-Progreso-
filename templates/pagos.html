@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Pagos{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Últimos pagos</h1>
+<div class="space-y-2">
+  {% for r in pagos %}
+  <div class="bg-panel rounded-xl border border-slate-700 p-3 flex justify-between items-center gap-2">
+    <div>
+      <p class="font-medium">{{ r[1] }}</p>
+      <p class="text-xs text-slate-400">{{ r[3] }} · Cuota {{ r[5] }}</p>
+      <p class="text-sm text-accent font-semibold">{{ fmt_money(r[4]) }}</p>
+    </div>
+    <form method="post" action="{{ url_for('pagos_eliminar', pago_id=r[0]) }}" onsubmit="return confirm('¿Eliminar este pago?');">
+      <input type="hidden" name="prestamo_id" value="{{ r[2] }}">
+      <button type="submit" class="text-xs text-rose-400 px-2">Quitar</button>
+    </form>
+  </div>
+  {% else %}
+  <p class="text-slate-500 text-sm">No hay pagos registrados.</p>
+  {% endfor %}
+</div>
+{% endblock %}

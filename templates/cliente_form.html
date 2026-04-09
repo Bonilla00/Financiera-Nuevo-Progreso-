@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-4">{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente</h1>
+<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4">
+  {% set c = cliente %}
+  <input name="nombre" placeholder="Nombre" required value="{{ c[1] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="identificacion" placeholder="Identificación" required value="{{ c[2] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="telefono" placeholder="Teléfono" value="{{ c[3] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="barrio" placeholder="Barrio" value="{{ c[4] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="direccion" placeholder="Dirección" value="{{ c[5] if c else '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
+</form>
+{% endblock %}

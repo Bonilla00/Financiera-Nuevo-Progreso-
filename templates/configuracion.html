@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Configuración{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Más / Configuración</h1>
+<p class="text-slate-400 text-sm mb-4">Usuario: <span class="text-white">{{ session.username }}</span></p>
+
+<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6">
+  <h2 class="font-semibold text-accent text-sm">Cambiar clave</h2>
+  <input type="password" name="password_actual" placeholder="Clave actual" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input type="password" name="password_nueva" placeholder="Nueva clave (mín. 6)" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input type="password" name="password_nueva2" placeholder="Repetir nueva" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Actualizar clave</button>
+</form>
+
+{% if is_admin %}
+<a href="{{ url_for('admin_usuarios') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-accent font-semibold mb-3">Usuarios (admin)</a>
+<a href="{{ url_for('backup_sql') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-semibold mb-3">Descargar backup .sql</a>
+{% endif %}
+
+<a href="{{ url_for('logout') }}" class="block text-center py-3 rounded-xl border border-rose-800 text-rose-400">Cerrar sesión</a>
+{% endblock %}

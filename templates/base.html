@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F172A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>{% block title %}Financiera NP{% endblock %}</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/icon.svg') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            appbg: '#0F172A',
+            panel: '#111827',
+            panel2: '#1F2937',
+            accent: '#22D3EE',
+            accent2: '#0891B2',
+          }
+        }
+      }
+    }
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-appbg text-gray-200 min-h-screen pb-24">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="fixed top-2 left-2 right-2 z-50 space-y-1">
+        {% for cat, msg in messages %}
+          <div class="rounded-lg px-3 py-2 text-sm font-medium {% if cat == 'ok' %}bg-emerald-900/90 text-emerald-100{% else %}bg-red-900/90 text-red-100{% endif %}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="max-w-lg mx-auto px-3 pt-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if session.user_id %}
+  <nav class="fixed bottom-0 inset-x-0 bg-panel border-t border-slate-700 flex justify-around items-center h-16 pb-safe z-40">
+    <a href="{{ url_for('index') }}" class="flex flex-col items-center text-xs {% if request.endpoint == 'index' %}text-accent{% else %}text-slate-400{% endif %}">
+      <span class="text-lg leading-none">⌂</span>Inicio
+    </a>
+    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center text-xs {% if 'clientes' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
+      <span class="text-lg leading-none">👤</span>Clientes
+    </a>
+    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center text-xs {% if 'prestamos' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
+      <span class="text-lg leading-none">📋</span>Préstamos
+    </a>
+    <a href="{{ url_for('pagos_list') }}" class="flex flex-col items-center text-xs {% if request.endpoint == 'pagos_list' %}text-accent{% else %}text-slate-400{% endif %}">
+      <span class="text-lg leading-none">💵</span>Pagos
+    </a>
+    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center text-xs {% if request.endpoint in ('configuracion','admin_usuarios') %}text-accent{% else %}text-slate-400{% endif %}">
+      <span class="text-lg leading-none">⚙</span>Más
+    </a>
+  </nav>
+  {% endif %}
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('{{ url_for("static", filename="service-worker.js") }}').catch(() => {});
+    }
+  </script>
+</body>
+</html>

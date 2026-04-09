@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Nuevo préstamo{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Nuevo préstamo</h1>
+<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4">
+  <label class="block text-sm text-slate-400">Cliente</label>
+  <select name="cliente_id" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    {% for c in clientes %}
+    <option value="{{ c[0] }}">{{ c[1] }} — {{ c[2] }}</option>
+    {% endfor %}
+  </select>
+  <input type="date" name="fecha" value="{{ today_str() }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <select name="frecuencia" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <option value="diaria">Diaria</option>
+    <option value="semanal">Semanal</option>
+    <option value="quincenal">Quincenal</option>
+    <option value="mensual" selected>Mensual</option>
+  </select>
+  <input name="cuotas" type="number" min="1" value="1" placeholder="Cuotas" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="monto" type="number" step="0.01" min="0" placeholder="Monto" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="tasa" type="number" step="0.01" min="0" placeholder="Tasa % sobre monto" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
+</form>
+{% endblock %}

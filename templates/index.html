@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Inicio — Financiera NP{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold text-white mb-4">Panel</h1>
+<div class="grid grid-cols-2 gap-3 mb-4">
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
+    <p class="text-slate-400 text-xs font-semibold">Préstamos</p>
+    <p class="text-2xl font-bold text-accent">{{ total }}</p>
+  </div>
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
+    <p class="text-slate-400 text-xs font-semibold">Activos</p>
+    <p class="text-2xl font-bold text-accent">{{ activos }}</p>
+  </div>
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
+    <p class="text-slate-400 text-xs font-semibold">Pagados</p>
+    <p class="text-2xl font-bold text-emerald-400">{{ pagados }}</p>
+  </div>
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
+    <p class="text-slate-400 text-xs font-semibold">En mora</p>
+    <p class="text-2xl font-bold text-rose-400">{{ mora }}</p>
+  </div>
+</div>
+<div class="bg-panel rounded-2xl border border-cyan-900/50 p-4 mb-4">
+  <p class="text-slate-400 text-xs font-semibold">Cobrado hoy</p>
+  <p class="text-3xl font-bold text-accent">{{ fmt_money(cobrado_hoy) }}</p>
+</div>
+<p class="text-slate-500 text-xs">Los datos dependen de tu usuario. Los administradores ven todo el negocio.</p>
+{% endblock %}

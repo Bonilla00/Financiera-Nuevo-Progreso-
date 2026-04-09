@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-2">Usuarios</h1>
+<p class="text-slate-400 text-sm mb-4">Solo administración. Cada usuario ve sus clientes; el admin ve todo.</p>
+
+<form method="post" class="bg-panel rounded-2xl border border-slate-700 p-4 mb-6 space-y-2">
+  <input type="hidden" name="action" value="crear">
+  <h2 class="font-semibold text-accent text-sm">Crear usuario</h2>
+  <input name="username" placeholder="Usuario" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input type="password" name="password" placeholder="Clave inicial" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <select name="rol" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <option value="usuario">Usuario</option>
+    <option value="admin">Administrador</option>
+  </select>
+  <button type="submit" class="w-full py-2 rounded-xl bg-accent text-slate-900 font-bold text-sm">Crear</button>
+</form>
+
+<div class="space-y-4">
+  {% for u in usuarios %}
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="font-semibold">{{ u[1] }} <span class="text-xs font-normal text-slate-400">({{ u[2] }})</span></p>
+    <p class="text-xs text-slate-500 mb-2">{% if u[3] %}Activo{% else %}Inactivo{% endif %} · ID {{ u[0] }}</p>
+    <form method="post" class="space-y-2">
+      <input type="hidden" name="action" value="actualizar">
+      <input type="hidden" name="user_id" value="{{ u[0] }}">
+      <div class="flex gap-2 flex-wrap">
+        <select name="rol" class="rounded-lg bg-panel2 border border-slate-600 px-2 py-1 text-sm text-white">
+          <option value="usuario" {% if u[2]=='usuario' %}selected{% endif %}>usuario</option>
+          <option value="admin" {% if u[2]=='admin' %}selected{% endif %}>admin</option>
+        </select>
+        <label class="flex items-center gap-1 text-sm text-slate-300">
+          <input type="checkbox" name="activo" value="on" {% if u[3] %}checked{% endif %}> Activo
+        </label>
+        <button type="submit" class="px-3 py-1 rounded-lg bg-accent2 text-white text-xs">Guardar</button>
+      </div>
+    </form>
+    <form method="post" class="mt-2 flex gap-2 items-center">
+      <input type="hidden" name="action" value="reset_password">
+      <input type="hidden" name="user_id" value="{{ u[0] }}">
+      <input type="password" name="new_password" placeholder="Nueva clave" minlength="6" class="flex-1 rounded-lg bg-panel2 border border-slate-600 px-2 py-1 text-sm text-white">
+      <button type="submit" class="px-2 py-1 rounded-lg bg-slate-600 text-xs text-white">Reset</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+<a href="{{ url_for('configuracion') }}" class="block mt-6 text-center text-accent text-sm">← Volver</a>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Configuración inicial — Financiera NP{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-accent mb-1">Primera vez</h1>
+<p class="text-slate-400 text-sm mb-6">Crea el usuario administrador y su clave. Solo se muestra si no hay usuarios.</p>
+<form method="post" class="space-y-4 bg-panel rounded-2xl border border-slate-700 p-5">
+  <div>
+    <label class="block text-sm text-slate-400 mb-1">Usuario admin</label>
+    <input name="username" required minlength="3" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white outline-none focus:ring-2 focus:ring-accent">
+  </div>
+  <div>
+    <label class="block text-sm text-slate-400 mb-1">Clave (mín. 6)</label>
+    <input type="password" name="password" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white outline-none focus:ring-2 focus:ring-accent">
+  </div>
+  <div>
+    <label class="block text-sm text-slate-400 mb-1">Repetir clave</label>
+    <input type="password" name="password2" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white outline-none focus:ring-2 focus:ring-accent">
+  </div>
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Crear administrador</button>
+</form>
+{% endblock %}
