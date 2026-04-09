@@ -2,7 +2,7 @@
 {% block title %}{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente{% endblock %}
 {% block content %}
 <h1 class="text-xl font-bold mb-4">{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente</h1>
-<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4">
+<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Guardando…">
   {% set c = cliente %}
   {% set fd = form_data or {} %}
   <h2 class="text-sm uppercase tracking-wide text-slate-300 font-semibold">Datos del cliente</h2>

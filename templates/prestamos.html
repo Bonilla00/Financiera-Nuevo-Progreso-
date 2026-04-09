@@ -11,7 +11,7 @@
 <a href="{{ url_for('prestamos_nuevo') }}" class="block text-center mb-4 py-2 rounded-xl bg-accent text-slate-900 font-bold text-sm">+ Nuevo préstamo</a>
 <div class="space-y-3">
   {% for p in prestamos %}
-  {% set maps_h = url_maps(p[17], p[18], p[1]) %}
+  {% set maps_h = url_maps(p[17], p[18]) %}
   {% set tel_h = url_tel(p[16]) %}
   {% set wa_h = url_whatsapp(p[16]) %}
   {% set prox_iso = p[13] %}
@@ -51,7 +51,7 @@
       <div class="text-right text-xs shrink-0 max-w-[40%]">
         {% if tiene_nota %}<span class="text-red-400" title="Hay notas">●</span>{% endif %}
         {% if p[9] == 'ACTIVO' %}
-        <form method="post" action="{{ url_for('prestamos_pago', pid=p[0]) }}" class="mt-2 space-y-1">
+        <form method="post" action="{{ url_for('prestamos_pago', pid=p[0]) }}" class="relative mt-2 space-y-1" data-loading-submit data-loading-label="Procesando pago…">
           <input type="hidden" name="fecha" value="{{ today_str() }}">
           <input type="number" name="valor" step="0.01" min="0" placeholder="Abono" required class="w-24 rounded-lg bg-panel2 border border-slate-600 px-2 py-1 text-sm text-white">
           <button type="submit" class="block w-full py-1 rounded-lg bg-accent2 text-white text-xs font-bold">Pagar + PDF</button>

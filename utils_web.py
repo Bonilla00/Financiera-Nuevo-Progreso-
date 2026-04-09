@@ -83,9 +83,10 @@ def url_whatsapp(tel):
     return f"https://wa.me/{d}"
 
 
-def url_maps(direccion, barrio, nombre):
+def url_maps(direccion, barrio):
+    """Solo dirección y barrio (sin nombre del cliente) para que Maps geocodifique la ubicación."""
     parts = []
-    for x in (direccion, barrio, nombre):
+    for x in (direccion, barrio):
         if x and str(x).strip():
             parts.append(str(x).strip())
     if not parts:
