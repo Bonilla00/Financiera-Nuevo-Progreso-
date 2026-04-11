@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0F172A">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -29,10 +29,21 @@
     }
   </script>
   <style>
+    /* iPhone / WebKit: evita zoom de texto y respeta notch / home indicator */
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    body.app-shell {
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
     /* NProgress: barra superior cyan 3px (estilo YouTube/GitHub) */
     #nprogress .bar {
       background: #22d3ee !important;
-      height: 3px !important;
+      height: 0.1875rem !important;
     }
     #nprogress .peg {
       box-shadow: 0 0 10px #22d3ee, 0 0 5px #22d3ee !important;
@@ -79,13 +90,46 @@
       height: 1.75rem;
       color: #22d3ee;
     }
+    /* Marca en cabecera (18px → 1.125rem) */
+    .brand-title {
+      font-size: 1.125rem;
+      line-height: 1.2;
+    }
+    /* FAB simulador: encima de la barra inferior */
+    #fab-simulador {
+      bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+      right: max(0.75rem, env(safe-area-inset-right, 0px));
+      box-shadow: 0 4px 14px rgba(34, 211, 238, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+    /* Modal simulador: panel desde abajo */
+    #sim-modal-backdrop {
+      transition: opacity 0.25s ease;
+    }
+    #sim-modal-panel {
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #sim-modal-root:not(.sim-modal-open) #sim-modal-backdrop {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #sim-modal-root:not(.sim-modal-open) #sim-modal-panel {
+      transform: translateY(100%);
+      pointer-events: none;
+    }
+    #sim-modal-root.sim-modal-open #sim-modal-backdrop {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #sim-modal-root.sim-modal-open #sim-modal-panel {
+      transform: translateY(0);
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
-<body class="bg-appbg text-gray-200 min-h-screen pb-24">
+<body class="app-shell bg-appbg text-gray-200 min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom,0px))] text-base">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="fixed top-2 left-2 right-2 z-50 space-y-1">
+      <div class="fixed left-2 right-2 z-50 space-y-1" style="top: max(0.5rem, env(safe-area-inset-top, 0px));">
         {% for cat, msg in messages %}
           <div class="rounded-lg px-3 py-2 text-sm font-medium {% if cat == 'ok' %}bg-emerald-900/90 text-emerald-100{% else %}bg-red-900/90 text-red-100{% endif %}">
             {{ msg }}
@@ -96,8 +140,11 @@
   {% endwith %}
 
   {% if session.user_id %}
-  <header class="max-w-lg mx-auto px-3 pt-3 pb-1 flex justify-center">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Financiera Nuevo Progreso" width="200" height="80" class="h-14 sm:h-16 w-auto object-contain object-center select-none" decoding="async">
+  <header class="max-w-lg mx-auto px-3 pt-2 pb-2 flex justify-center items-center text-center select-none" role="banner">
+    <div class="brand-title font-bold tracking-tight">
+      <div class="text-white">FINANCIERA NUEVO</div>
+      <div class="text-[#22C55E]">PROGRESO</div>
+    </div>
   </header>
   {% endif %}
 
@@ -108,7 +155,45 @@
   </main>
 
   {% if session.user_id %}
-  <nav class="fixed bottom-0 inset-x-0 bg-panel border-t border-slate-700 flex justify-around items-center h-16 pb-safe z-40">
+  <button type="button" id="fab-simulador" class="fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#22D3EE] text-slate-900 text-2xl font-bold shadow-lg active:scale-95 transition-transform" aria-label="Abrir simulador de crédito" title="Simulador de crédito">
+    🧮
+  </button>
+
+  <div id="sim-modal-root" class="fixed inset-0 z-[60] pointer-events-none" aria-hidden="true">
+    <div id="sim-modal-backdrop" class="absolute inset-0 bg-black/60" tabindex="-1"></div>
+    <div class="absolute inset-x-0 bottom-0 flex max-h-[90vh] justify-center p-0 sm:p-3 pointer-events-none">
+      <div id="sim-modal-panel" class="pointer-events-auto w-full max-w-lg rounded-t-2xl border border-[#22D3EE] border-b-0 bg-[#0F172A] shadow-2xl shadow-cyan-900/30 flex flex-col max-h-[90vh] overflow-hidden">
+        <div class="flex items-center justify-between gap-2 border-b border-cyan-500/30 px-4 py-3 shrink-0">
+          <h2 class="text-lg font-bold text-white">Simulador de crédito</h2>
+          <button type="button" id="sim-modal-close" class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-2xl leading-none" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="overflow-y-auto px-4 py-4 space-y-3 text-[0.9375rem]">
+          <label class="block text-slate-400 text-sm">Monto a prestar</label>
+          <input type="number" id="sim-monto" min="0" step="0.01" placeholder="0" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white" inputmode="decimal" />
+          <label class="block text-slate-400 text-sm">Tasa de interés (%)</label>
+          <input type="number" id="sim-tasa" min="0" step="0.01" placeholder="0" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white" inputmode="decimal" />
+          <label class="block text-slate-400 text-sm">Número de cuotas</label>
+          <input type="number" id="sim-cuotas" min="1" step="1" placeholder="1" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white" inputmode="numeric" />
+          <label class="block text-slate-400 text-sm">Frecuencia</label>
+          <select id="sim-frecuencia" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white">
+            <option value="diaria">Diaria</option>
+            <option value="semanal">Semanal</option>
+            <option value="quincenal">Quincenal</option>
+            <option value="mensual" selected>Mensual</option>
+          </select>
+          <button type="button" id="sim-calcular" class="w-full py-3 rounded-xl bg-[#22D3EE] text-slate-900 font-bold text-[1rem]">Calcular</button>
+          <p id="sim-error" class="hidden text-sm text-rose-400 text-center" role="alert"></p>
+          <div id="sim-result-wrap" class="hidden rounded-xl border border-cyan-500/40 bg-[#111827] p-4 space-y-2">
+            <p class="text-slate-400 text-sm">Interés: <span id="sim-out-interes" class="text-[#22D3EE] font-semibold text-[1rem]"></span></p>
+            <p class="text-slate-400 text-sm">Total a pagar: <span id="sim-out-total" class="text-[#22D3EE] font-semibold text-[1rem]"></span></p>
+            <p class="text-slate-400 text-sm">Valor por cuota: <span id="sim-out-cuota" class="text-[#22D3EE] font-semibold text-[1rem]"></span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="fixed bottom-0 inset-x-0 bg-panel border-t border-slate-700 flex justify-around items-center h-16 z-40 pb-[env(safe-area-inset-bottom,0px)]">
     <a href="{{ url_for('index') }}" class="flex flex-col items-center text-xs {% if request.endpoint == 'index' %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">⌂</span>Inicio
     </a>
@@ -269,6 +354,86 @@
         },
         true
       );
+    })();
+  </script>
+  <script>
+    (function () {
+      var root = document.getElementById("sim-modal-root");
+      var fab = document.getElementById("fab-simulador");
+      if (!root || !fab) return;
+
+      var backdrop = document.getElementById("sim-modal-backdrop");
+      var closeBtn = document.getElementById("sim-modal-close");
+      var calcBtn = document.getElementById("sim-calcular");
+      var resultWrap = document.getElementById("sim-result-wrap");
+      var simError = document.getElementById("sim-error");
+
+      function openModal() {
+        root.classList.add("sim-modal-open");
+        root.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeModal() {
+        root.classList.remove("sim-modal-open");
+        root.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+      }
+
+      fab.addEventListener("click", function (e) {
+        e.stopPropagation();
+        openModal();
+      });
+      if (closeBtn) closeBtn.addEventListener("click", closeModal);
+      if (backdrop) backdrop.addEventListener("click", closeModal);
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && root.classList.contains("sim-modal-open")) closeModal();
+      });
+
+      function fmtMoney(n) {
+        return (
+          "$" +
+          new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(Math.round(n))
+        );
+      }
+
+      if (calcBtn) {
+        calcBtn.addEventListener("click", function () {
+          var m = parseFloat(document.getElementById("sim-monto").value);
+          var t = parseFloat(document.getElementById("sim-tasa").value);
+          var c = parseInt(document.getElementById("sim-cuotas").value, 10);
+          if (simError) {
+            simError.classList.add("hidden");
+            simError.textContent = "";
+          }
+          if (
+            !Number.isFinite(m) ||
+            m < 0 ||
+            !Number.isFinite(t) ||
+            t < 0 ||
+            !Number.isFinite(c) ||
+            c < 1
+          ) {
+            if (resultWrap) resultWrap.classList.add("hidden");
+            if (simError) {
+              simError.textContent = "Ingresa monto, tasa y número de cuotas válidos.";
+              simError.classList.remove("hidden");
+            }
+            return;
+          }
+          var interes = m * (t / 100);
+          var total = m + interes;
+          var cuota = total / c;
+          var elI = document.getElementById("sim-out-interes");
+          var elT = document.getElementById("sim-out-total");
+          var elC = document.getElementById("sim-out-cuota");
+          if (elI) elI.textContent = fmtMoney(interes);
+          if (elT) elT.textContent = fmtMoney(total);
+          if (elC) elC.textContent = fmtMoney(cuota);
+          if (resultWrap) resultWrap.classList.remove("hidden");
+        });
+      }
     })();
   </script>
 </body>
