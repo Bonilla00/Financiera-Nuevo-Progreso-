@@ -601,6 +601,96 @@ def prestamos_pago(pid):
         return redirect(url_for("prestamos_list"))
 
 
+@app.route("/reportes")
+@login_required
+def reportes():
+    uid, _, is_admin = ctx_user()
+    periodo = request.args.get("periodo", "hoy")
+    f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
+    total_prestado = db.total_prestado_en_rango(f_ini, f_fin, uid, is_admin)
+    total_cobrado = db.total_cobrado_en_rango(f_ini, f_fin, uid, is_admin)
+    mora_cobrada = db.total_mora_cobrada_en_rango(f_ini, f_fin, uid, is_admin)
+    capital_cobrado, interes_cobrado = db.desglose_capital_interes_cobrado_en_rango(
+        f_ini, f_fin, uid, is_admin
+    )
+    ganancia_neta = interes_cobrado + mora_cobrada
+    activos = db.contar_prestamos_activos(uid, is_admin)
+    en_mora = db.contar_prestamos_en_mora(uid, is_admin)
+    pagos_detalle = db.pagos_detalle_en_rango(f_ini, f_fin, uid, is_admin)
+    chart_data = {
+        "labels": [
+            "Ganancia neta",
+            "Total prestado",
+            "Capital cobrado",
+            "Interés cobrado",
+            "Mora cobrada",
+        ],
+        "values": [
+            round(ganancia_neta, 2),
+            round(total_prestado, 2),
+            round(capital_cobrado, 2),
+            round(interes_cobrado, 2),
+            round(mora_cobrada, 2),
+        ],
+    }
+    return render_template(
+        "reportes.html",
+        periodo=periodo,
+        periodo_etiqueta=periodo_etiqueta,
+        f_ini=f_ini,
+        f_fin=f_fin,
+        total_prestado=total_prestado,
+        total_cobrado=total_cobrado,
+        capital_cobrado=capital_cobrado,
+        interes_cobrado=interes_cobrado,
+        mora_cobrada=mora_cobrada,
+        ganancia_neta=ganancia_neta,
+        activos=activos,
+        en_mora=en_mora,
+        pagos_detalle=pagos_detalle,
+        chart_data=chart_data,
+    )
+
+
+@app.route("/reportes/pdf")
+@login_required
+def reportes_pdf():
+    uid, _, is_admin = ctx_user()
+    periodo = request.args.get("periodo", "hoy")
+    f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
+    total_prestado = db.total_prestado_en_rango(f_ini, f_fin, uid, is_admin)
+    total_cobrado = db.total_cobrado_en_rango(f_ini, f_fin, uid, is_admin)
+    mora_cobrada = db.total_mora_cobrada_en_rango(f_ini, f_fin, uid, is_admin)
+    capital_cobrado, interes_cobrado = db.desglose_capital_interes_cobrado_en_rango(
+        f_ini, f_fin, uid, is_admin
+    )
+    ganancia_neta = interes_cobrado + mora_cobrada
+    activos = db.contar_prestamos_activos(uid, is_admin)
+    en_mora = db.contar_prestamos_en_mora(uid, is_admin)
+    pagos_detalle = db.pagos_detalle_en_rango(f_ini, f_fin, uid, is_admin)
+    buf = recibos.generar_reporte_vision_pdf(
+        periodo_etiqueta,
+        f_ini,
+        f_fin,
+        total_prestado,
+        capital_cobrado,
+        interes_cobrado,
+        mora_cobrada,
+        ganancia_neta,
+        total_cobrado,
+        activos,
+        en_mora,
+        pagos_detalle,
+    )
+    safe = f"{f_ini}_{f_fin}".replace("/", "-")
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"reporte_financiera_{safe}.pdf",
+        mimetype="application/pdf",
+    )
+
+
 @app.route("/pagos")
 @login_required
 def pagos_list():

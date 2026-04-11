@@ -6,6 +6,7 @@
 
 <div class="space-y-2 mb-6">
   <h2 class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza</h2>
+  <a href="{{ url_for('reportes') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Visión general / Reportes</a>
   <a href="{{ url_for('cuotas_vencidas') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-rose-800/50 text-rose-200 text-sm font-semibold">Cuotas vencidas</a>
   <a href="{{ url_for('cuotas_vencer') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-800/50 text-accent text-sm font-semibold">Cuotas por vencer (hoy / mañana)</a>
 </div>

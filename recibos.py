@@ -1,5 +1,6 @@
 """Genera PDF en memoria para descarga (Flask)."""
 import os
+import unicodedata
 from datetime import datetime
 from io import BytesIO
 
@@ -99,6 +100,126 @@ def generar_recibo_pdf(
     pdf.ln(2)
     pdf.set_font("Helvetica", "I", 10)
     pdf.cell(epw, 6, "Gracias por su pago puntual.", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    raw = pdf.output(dest="S")
+    if isinstance(raw, str):
+        raw = raw.encode("latin-1")
+    buf = BytesIO(raw)
+    buf.seek(0)
+    return buf
+
+
+def _pdf_safe(s: str) -> str:
+    if not s:
+        return ""
+    return (
+        unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode("ascii") or "?"
+    )
+
+
+def generar_reporte_vision_pdf(
+    periodo_etiqueta: str,
+    f_ini: str,
+    f_fin: str,
+    total_prestado: float,
+    capital_cobrado: float,
+    interes_cobrado: float,
+    mora_cobrada: float,
+    ganancia_neta: float,
+    total_cobrado: float,
+    activos: int,
+    en_mora: int,
+    pagos: list[tuple],
+) -> BytesIO:
+    """Reporte Visión general / período (fpdf2)."""
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=14)
+    pdf.add_page()
+    lm = pdf.l_margin
+    epw = pdf.w - pdf.l_margin - pdf.r_margin
+    cyan = (34, 211, 238)
+    dark = (15, 23, 42)
+
+    pdf.set_font("Helvetica", "B", 15)
+    pdf.set_text_color(*dark)
+    pdf.cell(epw, 9, "FINANCIERA NUEVO PROGRESO", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(51, 65, 85)
+    pdf.cell(epw, 8, "Vision general / Reporte", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(100, 116, 139)
+    pdf.cell(epw, 6, f"{_pdf_safe(periodo_etiqueta)}  |  {f_ini}  al  {f_fin}", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+    pdf.set_draw_color(*cyan)
+    pdf.set_line_width(0.5)
+    pdf.line(lm, pdf.get_y(), lm + epw, pdf.get_y())
+    pdf.ln(6)
+
+    def money(v: float) -> str:
+        return f"${float(v):,.0f}"
+
+    resumen = [
+        ("Total prestado (periodo)", money(total_prestado)),
+        ("Capital cobrado (estim.)", money(capital_cobrado)),
+        ("Interes cobrado (estim.)", money(interes_cobrado)),
+        ("Mora cobrada", money(mora_cobrada)),
+        ("Ganancia neta (int.+mora)", money(ganancia_neta)),
+        ("Total cobrado (pagos)", money(total_cobrado)),
+        ("Prestamos activos", str(activos)),
+        ("Prestamos en mora", str(en_mora)),
+    ]
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*dark)
+    pdf.cell(epw, 7, "Resumen", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "", 9)
+    label_w = 78
+    row_h = 7.0
+    for label, val in resumen:
+        pdf.set_x(lm)
+        pdf.set_text_color(71, 85, 105)
+        pdf.cell(label_w, row_h, f"  {_pdf_safe(label)}")
+        pdf.set_text_color(15, 23, 42)
+        pdf.cell(epw - label_w, row_h, f"  {val}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(6)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*dark)
+    pdf.cell(epw, 7, f"Pagos del periodo ({len(pagos)})", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    col_w = [26, 72, 32, 18]
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_fill_color(241, 245, 249)
+    pdf.set_text_color(51, 65, 85)
+    headers = ("Fecha", "Cliente", "Valor", "Cuota")
+    for i, h in enumerate(headers):
+        pdf.cell(col_w[i], 7, f"  {h}", border=1, fill=True)
+    pdf.ln()
+    pdf.set_font("Helvetica", "", 8)
+    for row in pagos:
+        fecha, nombre, valor, cuota = row[0], row[1], row[2], row[3]
+        if pdf.get_y() > 270:
+            pdf.add_page()
+            pdf.set_font("Helvetica", "B", 8)
+            for i, h in enumerate(headers):
+                pdf.cell(col_w[i], 7, f"  {h}", border=1, fill=True)
+            pdf.ln()
+            pdf.set_font("Helvetica", "", 8)
+        pdf.set_x(lm)
+        pdf.set_text_color(15, 23, 42)
+        pdf.cell(col_w[0], 6, f"  {str(fecha)[:10]}", border=1)
+        nm = _pdf_safe(str(nombre))[:36]
+        pdf.cell(col_w[1], 6, f"  {nm}", border=1)
+        pdf.cell(col_w[2], 6, f"  {money(float(valor))}", border=1)
+        pdf.cell(col_w[3], 6, f"  {cuota}", border=1)
+        pdf.ln()
+
+    pdf.ln(8)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(100, 116, 139)
+    gen = datetime.now().strftime("%Y-%m-%d %H:%M")
+    pdf.cell(epw, 5, f"Generado {gen}", align="C", new_x="LMARGIN", new_y="NEXT")
 
     raw = pdf.output(dest="S")
     if isinstance(raw, str):

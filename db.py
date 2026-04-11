@@ -809,6 +809,103 @@ def sum_pagos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
         return float(cur.fetchone()[0] or 0)
 
 
+def total_prestado_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: bool) -> float:
+    """Suma de montos de préstamos desembolsados (fecha del préstamo) en el rango."""
+    return sum_montos_por_rango(f_ini, f_fin, user_id, is_admin)
+
+
+def total_cobrado_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: bool) -> float:
+    """Suma de valores cobrados (pagos) en el rango."""
+    return sum_pagos_por_rango(f_ini, f_fin, user_id, is_admin)
+
+
+def total_mora_cobrada_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: bool) -> float:
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT COALESCE(SUM(COALESCE(pagos.interes_mora, 0)), 0) FROM pagos
+            JOIN prestamos p ON p.id = pagos.prestamo_id
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            """,
+            (f_ini, f_fin) + sparams,
+        )
+        return float(cur.fetchone()[0] or 0)
+
+
+def desglose_capital_interes_cobrado_en_rango(
+    f_ini: str, f_fin: str, user_id: int, is_admin: bool
+) -> tuple[float, float]:
+    """
+    Estima capital y el interés del préstamo recuperados en el período,
+    prorrateando la parte del pago que no es mora según monto/total_pagar del préstamo.
+    """
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT COALESCE(SUM(
+                (COALESCE(pagos.valor, 0) - COALESCE(pagos.interes_mora, 0)) *
+                (p.monto / NULLIF(p.total_pagar, 0))
+            ), 0),
+            COALESCE(SUM(
+                (COALESCE(pagos.valor, 0) - COALESCE(pagos.interes_mora, 0)) *
+                (p.interes_total / NULLIF(p.total_pagar, 0))
+            ), 0)
+            FROM pagos
+            JOIN prestamos p ON p.id = pagos.prestamo_id
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            """,
+            (f_ini, f_fin) + sparams,
+        )
+        row = cur.fetchone()
+        return float(row[0] or 0), float(row[1] or 0)
+
+
+def pagos_detalle_en_rango(
+    f_ini: str, f_fin: str, user_id: int, is_admin: bool
+) -> list[tuple]:
+    """Filas: fecha (str), cliente, valor, cuota. Más reciente primero."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT pagos.fecha::text, c.nombre, pagos.valor, pagos.cuota
+            FROM pagos
+            JOIN prestamos p ON p.id = pagos.prestamo_id
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            ORDER BY pagos.fecha DESC, pagos.id DESC
+            """,
+            (f_ini, f_fin) + sparams,
+        )
+        return cur.fetchall()
+
+
+def contar_prestamos_en_mora(user_id: int, is_admin: bool) -> int:
+    """Préstamos ACTIVOS con próximo pago vencido (misma lógica que cuotas vencidas)."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT COUNT(*) FROM prestamos p
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
+              AND (p.proximo_pago::date) < CURRENT_DATE
+            {scope}
+            """,
+            sparams,
+        )
+        return int(cur.fetchone()[0] or 0)
+
+
 def sum_pagos_hoy(user_id: int, is_admin: bool) -> float:
     hoy = datetime.now().strftime("%Y-%m-%d")
     return sum_pagos_por_rango(hoy, hoy, user_id, is_admin)
