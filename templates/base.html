@@ -36,9 +36,12 @@
     }
     body.app-shell {
       padding-top: env(safe-area-inset-top, 0px);
-      padding-bottom: env(safe-area-inset-bottom, 0px);
       padding-left: env(safe-area-inset-left, 0px);
       padding-right: env(safe-area-inset-right, 0px);
+    }
+    /* Safe area inferior un poco menor en la barra (sube el contenido en iPhone) */
+    :root {
+      --nav-safe-bottom: max(4px, calc(env(safe-area-inset-bottom, 0px) - 8px));
     }
     /* NProgress: barra superior cyan 3px (estilo YouTube/GitHub) */
     #nprogress .bar {
@@ -97,7 +100,7 @@
     }
     /* FAB simulador: encima de la barra inferior */
     #fab-simulador {
-      bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+      bottom: calc(4rem + var(--nav-safe-bottom) + 0.5rem);
       right: max(0.75rem, env(safe-area-inset-right, 0px));
       box-shadow: 0 4px 14px rgba(34, 211, 238, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
     }
@@ -126,7 +129,7 @@
   </style>
   {% block head %}{% endblock %}
 </head>
-<body class="app-shell bg-appbg text-gray-200 min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom,0px))] text-base">
+<body class="app-shell bg-appbg text-gray-200 min-h-screen pb-[calc(4rem+var(--nav-safe-bottom)+0.25rem)] text-base">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="fixed left-2 right-2 z-50 space-y-1" style="top: max(0.5rem, env(safe-area-inset-top, 0px));">
@@ -193,20 +196,20 @@
     </div>
   </div>
 
-  <nav class="fixed bottom-0 inset-x-0 bg-panel border-t border-slate-700 flex justify-around items-center h-16 z-40 pb-[env(safe-area-inset-bottom,0px)]">
-    <a href="{{ url_for('index') }}" class="flex flex-col items-center text-xs {% if request.endpoint == 'index' %}text-accent{% else %}text-slate-400{% endif %}">
+  <nav class="app-bottom-nav fixed bottom-0 inset-x-0 z-40 flex min-h-[4rem] justify-around items-center border-t border-slate-700 bg-panel pb-[var(--nav-safe-bottom)]">
+    <a href="{{ url_for('index') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'index' %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">⌂</span>Inicio
     </a>
-    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center text-xs {% if 'clientes' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-1 text-xs {% if 'clientes' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">👤</span>Clientes
     </a>
-    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center text-xs {% if 'prestamos' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center py-1 text-xs {% if 'prestamos' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">📋</span>Préstamos
     </a>
-    <a href="{{ url_for('pagos_list') }}" class="flex flex-col items-center text-xs {% if request.endpoint == 'pagos_list' %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('pagos_list') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'pagos_list' %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">💵</span>Pagos
     </a>
-    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center text-xs {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer') %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer') %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">⚙</span>Más
     </a>
   </nav>
