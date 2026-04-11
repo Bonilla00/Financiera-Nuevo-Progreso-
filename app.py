@@ -305,14 +305,16 @@ def clientes_nuevo():
     )
 
 
-@app.route("/clientes/<int:cid>/editar", methods=["GET", "POST"])
+@app.route("/clientes/<int:cid>/perfil", methods=["GET", "POST"])
 @login_required
-def clientes_editar(cid):
+def clientes_perfil(cid):
     uid, _, is_admin = ctx_user()
     row = db.obtener_cliente(cid, uid, is_admin)
     if not row:
         abort(404)
     if request.method == "POST":
+        if request.form.get("accion") != "guardar_datos":
+            abort(400)
         db.actualizar_cliente(
             cid,
             request.form.get("nombre", "").strip(),
@@ -323,9 +325,58 @@ def clientes_editar(cid):
             uid,
             is_admin,
         )
-        flash("Cliente actualizado.", "ok")
-        return redirect(url_for("clientes_list"))
-    return render_template("cliente_form.html", cliente=row, crear_prestamo_junto=False, form_data={})
+        flash("Información personal actualizada.", "ok")
+        return redirect(url_for("clientes_perfil", cid=cid))
+
+    prestamos_rows = db.listar_prestamos_por_cliente(cid, uid, is_admin)
+    prestamos_view = []
+    for p in prestamos_rows:
+        pid = p[0]
+        saldo = max(
+            0.0,
+            round(float(p[11]) - db.sum_pagos_por_prestamo(pid, uid, is_admin), 2),
+        )
+        prestamos_view.append(
+            {
+                "id": pid,
+                "monto": p[3],
+                "total_pagar": p[11],
+                "pagadas": p[10],
+                "cuotas": p[5],
+                "proximo_pago": p[13] or "",
+                "estado": p[9],
+                "saldo": saldo,
+            }
+        )
+    return render_template(
+        "cliente_perfil.html",
+        cliente=row,
+        prestamos=prestamos_view,
+        is_admin=is_admin,
+    )
+
+
+@app.route("/clientes/<int:cid>/editar", methods=["GET", "POST"])
+@login_required
+def clientes_editar(cid):
+    if request.method == "GET":
+        return redirect(url_for("clientes_perfil", cid=cid))
+    uid, _, is_admin = ctx_user()
+    row = db.obtener_cliente(cid, uid, is_admin)
+    if not row:
+        abort(404)
+    db.actualizar_cliente(
+        cid,
+        request.form.get("nombre", "").strip(),
+        request.form.get("identificacion", "").strip(),
+        request.form.get("telefono", "").strip(),
+        request.form.get("barrio", "").strip(),
+        request.form.get("direccion", "").strip(),
+        uid,
+        is_admin,
+    )
+    flash("Cliente actualizado.", "ok")
+    return redirect(url_for("clientes_perfil", cid=cid))
 
 
 @app.route("/clientes/<int:cid>/eliminar", methods=["POST"])
@@ -422,6 +473,70 @@ def prestamos_nuevo():
         except Exception as e:
             flash(str(e), "error")
     return render_template("prestamo_nuevo.html", clientes=clientes)
+
+
+@app.route("/prestamos/<int:pid>/editar", methods=["GET", "POST"])
+@login_required
+def prestamos_editar(pid):
+    uid, _, is_admin = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+    cid = int(info[1])
+    if str(info[13]).upper() != "ACTIVO":
+        flash("Solo se pueden editar préstamos activos.", "error")
+        return redirect(url_for("clientes_perfil", cid=cid))
+    if not is_admin:
+        flash("Solo el administrador puede editar préstamos.", "error")
+        return redirect(url_for("clientes_perfil", cid=cid))
+
+    if request.method == "POST":
+        try:
+            fecha = request.form.get("fecha", today_str())
+            freq = request.form.get("frecuencia", "mensual").lower().strip()
+            if freq not in ("diaria", "semanal", "quincenal", "mensual"):
+                raise ValueError("Frecuencia inválida.")
+            cuotas = int(request.form.get("cuotas", "1"))
+            monto = float(request.form.get("monto", "0"))
+            tasa = float(request.form.get("tasa", "0"))
+            vencimiento = request.form.get("vencimiento", "").strip()
+            if not vencimiento:
+                raise ValueError("Indica la fecha de vencimiento.")
+            if monto <= 0 or cuotas < 1:
+                raise ValueError("Monto y cuotas deben ser válidos.")
+            mora_on = request.form.get("mora_activa") == "on"
+            tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
+            if mora_on and tasa_mora < 0:
+                raise ValueError("La tasa de mora no puede ser negativa.")
+            ok = db.actualizar_prestamo(
+                pid,
+                fecha,
+                freq,
+                cuotas,
+                monto,
+                tasa,
+                vencimiento,
+                uid,
+                is_admin,
+                mora_activa=mora_on,
+                tasa_mora_diaria=tasa_mora,
+            )
+            if not ok:
+                flash("No se pudo actualizar el préstamo.", "error")
+            else:
+                flash(
+                    "Préstamo actualizado. Se recalcularon montos y próximo pago; los pagos anteriores se conservan.",
+                    "ok",
+                )
+            return redirect(url_for("clientes_perfil", cid=cid))
+        except ValueError as e:
+            flash(str(e), "error")
+            return render_template("prestamo_editar.html", p=info, form_data=dict(request.form))
+        except Exception as e:
+            flash(str(e), "error")
+            return render_template("prestamo_editar.html", p=info, form_data=dict(request.form))
+
+    return render_template("prestamo_editar.html", p=info, form_data=None)
 
 
 @app.route("/prestamos/<int:pid>/cobrar")

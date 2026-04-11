@@ -492,6 +492,26 @@ def contar_pagos_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: bool) 
         return int(cur.fetchone()[0] or 0)
 
 
+def listar_prestamos_por_cliente(cliente_id: int, user_id: int, is_admin: bool) -> list[tuple]:
+    return listar_prestamos("p.cliente_id = %s", (cliente_id,), user_id, is_admin)
+
+
+def sum_pagos_por_prestamo(prestamo_id: int, user_id: int, is_admin: bool) -> float:
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT COALESCE(SUM(pg.valor), 0) FROM pagos pg
+            JOIN prestamos p ON p.id = pg.prestamo_id
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE pg.prestamo_id = %s {scope}
+            """,
+            (prestamo_id,) + sparams,
+        )
+        return float(cur.fetchone()[0] or 0)
+
+
 def obtener_prestamo(pid: int, user_id: int, is_admin: bool):
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
@@ -512,16 +532,50 @@ def obtener_prestamo(pid: int, user_id: int, is_admin: bool):
 
 
 def actualizar_prestamo(
-    pid, fecha, frecuencia, cuotas, monto, tasa, vencimiento, user_id: int, is_admin: bool
+    pid,
+    fecha,
+    frecuencia,
+    cuotas,
+    monto,
+    tasa,
+    vencimiento,
+    user_id: int,
+    is_admin: bool,
+    *,
+    mora_activa: bool | None = None,
+    tasa_mora_diaria: float | None = None,
 ) -> bool:
+    """
+    Actualiza un préstamo ACTIVO y recalcula montos. No borra pagos.
+    Lanza ValueError si el nuevo total es menor que lo cobrado o si cuotas < pagadas.
+    """
     info = obtener_prestamo(pid, user_id, is_admin)
     if not info:
         return False
+    if str(info[13]).upper() != "ACTIVO":
+        return False
+
+    pagadas = int(info[14])
+    cuotas_i = int(cuotas)
+    if cuotas_i < pagadas:
+        raise ValueError("Las cuotas no pueden ser menores que las ya registradas como pagadas.")
+
+    total_pagado = sum_pagos_por_prestamo(pid, user_id, is_admin)
     interes_total = float(monto) * (float(tasa) / 100.0)
     total_pagar = float(monto) + interes_total
-    valor_cuota = round(total_pagar / max(1, int(cuotas)), 2)
-    pagadas = int(info[14])
-    prox = proxima_fecha_pago(fecha, frecuencia, pagadas, int(cuotas))
+    if total_pagar + 1e-6 < total_pagado:
+        raise ValueError(
+            f"El nuevo total a pagar (${total_pagar:,.0f}) no puede ser menor que lo ya cobrado (${total_pagado:,.0f})."
+        )
+
+    valor_cuota = round(total_pagar / max(1, cuotas_i), 2)
+    prox = proxima_fecha_pago(fecha, frecuencia, pagadas, cuotas_i)
+    saldo = max(0.0, round(total_pagar - total_pagado, 2))
+    nuevo_estado = "PAGADO" if pagadas >= cuotas_i or saldo <= 1 else "ACTIVO"
+
+    mora_a = bool(info[17]) if mora_activa is None else bool(mora_activa)
+    mora_t = float(info[18] or 0) if tasa_mora_diaria is None else float(tasa_mora_diaria or 0)
+
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
         cur = conn.cursor()
@@ -529,14 +583,15 @@ def actualizar_prestamo(
             f"""
             UPDATE prestamos AS p SET
                 fecha=%s, frecuencia=%s, cuotas=%s, monto=%s, tasa=%s,
-                interes_total=%s, total_pagar=%s, valor_cuota=%s, vencimiento=%s, proximo_pago=%s
+                interes_total=%s, total_pagar=%s, valor_cuota=%s, vencimiento=%s, proximo_pago=%s,
+                estado=%s, mora_activa=%s, tasa_mora_diaria=%s
             FROM clientes c
             WHERE p.cliente_id = c.id AND p.id = %s {extra}
             """,
             (
                 fecha,
                 frecuencia,
-                cuotas,
+                cuotas_i,
                 monto,
                 tasa,
                 interes_total,
@@ -544,6 +599,9 @@ def actualizar_prestamo(
                 valor_cuota,
                 vencimiento,
                 prox,
+                nuevo_estado,
+                mora_a,
+                mora_t,
                 pid,
             )
             + params,

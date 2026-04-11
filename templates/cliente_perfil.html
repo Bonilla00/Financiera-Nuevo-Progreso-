@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ cliente[1] }} — Perfil{% endblock %}
+{% block content %}
+<div class="flex items-start justify-between gap-2 mb-4">
+  <div>
+    <h1 class="text-xl font-bold text-white leading-tight">{{ cliente[1] }}</h1>
+    <p class="text-slate-400 text-sm mt-1">{{ cliente[2] }}</p>
+  </div>
+  <a href="{{ url_for('clientes_list') }}" class="text-xs text-accent shrink-0 mt-1">← Clientes</a>
+</div>
+
+<section class="mb-6 bg-panel rounded-2xl border border-slate-700 p-4">
+  <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Información personal</h2>
+  <form method="post" class="space-y-3" data-loading-submit data-loading-label="Guardando…">
+    <input type="hidden" name="accion" value="guardar_datos">
+    <input name="nombre" placeholder="Nombre" required value="{{ cliente[1] }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <input name="identificacion" placeholder="Identificación" required value="{{ cliente[2] }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <input name="telefono" placeholder="Teléfono" value="{{ cliente[3] or '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <input name="barrio" placeholder="Barrio" value="{{ cliente[4] or '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <input name="direccion" placeholder="Dirección" value="{{ cliente[5] or '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar cambios</button>
+  </form>
+</section>
+
+<section class="bg-panel rounded-2xl border border-slate-700 p-4">
+  <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Préstamos</h2>
+  <div class="space-y-3">
+    {% for pr in prestamos %}
+    <div class="rounded-xl border border-slate-600 p-3 bg-panel2/50">
+      <div class="flex justify-between items-start gap-2 mb-2">
+        <span class="text-xs font-bold px-2 py-0.5 rounded {% if pr.estado == 'PAGADO' %}bg-emerald-900/60 text-emerald-200{% else %}bg-amber-900/50 text-amber-200{% endif %}">{{ pr.estado }}</span>
+        <span class="text-xs text-slate-500">#{{ pr.id }}</span>
+      </div>
+      <p class="text-xs text-slate-400">Monto original <span class="text-white font-medium">{{ fmt_money(pr.monto) }}</span></p>
+      <p class="text-xs text-slate-400">Total a pagar <span class="text-white font-medium">{{ fmt_money(pr.total_pagar) }}</span></p>
+      <p class="text-xs text-slate-400 mt-1">Cuotas <span class="text-accent font-semibold">{{ pr.pagadas }} / {{ pr.cuotas }}</span></p>
+      <p class="text-xs text-slate-400">Próximo pago <span class="text-white">{{ pr.proximo_pago or '—' }}</span></p>
+      <p class="text-sm text-accent font-bold mt-2">Saldo: {{ fmt_money(pr.saldo) }}</p>
+      <div class="flex flex-col gap-2 mt-3">
+        {% if pr.estado == 'ACTIVO' and is_admin %}
+        <a href="{{ url_for('prestamos_editar', pid=pr.id) }}" class="block text-center py-2 rounded-xl border border-cyan-500 text-cyan-400 text-sm font-bold">Editar préstamo</a>
+        {% elif pr.estado == 'ACTIVO' and not is_admin %}
+        <p class="text-[11px] text-slate-500 text-center">Solo el administrador puede editar préstamos.</p>
+        {% endif %}
+        <a href="{{ url_for('pagos_list', prestamo_id=pr.id) }}" class="block text-center py-2 rounded-xl bg-panel border border-slate-600 text-accent text-sm font-semibold">Ver pagos</a>
+        {% if pr.estado == 'ACTIVO' %}
+        <a href="{{ url_for('prestamos_cobrar', pid=pr.id) }}" class="block text-center py-2 rounded-xl bg-accent2 text-white text-sm font-bold">Cobrar</a>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-slate-500 text-sm">Este cliente no tiene préstamos registrados.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
