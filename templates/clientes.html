@@ -1,10 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Clientes{% endblock %}
 {% block content %}
-<div class="flex justify-between items-center mb-4">
+<div class="flex justify-between items-center mb-3">
   <h1 class="text-xl font-bold">Clientes</h1>
-  <a href="{{ url_for('clientes_nuevo') }}" class="px-3 py-2 rounded-xl bg-accent text-slate-900 text-sm font-bold">+ Nuevo</a>
+  <a href="{{ url_for('clientes_nuevo') }}" class="px-3 py-2 rounded-xl bg-accent text-slate-900 text-sm font-bold shrink-0">+ Nuevo</a>
 </div>
+
+<div class="flex flex-wrap gap-1.5 mb-4">
+  <a href="{{ url_for('clientes_list', estado='todo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='todo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Todo</a>
+  <a href="{{ url_for('clientes_list', estado='activo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='activo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Con crédito activo</a>
+  <a href="{{ url_for('clientes_list', estado='pago_hoy') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='pago_hoy' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Pagaron hoy</a>
+  <a href="{{ url_for('clientes_list', estado='pendiente_hoy') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='pendiente_hoy' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Pendiente hoy</a>
+  <a href="{{ url_for('clientes_list', estado='sin_activo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='sin_activo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Sin crédito activo</a>
+</div>
+
 <div class="space-y-2">
   {% for c in clientes %}
   <div class="bg-panel rounded-xl border border-slate-700 p-3 flex justify-between items-stretch gap-2">
@@ -20,7 +29,7 @@
     </div>
   </div>
   {% else %}
-  <p class="text-slate-500 text-sm">No hay clientes. Crea uno.</p>
+  <p class="text-slate-500 text-sm">No hay clientes con este filtro.</p>
   {% endfor %}
 </div>
 {% endblock %}

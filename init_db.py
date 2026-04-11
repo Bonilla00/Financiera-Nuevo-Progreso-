@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS prestamos (
     estado TEXT NOT NULL DEFAULT 'ACTIVO',
     pagadas INTEGER NOT NULL DEFAULT 0,
     proximo_pago TEXT,
-    notas TEXT
+    notas TEXT,
+    mora_activa BOOLEAN NOT NULL DEFAULT FALSE,
+    tasa_mora_diaria DOUBLE PRECISION NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS pagos (
@@ -52,7 +54,8 @@ CREATE TABLE IF NOT EXISTS pagos (
     fecha TEXT NOT NULL,
     valor DOUBLE PRECISION NOT NULL,
     cuota INTEGER NOT NULL,
-    saldo_restante DOUBLE PRECISION NOT NULL
+    saldo_restante DOUBLE PRECISION NOT NULL,
+    interes_mora DOUBLE PRECISION NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_prestamos_estado ON prestamos(estado);

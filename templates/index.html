@@ -1,28 +1,35 @@
 {% extends "base.html" %}
 {% block title %}Inicio — Financiera NP{% endblock %}
 {% block content %}
-<h1 class="text-xl font-bold text-white mb-4">Panel</h1>
+<h1 class="text-xl font-bold text-white mb-2">Panel</h1>
+<p class="text-slate-500 text-xs mb-3">{{ periodo_etiqueta }} · {{ f_ini }}{% if f_ini != f_fin %} → {{ f_fin }}{% endif %}</p>
+
+<div class="flex flex-wrap gap-2 mb-4">
+  <a href="{{ url_for('index', periodo='hoy') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='hoy' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Hoy</a>
+  <a href="{{ url_for('index', periodo='ayer') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='ayer' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Ayer</a>
+  <a href="{{ url_for('index', periodo='7d') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='7d' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Últimos 7 días</a>
+  <a href="{{ url_for('index', periodo='mes') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='mes' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Este mes</a>
+</div>
+
 <div class="grid grid-cols-2 gap-3 mb-4">
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-slate-400 text-xs font-semibold">Préstamos</p>
-    <p class="text-2xl font-bold text-accent">{{ total }}</p>
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4 col-span-2">
+    <p class="text-slate-400 text-xs font-semibold">Cobrado en el período</p>
+    <p class="text-3xl font-bold text-accent">{{ fmt_money(cobrado_periodo) }}</p>
+    <p class="text-slate-500 text-xs mt-1">{{ num_pagos_periodo }} pago(s) registrado(s)</p>
   </div>
   <div class="bg-panel rounded-2xl border border-slate-700 p-4">
     <p class="text-slate-400 text-xs font-semibold">Activos</p>
     <p class="text-2xl font-bold text-accent">{{ activos }}</p>
-  </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-slate-400 text-xs font-semibold">Pagados</p>
-    <p class="text-2xl font-bold text-emerald-400">{{ pagados }}</p>
+    <p class="text-slate-500 text-[10px] mt-0.5">Préstamos en curso</p>
   </div>
   <div class="bg-panel rounded-2xl border border-slate-700 p-4">
     <p class="text-slate-400 text-xs font-semibold">En mora</p>
     <p class="text-2xl font-bold text-rose-400">{{ mora }}</p>
+    <p class="text-slate-500 text-[10px] mt-0.5">A la fecha de hoy</p>
   </div>
 </div>
-<div class="bg-panel rounded-2xl border border-cyan-900/50 p-4 mb-4">
-  <p class="text-slate-400 text-xs font-semibold">Cobrado hoy</p>
-  <p class="text-3xl font-bold text-accent">{{ fmt_money(cobrado_hoy) }}</p>
-</div>
-<p class="text-slate-500 text-xs">Los datos dependen de tu usuario. Los administradores ven todo el negocio.</p>
+
+<a href="{{ url_for('prestamos_nuevo') }}" class="block text-center mb-4 py-3 rounded-xl bg-accent text-slate-900 font-bold text-sm border border-cyan-300 active:opacity-90">+ Nuevo préstamo</a>
+
+<p class="text-slate-500 text-xs">Los administradores ven todo el negocio. Activos y mora son el estado actual; el cobrado sigue el período elegido.</p>
 {% endblock %}

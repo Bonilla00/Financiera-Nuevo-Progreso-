@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from functools import wraps
 from io import BytesIO
 from itertools import groupby
@@ -31,6 +31,32 @@ from utils_web import (
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambia-esto-en-produccion")
+
+
+@app.before_request
+def _ensure_db_schema():
+    if app.config.get("DB_SCHEMA_READY"):
+        return
+    db.ensure_schema_migrations()
+    app.config["DB_SCHEMA_READY"] = True
+
+
+def _rango_periodo_dashboard(periodo: str) -> tuple[str, str, str]:
+    """Devuelve (fecha_ini, fecha_fin, etiqueta)."""
+    hoy = date.today()
+    p = (periodo or "hoy").lower().strip()
+    if p == "ayer":
+        d = hoy - timedelta(days=1)
+        s = d.isoformat()
+        return s, s, "Ayer"
+    if p in ("7d", "7", "semana"):
+        ini = hoy - timedelta(days=6)
+        return ini.isoformat(), hoy.isoformat(), "Últimos 7 días"
+    if p in ("mes", "mes_actual"):
+        ini = hoy.replace(day=1)
+        return ini.isoformat(), hoy.isoformat(), "Este mes"
+    s = hoy.isoformat()
+    return s, s, "Hoy"
 
 
 def fmt_money(valor):
@@ -163,20 +189,24 @@ def logout():
 @login_required
 def index():
     uid, _, is_admin = ctx_user()
-    prs = db.listar_prestamos("", (), uid, is_admin)
-    hoy = datetime.strptime(today_str(), "%Y-%m-%d")
-    total = len(prs)
-    activos = sum(1 for p in prs if p[9] == "ACTIVO")
-    pagados = sum(1 for p in prs if p[9] == "PAGADO")
-    mora = sum(1 for p in prs if prestamo_en_mora_fila(p, hoy))
-    cobrado_hoy = db.sum_pagos_hoy(uid, is_admin)
+    periodo = request.args.get("periodo", "hoy")
+    f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
+    cobrado_periodo = db.sum_pagos_por_rango(f_ini, f_fin, uid, is_admin)
+    num_pagos_periodo = db.contar_pagos_en_rango(f_ini, f_fin, uid, is_admin)
+    activos = db.contar_prestamos_activos(uid, is_admin)
+    prs_activos = db.listar_prestamos("p.estado = %s", ("ACTIVO",), uid, is_admin)
+    hoy_dt = datetime.strptime(today_str(), "%Y-%m-%d")
+    mora = sum(1 for p in prs_activos if prestamo_en_mora_fila(p, hoy_dt))
     return render_template(
         "index.html",
-        total=total,
+        cobrado_periodo=cobrado_periodo,
+        num_pagos_periodo=num_pagos_periodo,
         activos=activos,
-        pagados=pagados,
         mora=mora,
-        cobrado_hoy=cobrado_hoy,
+        periodo=periodo,
+        periodo_etiqueta=periodo_etiqueta,
+        f_ini=f_ini,
+        f_fin=f_fin,
     )
 
 
@@ -184,8 +214,9 @@ def index():
 @login_required
 def clientes_list():
     uid, _, is_admin = ctx_user()
-    rows = db.listar_clientes(uid, is_admin)
-    return render_template("clientes.html", clientes=rows)
+    filtro = request.args.get("estado", "todo")
+    rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
+    return render_template("clientes.html", clientes=rows, filtro=filtro)
 
 
 @app.route("/clientes/nuevo", methods=["GET", "POST"])
@@ -233,9 +264,26 @@ def clientes_nuevo():
             cuota = total / cuotas
             dias = {"diaria": 1, "semanal": 7, "quincenal": 15, "mensual": 30}[freq]
             venc = add_days(fecha, dias * cuotas)
+            mora_on = request.form.get("mora_activa") == "on"
+            tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
+            if mora_on and tasa_mora < 0:
+                raise ValueError("La tasa de mora no puede ser negativa.")
 
             db.nuevo_prestamo(
-                cid, fecha, freq, cuotas, monto, tasa, interes, total, cuota, venc, uid, is_admin
+                cid,
+                fecha,
+                freq,
+                cuotas,
+                monto,
+                tasa,
+                interes,
+                total,
+                cuota,
+                venc,
+                uid,
+                is_admin,
+                mora_activa=mora_on,
+                tasa_mora_diaria=tasa_mora,
             )
             flash("Cliente y préstamo guardados.", "ok")
             return redirect(url_for("clientes_list"))
@@ -291,6 +339,22 @@ def clientes_eliminar(cid):
     return redirect(url_for("clientes_list"))
 
 
+@app.route("/cuotas/vencidas")
+@login_required
+def cuotas_vencidas():
+    uid, _, is_admin = ctx_user()
+    rows = db.listar_cuotas_vencidas(uid, is_admin)
+    return render_template("cuotas_vencidas.html", rows=rows)
+
+
+@app.route("/cuotas/vencer")
+@login_required
+def cuotas_vencer():
+    uid, _, is_admin = ctx_user()
+    rows = db.listar_cuotas_vencer(uid, is_admin)
+    return render_template("cuotas_vencer.html", rows=rows)
+
+
 @app.route("/prestamos")
 @login_required
 def prestamos_list():
@@ -333,14 +397,58 @@ def prestamos_nuevo():
             cuota = total / max(1, cuotas)
             dias = {"diaria": 1, "semanal": 7, "quincenal": 15, "mensual": 30}.get(freq, 30)
             venc = add_days(fecha, dias * cuotas)
+            mora_on = request.form.get("mora_activa") == "on"
+            tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
+            if mora_on and tasa_mora < 0:
+                raise ValueError("La tasa de mora no puede ser negativa.")
             db.nuevo_prestamo(
-                cid, fecha, freq, cuotas, monto, tasa, interes, total, cuota, venc, uid, is_admin
+                cid,
+                fecha,
+                freq,
+                cuotas,
+                monto,
+                tasa,
+                interes,
+                total,
+                cuota,
+                venc,
+                uid,
+                is_admin,
+                mora_activa=mora_on,
+                tasa_mora_diaria=tasa_mora,
             )
             flash("Préstamo creado.", "ok")
             return redirect(url_for("prestamos_list"))
         except Exception as e:
             flash(str(e), "error")
     return render_template("prestamo_nuevo.html", clientes=clientes)
+
+
+@app.route("/prestamos/<int:pid>/cobrar")
+@login_required
+def prestamos_cobrar(pid):
+    uid, _, is_admin = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info or info[13] != "ACTIVO":
+        abort(404)
+    fecha = (request.args.get("fecha") or "").strip() or today_str()
+    valor_cuota = float(info[11])
+    prox = info[15]
+    mora_act = bool(info[17])
+    tasa_m = float(info[18] or 0)
+    interes_mora = db.calcular_interes_mora(valor_cuota, prox, fecha, mora_act, tasa_m)
+    total_sugerido = round(valor_cuota + interes_mora, 2)
+    return render_template(
+        "prestamos_cobrar.html",
+        pid=pid,
+        nombre=info[2],
+        fecha=fecha,
+        valor_cuota=valor_cuota,
+        interes_mora=interes_mora,
+        total_sugerido=total_sugerido,
+        proximo_pago=prox or "",
+        mora_activa=mora_act,
+    )
 
 
 @app.route("/prestamos/<int:pid>/pago", methods=["POST"])
@@ -350,10 +458,22 @@ def prestamos_pago(pid):
     try:
         valor = float(request.form.get("valor", "0"))
         fecha = request.form.get("fecha", today_str())
-        pago_id, num_cuota = db.registrar_pago(pid, fecha, valor, uid, is_admin)
+        pago_id, num_cuota, interes_mora, valor_cuota_base = db.registrar_pago(
+            pid, fecha, valor, uid, is_admin
+        )
         info = db.obtener_prestamo(pid, uid, is_admin)
         nombre = info[2]
-        buf = recibos.generar_recibo_pdf(nombre, pid, num_cuota, valor, fecha, uid, is_admin)
+        buf = recibos.generar_recibo_pdf(
+            nombre,
+            pid,
+            num_cuota,
+            valor,
+            fecha,
+            uid,
+            is_admin,
+            valor_cuota_base=valor_cuota_base,
+            interes_mora=interes_mora,
+        )
         flash("Pago registrado. Descarga el recibo.", "ok")
         return send_file(
             buf,

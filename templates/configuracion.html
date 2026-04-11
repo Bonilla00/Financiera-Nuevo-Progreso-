@@ -4,6 +4,12 @@
 <h1 class="text-xl font-bold mb-4">Más / Configuración</h1>
 <p class="text-slate-400 text-sm mb-4">Usuario: <span class="text-white">{{ session.username }}</span></p>
 
+<div class="space-y-2 mb-6">
+  <h2 class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza</h2>
+  <a href="{{ url_for('cuotas_vencidas') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-rose-800/50 text-rose-200 text-sm font-semibold">Cuotas vencidas</a>
+  <a href="{{ url_for('cuotas_vencer') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-800/50 text-accent text-sm font-semibold">Cuotas por vencer (hoy / mañana)</a>
+</div>
+
 <form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6">
   <h2 class="font-semibold text-accent text-sm">Cambiar clave</h2>
   <input type="password" name="password_actual" placeholder="Clave actual" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">

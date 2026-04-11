@@ -26,6 +26,12 @@
     <option value="mensual" {% if freq == 'mensual' %}selected{% endif %}>Mensual</option>
   </select>
   <input name="fecha" type="date" required value="{{ fd.get('fecha', hoy) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+    <input type="checkbox" name="mora_activa" value="on" class="rounded border-slate-600" {% if fd.get('mora_activa') == 'on' %}checked{% endif %}>
+    <span>Habilitar interés por mora</span>
+  </label>
+  <input name="tasa_mora_diaria" type="number" min="0" step="0.01" placeholder="% mora diario (sobre la cuota, ej. 1)" value="{{ fd.get('tasa_mora_diaria', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <p class="text-xs text-slate-500">Solo aplica si hay retraso al cobrar. Se calcula por día vencido desde el próximo pago.</p>
   <button
     id="btn-simular"
     type="button"

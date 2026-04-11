@@ -51,11 +51,7 @@
       <div class="text-right text-xs shrink-0 max-w-[40%]">
         {% if tiene_nota %}<span class="text-red-400" title="Hay notas">●</span>{% endif %}
         {% if p[9] == 'ACTIVO' %}
-        <form method="post" action="{{ url_for('prestamos_pago', pid=p[0]) }}" class="relative mt-2 space-y-1" data-loading-submit data-loading-label="Procesando pago…">
-          <input type="hidden" name="fecha" value="{{ today_str() }}">
-          <input type="number" name="valor" step="0.01" min="0" placeholder="Abono" required class="w-24 rounded-lg bg-panel2 border border-slate-600 px-2 py-1 text-sm text-white">
-          <button type="submit" class="block w-full py-1 rounded-lg bg-accent2 text-white text-xs font-bold">Pagar + PDF</button>
-        </form>
+        <a href="{{ url_for('prestamos_cobrar', pid=p[0]) }}" class="block mt-2 py-2 rounded-lg bg-accent2 text-white text-xs font-bold text-center">Cobrar</a>
         {% endif %}
         <a href="{{ url_for('pagos_list', prestamo_id=p[0]) }}" class="block mt-2 text-accent text-xs font-medium">Historial pagos</a>
         <a href="{{ url_for('prestamos_notas', pid=p[0]) }}" class="block mt-1 text-xs font-semibold {% if tiene_nota %}text-red-400{% else %}text-accent{% endif %}">Notas{% if tiene_nota %} ·{% endif %}</a>

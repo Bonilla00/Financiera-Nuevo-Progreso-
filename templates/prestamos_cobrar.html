@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Cobrar — {{ nombre }}{% endblock %}
+{% block content %}
+<h1 class="text-lg font-bold text-white mb-1">Registrar pago</h1>
+<p class="text-slate-400 text-sm mb-4">{{ nombre }} · Préstamo #{{ pid }}</p>
+
+<div class="bg-panel rounded-2xl border border-slate-700 p-4 mb-4 space-y-2">
+  {% if proximo_pago %}
+  <p class="text-xs text-slate-400">Próximo pago programado: <span class="text-white">{{ proximo_pago }}</span></p>
+  {% endif %}
+  <p class="text-sm text-white">
+    Cuota: <span class="text-accent font-bold">{{ fmt_money(valor_cuota) }}</span>
+    {% if mora_activa %}
+    <span class="text-slate-500"> + </span>
+    Mora: <span class="text-rose-300 font-bold">{{ fmt_money(interes_mora) }}</span>
+    <span class="text-slate-500"> = </span>
+    Total: <span class="text-accent font-bold text-base">{{ fmt_money(total_sugerido) }}</span>
+    {% else %}
+    <span class="text-slate-400 text-sm">Total a cobrar: <span class="text-accent font-bold">{{ fmt_money(valor_cuota) }}</span> (sin mora configurada)</span>
+    {% endif %}
+  </p>
+</div>
+
+<form method="post" action="{{ url_for('prestamos_pago', pid=pid) }}" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando pago…">
+  <label class="block text-sm text-slate-400">Fecha del pago</label>
+  <input type="date" name="fecha" value="{{ fecha }}" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <label class="block text-sm text-slate-400">Valor recibido</label>
+  <input type="number" name="valor" step="0.01" min="0" required value="{{ total_sugerido }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-lg font-semibold">
+  <p class="text-xs text-slate-500">Ajusta el valor si el cliente paga otro monto. Para contar la cuota como pagada debe cubrir al menos la cuota{% if mora_activa %} más la mora calculada{% endif %}.</p>
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Pagar y descargar PDF</button>
+</form>
+<a href="{{ url_for('prestamos_list') }}" class="block text-center mt-4 text-sm text-slate-400">← Volver a préstamos</a>
+{% endblock %}

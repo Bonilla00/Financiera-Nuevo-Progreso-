@@ -35,6 +35,39 @@ def get_conn():
         conn.close()
 
 
+def ensure_schema_migrations() -> None:
+    """ALTER seguro al arrancar (Railway / Postgres)."""
+    stmts = [
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS mora_activa BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS tasa_mora_diaria DOUBLE PRECISION NOT NULL DEFAULT 0",
+        "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS interes_mora DOUBLE PRECISION NOT NULL DEFAULT 0",
+    ]
+    with get_conn() as conn:
+        cur = conn.cursor()
+        for s in stmts:
+            cur.execute(s)
+
+
+def calcular_interes_mora(
+    valor_cuota: float,
+    proximo_pago_iso: Optional[str],
+    fecha_pago_iso: str,
+    mora_activa: bool,
+    tasa_mora_diaria: float,
+) -> float:
+    if not mora_activa or tasa_mora_diaria <= 0 or not proximo_pago_iso:
+        return 0.0
+    try:
+        d0 = datetime.strptime(str(proximo_pago_iso).strip()[:10], "%Y-%m-%d").date()
+        d1 = datetime.strptime(str(fecha_pago_iso).strip()[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return 0.0
+    dias = (d1 - d0).days
+    if dias <= 0:
+        return 0.0
+    return round(float(valor_cuota) * (float(tasa_mora_diaria) / 100.0) * dias, 2)
+
+
 def proxima_fecha_pago(fecha_inicio, frecuencia, pagadas, cuotas):
     try:
         base = datetime.strptime(str(fecha_inicio)[:10], "%Y-%m-%d")
@@ -195,6 +228,57 @@ def listar_clientes(user_id: int, is_admin: bool) -> list[tuple]:
         return cur.fetchall()
 
 
+def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[tuple]:
+    """filtro: todo | activo | pago_hoy | pendiente_hoy | sin_activo"""
+    extra, sparams = _filtro_owner("c", user_id, is_admin)
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    q = f"""
+        SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
+        FROM clientes c
+        WHERE 1=1 {extra}
+    """
+    args: list = list(sparams)
+    f = (filtro or "todo").lower().strip()
+    if f == "activo":
+        q += """
+          AND EXISTS (
+            SELECT 1 FROM prestamos p
+            WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
+          )
+        """
+    elif f == "pago_hoy":
+        q += """
+          AND EXISTS (
+            SELECT 1 FROM prestamos p
+            JOIN pagos pg ON pg.prestamo_id = p.id
+            WHERE p.cliente_id = c.id AND pg.fecha = %s
+          )
+        """
+        args.append(hoy)
+    elif f == "pendiente_hoy":
+        q += """
+          AND EXISTS (
+            SELECT 1 FROM prestamos p
+            WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
+              AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
+              AND p.proximo_pago = %s
+          )
+        """
+        args.append(hoy)
+    elif f == "sin_activo":
+        q += """
+          AND NOT EXISTS (
+            SELECT 1 FROM prestamos p
+            WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
+          )
+        """
+    q += " ORDER BY c.nombre"
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(q, tuple(args))
+        return cur.fetchall()
+
+
 def actualizar_cliente(
     cid: int,
     nombre: str,
@@ -257,6 +341,8 @@ def nuevo_prestamo(
     vencimiento,
     user_id: int,
     is_admin: bool,
+    mora_activa: bool = False,
+    tasa_mora_diaria: float = 0.0,
 ) -> int:
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
@@ -283,8 +369,9 @@ def nuevo_prestamo(
             """
             INSERT INTO prestamos
             (cliente_id, fecha, frecuencia, cuotas, monto, tasa,
-             interes_total, total_pagar, valor_cuota, vencimiento, estado, pagadas, proximo_pago)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s)
+             interes_total, total_pagar, valor_cuota, vencimiento, estado, pagadas, proximo_pago,
+             mora_activa, tasa_mora_diaria)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -299,6 +386,8 @@ def nuevo_prestamo(
                 valor_cuota,
                 vencimiento,
                 proximo_pago,
+                bool(mora_activa),
+                float(tasa_mora_diaria or 0),
             ),
         )
         return int(cur.fetchone()[0])
@@ -315,7 +404,8 @@ def listar_prestamos(
         SELECT p.id, c.nombre, c.identificacion, p.monto, p.tasa, p.cuotas,
                p.valor_cuota, p.fecha, p.vencimiento, p.estado, p.pagadas,
                p.total_pagar, p.frecuencia, p.proximo_pago, p.notas,
-               c.id, c.telefono, c.direccion, c.barrio
+               c.id, c.telefono, c.direccion, c.barrio,
+               p.mora_activa, p.tasa_mora_diaria
         FROM prestamos p
         JOIN clientes c ON c.id = p.cliente_id
         WHERE 1=1 {scope}
@@ -331,6 +421,77 @@ def listar_prestamos(
         return cur.fetchall()
 
 
+def listar_cuotas_vencidas(user_id: int, is_admin: bool) -> list[tuple]:
+    """Préstamos ACTIVOS con próximo pago vencido (mora)."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    q = f"""
+        SELECT p.id, c.nombre, p.valor_cuota, p.proximo_pago,
+               GREATEST(0, (CURRENT_DATE - (p.proximo_pago::date)))::int AS dias_atraso,
+               c.telefono
+        FROM prestamos p
+        JOIN clientes c ON c.id = p.cliente_id
+        WHERE p.estado = 'ACTIVO'
+          AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
+          AND (p.proximo_pago::date) < CURRENT_DATE
+          {scope}
+        ORDER BY p.proximo_pago ASC NULLS LAST, c.nombre
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(q, tuple(sparams))
+        return cur.fetchall()
+
+
+def listar_cuotas_vencer(user_id: int, is_admin: bool) -> list[tuple]:
+    """Próximo pago hoy o mañana."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    q = f"""
+        SELECT p.id, c.nombre, p.valor_cuota, p.proximo_pago, c.telefono
+        FROM prestamos p
+        JOIN clientes c ON c.id = p.cliente_id
+        WHERE p.estado = 'ACTIVO'
+          AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
+          AND (p.proximo_pago::date) IN (CURRENT_DATE, CURRENT_DATE + 1)
+          {scope}
+        ORDER BY p.proximo_pago::date ASC, c.nombre
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(q, tuple(sparams))
+        return cur.fetchall()
+
+
+def contar_prestamos_activos(user_id: int, is_admin: bool) -> int:
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT COUNT(*) FROM prestamos p
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE p.estado = 'ACTIVO' {scope}
+            """,
+            sparams,
+        )
+        return int(cur.fetchone()[0] or 0)
+
+
+def contar_pagos_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: bool) -> int:
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT COUNT(*) FROM pagos
+            JOIN prestamos p ON p.id = pagos.prestamo_id
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            """,
+            (f_ini, f_fin) + sparams,
+        )
+        return int(cur.fetchone()[0] or 0)
+
+
 def obtener_prestamo(pid: int, user_id: int, is_admin: bool):
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
@@ -339,7 +500,8 @@ def obtener_prestamo(pid: int, user_id: int, is_admin: bool):
             f"""
             SELECT p.id, p.cliente_id, c.nombre, c.identificacion, p.fecha, p.frecuencia,
                    p.cuotas, p.monto, p.tasa, p.interes_total, p.total_pagar,
-                   p.valor_cuota, p.vencimiento, p.estado, p.pagadas
+                   p.valor_cuota, p.vencimiento, p.estado, p.pagadas,
+                   p.proximo_pago, p.notas, p.mora_activa, p.tasa_mora_diaria
             FROM prestamos p
             JOIN clientes c ON c.id = p.cliente_id
             WHERE p.id = %s {extra}
@@ -405,13 +567,18 @@ def actualizar_nota_prestamo(pid, nota, user_id: int, is_admin: bool) -> bool:
 
 
 # ---------- pagos ----------
-def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_admin: bool) -> int:
+def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_admin: bool) -> tuple:
+    """
+    Registra un pago. Calcula interés por mora si el préstamo lo tiene habilitado.
+    Retorna (pago_id, num_cuota, interes_mora, valor_cuota_base).
+    """
     with get_conn() as conn:
         cur = conn.cursor()
         extra, params = _filtro_owner("c", user_id, is_admin)
         cur.execute(
             f"""
-            SELECT p.total_pagar, p.pagadas, p.cuotas, p.estado, p.valor_cuota, p.fecha, p.frecuencia
+            SELECT p.total_pagar, p.pagadas, p.cuotas, p.estado, p.valor_cuota, p.fecha, p.frecuencia,
+                   p.proximo_pago, p.mora_activa, p.tasa_mora_diaria
             FROM prestamos p
             JOIN clientes c ON c.id = p.cliente_id
             WHERE p.id = %s {extra}
@@ -421,9 +588,29 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
         row = cur.fetchone()
         if not row:
             raise ValueError("Préstamo no encontrado.")
-        total_pagar, pagadas, cuotas, estado, valor_cuota, fecha_ini, frecuencia = row
+        (
+            total_pagar,
+            pagadas,
+            cuotas,
+            estado,
+            valor_cuota,
+            fecha_ini,
+            frecuencia,
+            proximo_pago,
+            mora_activa,
+            tasa_mora_diaria,
+        ) = row
         if estado == "PAGADO":
             raise ValueError("El préstamo ya está pagado.")
+
+        interes_mora = calcular_interes_mora(
+            float(valor_cuota),
+            proximo_pago,
+            fecha,
+            bool(mora_activa),
+            float(tasa_mora_diaria or 0),
+        )
+        min_cuota_mora = float(valor_cuota) + interes_mora
 
         cuota_num = int(pagadas) + 1
         total_pagado = (int(pagadas) * float(valor_cuota)) + float(valor)
@@ -431,15 +618,19 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
 
         cur.execute(
             """
-            INSERT INTO pagos (prestamo_id, fecha, valor, cuota, saldo_restante)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO pagos (prestamo_id, fecha, valor, cuota, saldo_restante, interes_mora)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (prestamo_id, fecha, valor, cuota_num, saldo_restante),
+            (prestamo_id, fecha, valor, cuota_num, saldo_restante, interes_mora),
         )
         pid_pago = int(cur.fetchone()[0])
 
-        nuevas_pagadas = int(pagadas) + 1 if float(valor) >= float(valor_cuota) * 0.999 else int(pagadas)
+        if interes_mora > 0:
+            ok_cuota = float(valor) + 1e-6 >= min_cuota_mora * 0.999
+        else:
+            ok_cuota = float(valor) + 1e-6 >= float(valor_cuota) * 0.999
+        nuevas_pagadas = int(pagadas) + 1 if ok_cuota else int(pagadas)
         nuevo_estado = "PAGADO" if nuevas_pagadas >= int(cuotas) or saldo_restante <= 1 else "ACTIVO"
         prox = proxima_fecha_pago(fecha_ini, frecuencia, nuevas_pagadas, int(cuotas))
 
@@ -449,7 +640,7 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
             """,
             (nuevas_pagadas, nuevo_estado, prox, prestamo_id),
         )
-        return pid_pago, cuota_num
+        return pid_pago, cuota_num, interes_mora, float(valor_cuota)
 
 
 def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
@@ -465,7 +656,8 @@ def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
                prestamos.vencimiento,
                prestamos.estado,
                prestamos.proximo_pago,
-               prestamos.notas
+               prestamos.notas,
+               COALESCE(pagos.interes_mora, 0)
         FROM pagos
         JOIN prestamos ON prestamos.id = pagos.prestamo_id
         JOIN clientes ON clientes.id = prestamos.cliente_id
