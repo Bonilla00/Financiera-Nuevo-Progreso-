@@ -10,7 +10,7 @@
   <a href="{{ url_for('cuotas_vencer') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-800/50 text-accent text-sm font-semibold">Cuotas por vencer (hoy / mañana)</a>
 </div>
 
-<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6">
+<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6" data-loading-submit data-loading-label="Procesando…">
   <h2 class="font-semibold text-accent text-sm">Cambiar clave</h2>
   <input type="password" name="password_actual" placeholder="Clave actual" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <input type="password" name="password_nueva" placeholder="Nueva clave (mín. 6)" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
@@ -22,7 +22,7 @@
 <a href="{{ url_for('admin_usuarios') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-accent font-semibold mb-3">Usuarios (admin)</a>
 <a href="{{ url_for('backup_sql') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-semibold mb-3">Descargar backup .sql</a>
 
-<form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="space-y-3 bg-panel rounded-2xl border border-rose-900/50 p-4 mb-6">
+<form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="space-y-3 bg-panel rounded-2xl border border-rose-900/50 p-4 mb-6" data-loading-submit data-loading-label="Procesando…">
   <h2 class="font-semibold text-rose-300 text-sm">Restaurar desde backup (.sql)</h2>
   <p class="text-xs text-slate-400">Solo archivos generados con &quot;Descargar backup&quot; de esta misma app. Esto <strong class="text-rose-200">borra los datos actuales</strong> y los reemplaza por el archivo.</p>
   <input type="file" name="sql_file" accept=".sql,text/plain" required class="block w-full text-sm text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-panel2 file:text-accent">

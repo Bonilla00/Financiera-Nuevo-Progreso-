@@ -2,7 +2,7 @@
 {% block title %}Nuevo préstamo{% endblock %}
 {% block content %}
 <h1 class="text-xl font-bold mb-4">Nuevo préstamo</h1>
-<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Guardando préstamo…">
+<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…">
   <label class="block text-sm text-slate-400">Cliente</label>
   <select name="cliente_id" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
     {% for c in clientes %}

@@ -10,6 +10,8 @@
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo.png') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -27,8 +29,29 @@
     }
   </script>
   <style>
+    /* NProgress: barra superior cyan 3px (estilo YouTube/GitHub) */
+    #nprogress .bar {
+      background: #22d3ee !important;
+      height: 3px !important;
+    }
+    #nprogress .peg {
+      box-shadow: 0 0 10px #22d3ee, 0 0 5px #22d3ee !important;
+    }
+    #nprogress .spinner {
+      display: none !important;
+    }
+    /* Entrada/salida de página */
+    #page-content {
+      opacity: 0;
+      transition: opacity 200ms ease;
+    }
+    #page-content.page-exit {
+      transition: opacity 150ms ease;
+      opacity: 0 !important;
+    }
     /* Tarjetas/filas clicables: hover + :active (mantiene resalte al tocar en móvil) */
     .list-row-interactive {
+      position: relative;
       background-color: #111827;
       cursor: pointer;
       transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -39,6 +62,22 @@
     .list-row-interactive:active {
       background-color: #1f2937;
       box-shadow: inset 3px 0 0 0 #22d3ee;
+    }
+    .card-nav-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.55);
+      border-radius: 0.75rem;
+      pointer-events: none;
+    }
+    .card-nav-overlay svg {
+      width: 1.75rem;
+      height: 1.75rem;
+      color: #22d3ee;
     }
   </style>
   {% block head %}{% endblock %}
@@ -63,7 +102,9 @@
   {% endif %}
 
   <main class="max-w-lg mx-auto px-3 pt-2">
-    {% block content %}{% endblock %}
+    <div id="page-content">
+      {% block content %}{% endblock %}
+    </div>
   </main>
 
   {% if session.user_id %}
@@ -92,10 +133,52 @@
   </script>
   <script>
     (function () {
-      var spin =
+      var SPIN =
         '<svg class="animate-spin h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">' +
         '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
         '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+      var SPIN_LG =
+        '<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+        '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+
+      if (typeof NProgress !== "undefined") {
+        NProgress.configure({ showSpinner: false, minimum: 0.08, trickleSpeed: 200 });
+      }
+
+      function npDone() {
+        if (typeof NProgress !== "undefined") NProgress.done();
+      }
+
+      function npStart() {
+        if (typeof NProgress !== "undefined") NProgress.start();
+      }
+
+      /* Fade in al cargar */
+      document.addEventListener("DOMContentLoaded", function () {
+        var pc = document.getElementById("page-content");
+        if (!pc) return;
+        requestAnimationFrame(function () {
+          pc.style.opacity = "1";
+        });
+      });
+
+      window.addEventListener("load", function () {
+        npDone();
+      });
+
+      window.addEventListener("pageshow", function (ev) {
+        if (ev.persisted) {
+          npDone();
+          var pc = document.getElementById("page-content");
+          if (pc) {
+            pc.classList.remove("page-exit");
+            pc.style.opacity = "1";
+          }
+        }
+      });
+
+      /* Formularios: Procesando… + spinner + NProgress */
       document.addEventListener(
         "submit",
         function (e) {
@@ -107,7 +190,8 @@
             return;
           }
           form.dataset.submitBusy = "1";
-          var label = form.getAttribute("data-loading-label") || "Guardando…";
+          var label = form.getAttribute("data-loading-label") || "Procesando…";
+          npStart();
           form.classList.add("opacity-80", "pointer-events-none");
           var buttons = form.querySelectorAll('button[type="submit"]');
           buttons.forEach(function (btn) {
@@ -115,9 +199,73 @@
             btn.setAttribute("aria-busy", "true");
             var wrap = document.createElement("span");
             wrap.className = "inline-flex items-center justify-center gap-2 w-full";
-            wrap.innerHTML = spin + "<span>" + label + "</span>";
+            wrap.innerHTML = SPIN + "<span>" + label + "</span>";
             btn.replaceChildren(wrap);
           });
+        },
+        true
+      );
+
+      /* Navegación: NProgress + fade out + overlay en tarjetas + enlaces de acción */
+      document.addEventListener(
+        "click",
+        function (e) {
+          var a = e.target.closest("a[href]");
+          if (!a) return;
+          if (e.defaultPrevented) return;
+          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          var hrefAttr = a.getAttribute("href");
+          if (!hrefAttr || hrefAttr.indexOf("javascript:") === 0) return;
+          if (hrefAttr.startsWith("#")) {
+            try {
+              var uh = new URL(a.href, window.location.href);
+              if (uh.pathname === window.location.pathname && uh.search === window.location.search) {
+                return;
+              }
+            } catch (err) {
+              return;
+            }
+          }
+          if (a.hasAttribute("download")) return;
+          if (a.getAttribute("target") === "_blank") return;
+          var url;
+          try {
+            url = new URL(a.href, window.location.href);
+          } catch (err2) {
+            return;
+          }
+          if (url.protocol === "mailto:" || url.protocol === "tel:") return;
+          if (url.origin !== window.location.origin) return;
+
+          e.preventDefault();
+          npStart();
+
+          var card = a.closest(".list-row-interactive");
+          if (card) {
+            var ov = document.createElement("div");
+            ov.className = "card-nav-overlay";
+            ov.setAttribute("role", "presentation");
+            ov.innerHTML = SPIN_LG;
+            card.appendChild(ov);
+          }
+
+          if (a.classList.contains("js-action-busy")) {
+            a.style.pointerEvents = "none";
+            a.innerHTML =
+              '<span class="inline-flex items-center justify-center gap-2 w-full">' +
+              SPIN +
+              "<span>Procesando…</span></span>";
+          }
+
+          var pc = document.getElementById("page-content");
+          if (pc) {
+            pc.classList.add("page-exit");
+          }
+
+          var dest = a.href;
+          setTimeout(function () {
+            window.location.href = dest;
+          }, 150);
         },
         true
       );

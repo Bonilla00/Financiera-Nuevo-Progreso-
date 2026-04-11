@@ -8,7 +8,7 @@
   <strong>Importante:</strong> al guardar se <strong>recalculan</strong> interés total, total a pagar, valor de cuota y próximo pago según los datos nuevos. Los <strong>pagos ya registrados no se borran</strong>. El nuevo total no puede ser menor que lo ya cobrado.
 </div>
 
-<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Guardando…">
+<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…">
   {% set fd = form_data if form_data is not none else {} %}
   <input name="monto" type="number" step="0.01" min="0" required placeholder="Monto" value="{{ fd.get('monto', p[7]) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <input name="tasa" type="number" step="0.01" min="0" required placeholder="Tasa % sobre monto" value="{{ fd.get('tasa', p[8]) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">

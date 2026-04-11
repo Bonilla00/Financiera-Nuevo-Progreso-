@@ -50,7 +50,7 @@
       <div class="text-right text-xs shrink-0 max-w-[40%]">
         {% if tiene_nota %}<span class="text-red-400" title="Hay notas">●</span>{% endif %}
         {% if p[9] == 'ACTIVO' %}
-        <a href="{{ url_for('prestamos_cobrar', pid=p[0]) }}" class="block mt-2 py-2 rounded-lg bg-accent2 text-white text-xs font-bold text-center">Cobrar</a>
+        <a href="{{ url_for('prestamos_cobrar', pid=p[0]) }}" class="js-action-busy block mt-2 py-2 rounded-lg bg-accent2 text-white text-xs font-bold text-center">Cobrar</a>
         {% endif %}
         <a href="{{ url_for('pagos_list', prestamo_id=p[0]) }}" class="block mt-2 text-accent text-xs font-medium">Historial pagos</a>
         <a href="{{ url_for('prestamos_notas', pid=p[0]) }}" class="block mt-1 text-xs font-semibold {% if tiene_nota %}text-red-400{% else %}text-accent{% endif %}">Notas{% if tiene_nota %} ·{% endif %}</a>

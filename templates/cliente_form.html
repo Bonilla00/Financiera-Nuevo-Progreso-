@@ -2,7 +2,7 @@
 {% block title %}{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente{% endblock %}
 {% block content %}
 <h1 class="text-xl font-bold mb-4">{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente</h1>
-<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Guardando…">
+<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…">
   {% set c = cliente %}
   {% set fd = form_data or {} %}
   <h2 class="text-sm uppercase tracking-wide text-slate-300 font-semibold">Datos del cliente</h2>
@@ -92,6 +92,11 @@
     const fmtMoney = (n) =>
       "$" + new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(n);
 
+    const spinBtn =
+      '<svg class="animate-spin h-4 w-4 shrink-0 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">' +
+      '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+      '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+
     const simular = function () {
       const rawMonto = (montoEl?.value || "").trim();
       const rawTasa = (tasaEl?.value || "").trim();
@@ -131,7 +136,22 @@
       box.classList.remove("hidden");
     };
 
-    btn.addEventListener("click", simular);
+    btn.addEventListener("click", function () {
+      if (btn.disabled) return;
+      var prev = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML =
+        '<span class="inline-flex items-center justify-center gap-2 w-full">' +
+        spinBtn +
+        "<span>Procesando…</span></span>";
+      var t0 = Date.now();
+      simular();
+      var wait = Math.max(0, 200 - (Date.now() - t0));
+      setTimeout(function () {
+        btn.disabled = false;
+        btn.innerHTML = prev;
+      }, wait);
+    });
   })();
 </script>
 {% endif %}

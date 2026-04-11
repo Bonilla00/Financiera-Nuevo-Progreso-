@@ -11,7 +11,7 @@
 
 <section class="mb-6 bg-panel rounded-2xl border border-slate-700 p-4">
   <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Información personal</h2>
-  <form method="post" class="space-y-3" data-loading-submit data-loading-label="Guardando…">
+  <form method="post" class="space-y-3" data-loading-submit data-loading-label="Procesando…">
     <input type="hidden" name="accion" value="guardar_datos">
     <input name="nombre" placeholder="Nombre" required value="{{ cliente[1] }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
     <input name="identificacion" placeholder="Identificación" required value="{{ cliente[2] }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
@@ -44,7 +44,7 @@
         {% endif %}
         <a href="{{ url_for('pagos_list', prestamo_id=pr.id) }}" class="block text-center py-2 rounded-xl bg-panel border border-slate-600 text-accent text-sm font-semibold">Ver pagos</a>
         {% if pr.estado == 'ACTIVO' %}
-        <a href="{{ url_for('prestamos_cobrar', pid=pr.id) }}" class="block text-center py-2 rounded-xl bg-accent2 text-white text-sm font-bold">Cobrar</a>
+        <a href="{{ url_for('prestamos_cobrar', pid=pr.id) }}" class="js-action-busy block text-center py-2 rounded-xl bg-accent2 text-white text-sm font-bold">Cobrar</a>
         {% endif %}
       </div>
     </div>

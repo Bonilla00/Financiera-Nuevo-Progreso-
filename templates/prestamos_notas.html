@@ -3,7 +3,7 @@
 {% block content %}
 <h1 class="text-xl font-bold mb-1">Observaciones</h1>
 <p class="text-slate-400 text-sm mb-4">{{ nombre }}</p>
-<form method="post" class="space-y-3">
+<form method="post" class="space-y-3" data-loading-submit data-loading-label="Procesando…">
   <textarea name="notas" rows="8" class="w-full rounded-xl bg-panel border border-slate-600 px-3 py-2 text-white">{{ notas }}</textarea>
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
 </form>
