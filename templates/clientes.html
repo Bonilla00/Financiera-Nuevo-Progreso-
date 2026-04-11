@@ -16,7 +16,7 @@
 
 <div class="space-y-2">
   {% for c in clientes %}
-  <div class="bg-panel rounded-xl border border-slate-700 p-3 flex justify-between items-stretch gap-2">
+  <div class="list-row-interactive rounded-xl border border-slate-700 p-3 flex justify-between items-stretch gap-2">
     <a href="{{ url_for('clientes_perfil', cid=c[0]) }}" class="flex-1 min-w-0 block py-0.5 active:opacity-80">
       <p class="font-semibold text-white">{{ c[1] }}</p>
       <p class="text-xs text-slate-400">{{ c[2] }} · {{ c[3] or '—' }}</p>

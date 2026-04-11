@@ -5,7 +5,7 @@
 <p class="text-slate-400 text-sm mb-4">Próximo pago programado para hoy o mañana.</p>
 <div class="space-y-3">
   {% for r in rows %}
-  <div class="bg-panel rounded-xl border border-cyan-900/40 p-3">
+  <div class="list-row-interactive rounded-xl border border-slate-700 p-3">
     <p class="font-semibold text-white">{{ r[1] }}</p>
     <p class="text-xs text-slate-400 mt-1">Vence: <span class="text-accent font-semibold">{{ r[3] or '—' }}</span></p>
     <p class="text-sm text-accent font-semibold mt-1">Cuota: {{ fmt_money(r[2]) }}</p>

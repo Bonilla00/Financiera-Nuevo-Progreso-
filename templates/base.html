@@ -26,6 +26,21 @@
       }
     }
   </script>
+  <style>
+    /* Tarjetas/filas clicables: hover + :active (mantiene resalte al tocar en móvil) */
+    .list-row-interactive {
+      background-color: #111827;
+      cursor: pointer;
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: inset 3px 0 0 0 transparent;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .list-row-interactive:hover,
+    .list-row-interactive:active {
+      background-color: #1f2937;
+      box-shadow: inset 3px 0 0 0 #22d3ee;
+    }
+  </style>
   {% block head %}{% endblock %}
 </head>
 <body class="bg-appbg text-gray-200 min-h-screen pb-24">

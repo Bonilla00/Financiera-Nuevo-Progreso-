@@ -17,7 +17,7 @@
   {% set prox_iso = p[13] %}
   {% set prox_txt = fecha_proximo_pago_texto(prox_iso) %}
   {% set tiene_nota = ((p[14] | default('', true)) | trim | length) > 0 %}
-  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+  <div class="list-row-interactive rounded-xl border border-slate-700 p-3">
     <div class="flex justify-between gap-2">
       <div class="min-w-0 flex-1">
         <p class="font-semibold text-white truncate">{{ p[1] }}</p>
@@ -25,7 +25,6 @@
         <p class="text-xs text-slate-300 mt-1">
           {% if prox_iso and prox_txt %}
           Próx. pago: <span class="text-accent font-semibold">{{ prox_txt }}</span>
-          <span class="text-slate-500">({{ prox_iso|string|truncate(10, True, '') }})</span>
           {% else %}
           <span class="text-slate-500">Próx. pago: —</span>
           {% endif %}
