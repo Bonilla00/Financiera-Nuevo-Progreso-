@@ -319,11 +319,6 @@ def clientes_perfil(cid):
     if request.method == "POST":
         if request.form.get("accion") != "guardar_datos":
             abort(400)
-        foto_data = None
-        foto_file = request.files.get("foto")
-        if foto_file and foto_file.filename:
-            import base64
-            foto_data = "data:" + foto_file.content_type + ";base64," + base64.b64encode(foto_file.read()).decode("utf-8")
         db.actualizar_cliente(
             cid,
             request.form.get("nombre", "").strip(),
@@ -333,7 +328,6 @@ def clientes_perfil(cid):
             request.form.get("direccion", "").strip(),
             uid,
             is_admin,
-            foto_data,
         )
         flash("Información personal actualizada.", "ok")
         return redirect(url_for("clientes_perfil", cid=cid))

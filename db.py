@@ -233,7 +233,7 @@ def obtener_cliente(cid: int, user_id: int, is_admin: bool):
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
             FROM clientes c WHERE c.id = %s {extra}
             """,
             (cid,) + params,
@@ -247,7 +247,7 @@ def listar_clientes(user_id: int, is_admin: bool) -> list[tuple]:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
             FROM clientes c WHERE 1=1 {extra}
             ORDER BY c.nombre
             """,
@@ -261,7 +261,7 @@ def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[
     extra, sparams = _filtro_owner("c", user_id, is_admin)
     hoy = datetime.now().strftime("%Y-%m-%d")
     q = f"""
-        SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
+        SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
         FROM clientes c
         WHERE 1=1 {extra}
     """
@@ -316,27 +316,17 @@ def actualizar_cliente(
     direccion: str,
     user_id: int,
     is_admin: bool,
-    foto: str = None,
 ) -> bool:
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
         cur = conn.cursor()
-        if foto is not None:
-            cur.execute(
-                f"""
-                UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s, foto=%s
-                WHERE id=%s {extra}
-                """,
-                (nombre, identificacion, telefono, barrio, direccion, foto, cid) + params,
-            )
-        else:
-            cur.execute(
-                f"""
-                UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s
-                WHERE id=%s {extra}
-                """,
-                (nombre, identificacion, telefono, barrio, direccion, cid) + params,
-            )
+        cur.execute(
+            f"""
+            UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s
+            WHERE id=%s {extra}
+            """,
+            (nombre, identificacion, telefono, barrio, direccion, cid) + params,
+        )
         return cur.rowcount > 0
 
 
