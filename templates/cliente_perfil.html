@@ -2,12 +2,48 @@
 {% block title %}{{ cliente[1] }} — Perfil{% endblock %}
 {% block content %}
 <div class="flex items-start justify-between gap-2 mb-4">
+  <div class="flex flex-col items-center gap-3">
+    {% if cliente[6] %}
+    <img src="{{ cliente[6] }}" id="avatar-img" class="w-20 h-20 rounded-full object-cover border-2 border-cyan-500">
+    {% else %}
+    <div class="w-20 h-20 rounded-full bg-[#1F2937] flex items-center justify-center text-2xl font-bold text-[#22D3EE]">
+      {{ cliente[1][0].upper() }}
+    </div>
+    {% endif %}
+    <input type="file" id="input-foto" accept="image/*" class="hidden">
+    <button onclick="document.getElementById('input-foto').click()" class="px-3 py-1 rounded-lg bg-panel2 border border-cyan-600/50 text-xs text-cyan-400">Cambiar foto</button>
+  </div>
   <div>
     <h1 class="text-xl font-bold text-white leading-tight">{{ cliente[1] }}</h1>
     <p class="text-slate-400 text-sm">{{ cliente[2] }}</p>
   </div>
   <a href="{{ url_for('clientes_list') }}" class="text-xs text-accent shrink-0 mt-1">← Clientes</a>
 </div>
+
+<script>
+const clienteId = {{ cliente[0] }};
+document.getElementById('input-foto').addEventListener('change', async function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('avatar-img');
+    if (img && img.tagName === 'IMG') {
+      img.src = e.target.result;
+    } else {
+      location.reload();
+    }
+  };
+  reader.readAsDataURL(file);
+  const fd = new FormData();
+  fd.append('foto', file);
+  try {
+    const r = await fetch(`/clientes/${clienteId}/foto`, {method: 'POST', body: fd});
+    const d = await r.json();
+    if (!d.ok) alert(d.error || 'Error al subir');
+  } catch(e) { alert('Error de conexión'); }
+});
+</script>
 
 <section class="mb-6 bg-panel rounded-2xl border border-slate-700 p-4">
   <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Información personal</h2>

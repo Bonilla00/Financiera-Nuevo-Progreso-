@@ -233,12 +233,23 @@ def obtener_cliente(cid: int, user_id: int, is_admin: bool):
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
             FROM clientes c WHERE c.id = %s {extra}
             """,
             (cid,) + params,
         )
         return cur.fetchone()
+
+
+def actualizar_foto_cliente(cliente_id: int, foto_base64: str, user_id: int, is_admin: bool) -> bool:
+    extra, params = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE clientes SET foto = %s WHERE id = %s {extra}",
+            (foto_base64, cliente_id) + params,
+        )
+        return cur.rowcount > 0
 
 
 def listar_clientes(user_id: int, is_admin: bool) -> list[tuple]:

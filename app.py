@@ -398,6 +398,45 @@ def clientes_eliminar(cid):
     return redirect(url_for("clientes_list"))
 
 
+@app.route("/clientes/<int:cid>/foto", methods=["POST"])
+@login_required
+def subir_foto_cliente(cid):
+    from flask import jsonify
+    import base64
+    import io
+    from PIL import Image
+    
+    uid, _, is_admin = ctx_user()
+    foto_file = request.files.get("foto")
+    if not foto_file or not foto_file.filename:
+        return jsonify({"ok": False, "error": "No hay archivo"})
+    
+    filename = foto_file.filename.lower()
+    allowed = (".jpg", ".jpeg", ".png", ".webp")
+    if not any(filename.endswith(ext) for ext in allowed):
+        return jsonify({"ok": False, "error": "Extensión no permitida"})
+    
+    foto_file.seek(0, 2)
+    size = foto_file.tell()
+    foto_file.seek(0)
+    if size > 2 * 1024 * 1024:
+        return jsonify({"ok": False, "error": "Máximo 2MB"})
+    
+    try:
+        img = Image.open(foto_file.stream)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        img.thumbnail((400, 400))
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=85)
+        foto_b64 = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("utf-8")
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+    
+    ok = db.actualizar_foto_cliente(cid, foto_b64, uid, is_admin)
+    return jsonify({"ok": ok, "foto": foto_b64 if ok else None})
+
+
 @app.route("/cuotas/vencidas")
 @login_required
 def cuotas_vencidas():
