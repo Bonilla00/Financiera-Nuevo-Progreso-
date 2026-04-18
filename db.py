@@ -233,7 +233,7 @@ def obtener_cliente(cid: int, user_id: int, is_admin: bool):
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
             FROM clientes c WHERE c.id = %s {extra}
             """,
             (cid,) + params,
@@ -247,7 +247,7 @@ def listar_clientes(user_id: int, is_admin: bool) -> list[tuple]:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
             FROM clientes c WHERE 1=1 {extra}
             ORDER BY c.nombre
             """,
@@ -261,7 +261,7 @@ def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[
     extra, sparams = _filtro_owner("c", user_id, is_admin)
     hoy = datetime.now().strftime("%Y-%m-%d")
     q = f"""
-        SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
+        SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
         FROM clientes c
         WHERE 1=1 {extra}
     """
