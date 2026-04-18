@@ -6,17 +6,29 @@
 
 <div class="space-y-2 mb-6">
   <h2 class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza</h2>
+  <a href="{{ url_for('cobro_hoy') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Ruta de cobro</a>
+  <a href="{{ url_for('gastos') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Control de gastos</a>
   <a href="{{ url_for('reportes') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Visión general / Reportes</a>
   <a href="{{ url_for('cuotas_vencidas') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-rose-800/50 text-rose-200 text-sm font-semibold">Cuotas vencidas</a>
   <a href="{{ url_for('cuotas_vencer') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-800/50 text-accent text-sm font-semibold">Cuotas por vencer (hoy / mañana)</a>
 </div>
 
 <form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6" data-loading-submit data-loading-label="Procesando…">
-  <h2 class="font-semibold text-accent text-sm">Cambiar clave</h2>
-  <input type="password" name="password_actual" placeholder="Clave actual" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input type="password" name="password_nueva" placeholder="Nueva clave (mín. 6)" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input type="password" name="password_nueva2" placeholder="Repetir nueva" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Actualizar clave</button>
+  <input type="hidden" name="accion" value="cambiar_usuario">
+  <h2 class="font-semibold text-accent text-sm">Cambiar nombre de usuario</h2>
+  <input type="text" name="usuario_actual" value="{{ username_actual }}" readonly class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-slate-500">
+  <input type="text" name="nuevo_usuario" placeholder="Nuevo nombre de usuario" required minlength="3" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input type="text" name="confirmar_usuario" placeholder="Confirmar nuevo" required minlength="3" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Actualizar usuario</button>
+</form>
+
+<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6" data-loading-submit data-loading-label="Procesando…">
+  <input type="hidden" name="accion" value="cambiar_password">
+  <h2 class="font-semibold text-accent text-sm">Cambiar contraseña</h2>
+  <input type="password" name="password_actual" placeholder="Contraseña actual" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input type="password" name="password_nueva" placeholder="Nueva contraseña (mín. 6)" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input type="password" name="password_nueva2" placeholder="Confirmar nueva" required minlength="6" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Actualizar contraseña</button>
 </form>
 
 {% if is_admin %}

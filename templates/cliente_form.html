@@ -2,10 +2,23 @@
 {% block title %}{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente{% endblock %}
 {% block content %}
 <h1 class="text-xl font-bold mb-4">{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente</h1>
-<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…">
+<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…" enctype="multipart/form-data">
   {% set c = cliente %}
   {% set fd = form_data or {} %}
   <h2 class="text-sm uppercase tracking-wide text-slate-300 font-semibold">Datos del cliente</h2>
+  <div class="flex items-center gap-3 mb-2">
+    {% if c and c[6] %}
+    <img src="{{ c[6] }}" class="w-16 h-16 rounded-full object-cover border-2 border-cyan-500">
+    {% else %}
+    <div class="w-16 h-16 rounded-full bg-panel2 border-2 border-cyan-500 flex items-center justify-center text-2xl font-bold text-cyan-400">
+      {{ (c[1] if c else (fd.get('nombre', '') or ''))[0]|upper }}
+    </div>
+    {% endif %}
+    <label class="flex-1">
+      <span class="text-xs text-slate-400 block mb-1">Foto del cliente</span>
+      <input type="file" name="foto" accept="image/*" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-cyan-600 file:text-white file:text-xs file:font-semibold">
+    </label>
+  </div>
   <input name="nombre" placeholder="Nombre" required value="{{ c[1] if c else (fd.get('nombre', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <input name="identificacion" placeholder="Identificación" required value="{{ c[2] if c else (fd.get('identificacion', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <input name="telefono" placeholder="Teléfono" value="{{ c[3] if c else (fd.get('telefono', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">

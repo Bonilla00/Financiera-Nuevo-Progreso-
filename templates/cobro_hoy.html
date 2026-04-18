@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Cobro del día{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-1">Ruta de cobro</h1>
+<p class="text-slate-400 text-sm mb-3">{{ count }} por cobrar · {{ fmt_money(total) }} total{% if mora_total > 0 %} · {{ fmt_money(mora_total) }} mora{% endif %}</p>
+
+<div class="space-y-3" id="lista-cobro">
+  {% for r in rows %}
+  {% set mapas = url_maps(r[3], r[2]) %}
+  {% set tel_h = url_tel(r[4]) %}
+  {% set wa_h = url_whatsapp(r[4]) %}
+  {% set dias_mora = r[12] or 0 %}
+  <div class="list-row-interactive rounded-xl border border-slate-700 p-3" data-id="{{ r[0] }}">
+    <div class="flex justify-between gap-2">
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-white">{{ r[1] }}</p>
+        <p class="text-xs text-slate-400">{{ r[2] or '—' }}{% if r[3] %} · {{ r[3] }}{% endif %}</p>
+        <p class="text-sm text-accent font-semibold mt-1">{{ fmt_money(r[5]) }}{% if dias_mora > 0 %} <span class="text-rose-400">({{ dias_mora }} días mora)</span>{% endif %}</p>
+      </div>
+      <div class="flex flex-col gap-1 shrink-0 justify-center">
+        <a href="{{ url_for('prestamos_cobrar', pid=r[0]) }}" class="text-xs font-semibold text-accent px-2 py-1 rounded-lg border border-cyan-600/50">Cobrar</a>
+        <div class="flex gap-1">
+          {% if tel_h %}
+          <a href="{{ tel_h }}" class="text-xs text-slate-400 px-1" title="Llamar">📞</a>
+          {% endif %}
+          {% if wa_h %}
+          <a href="{{ wa_h }}" target="_blank" rel="noopener noreferrer" class="text-xs text-emerald-400 px-1" title="WhatsApp">💬</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="mt-2 flex items-center gap-2">
+      <label class="flex items-center gap-2 text-xs text-slate-400">
+        <input type="checkbox" class="w-4 h-4 accent-cyan-500" data-visitado="{{ r[0] }}">
+        Marcado como visitado
+      </label>
+    </div>
+  </div>
+  {% else %}
+  <p class="text-slate-500 text-sm">No hay cobrado-hoy ni vencidos hoy.</p>
+  {% endfor %}
+</div>
+<script>
+(function() {
+  var lista = document.getElementById('lista-cobro');
+  if (!lista) return;
+  var checkboxes = lista.querySelectorAll('input[data-visitado]');
+  var storageKey = 'cobro_visitados_' + new Date().toISOString().slice(0, 10);
+  var visitados = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  checkboxes.forEach(function(cb) {
+    var id = cb.dataset.visitado;
+    if (visitados.indexOf(id) !== -1) cb.checked = true;
+    cb.addEventListener('change', function() {
+      var arr = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      if (cb.checked) {
+        if (arr.indexOf(id) === -1) arr.push(id);
+      } else {
+        var idx = arr.indexOf(id);
+        if (idx !== -1) arr.splice(idx, 1);
+      }
+      localStorage.setItem(storageKey, JSON.stringify(arr));
+    });
+  });
+})();
+</script>
+{% endblock %}

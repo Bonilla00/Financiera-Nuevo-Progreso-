@@ -197,6 +197,8 @@ def index():
     prs_activos = db.listar_prestamos("p.estado = %s", ("ACTIVO",), uid, is_admin)
     hoy_dt = datetime.strptime(today_str(), "%Y-%m-%d")
     mora = sum(1 for p in prs_activos if prestamo_en_mora_fila(p, hoy_dt))
+    capital_en_calle = db.sum_saldo_restante_total(uid, is_admin)
+    cobrado_hoy = db.sum_pagos_hoy(uid, is_admin)
     return render_template(
         "index.html",
         cobrado_periodo=cobrado_periodo,
@@ -207,6 +209,8 @@ def index():
         periodo_etiqueta=periodo_etiqueta,
         f_ini=f_ini,
         f_fin=f_fin,
+        capital_en_calle=capital_en_calle,
+        cobrado_hoy=cobrado_hoy,
     )
 
 
@@ -315,6 +319,11 @@ def clientes_perfil(cid):
     if request.method == "POST":
         if request.form.get("accion") != "guardar_datos":
             abort(400)
+        foto_data = None
+        foto_file = request.files.get("foto")
+        if foto_file and foto_file.filename:
+            import base64
+            foto_data = "data:" + foto_file.content_type + ";base64," + base64.b64encode(foto_file.read()).decode("utf-8")
         db.actualizar_cliente(
             cid,
             request.form.get("nombre", "").strip(),
@@ -324,6 +333,7 @@ def clientes_perfil(cid):
             request.form.get("direccion", "").strip(),
             uid,
             is_admin,
+            foto_data,
         )
         flash("Información personal actualizada.", "ok")
         return redirect(url_for("clientes_perfil", cid=cid))
@@ -348,11 +358,15 @@ def clientes_perfil(cid):
                 "saldo": saldo,
             }
         )
+    auditoria = []
+    if prestamos_view:
+        auditoria = db.listar_auditoria_prestamo(prestamos_view[0]["id"], uid, is_admin)
     return render_template(
         "cliente_perfil.html",
         cliente=row,
         prestamos=prestamos_view,
         is_admin=is_admin,
+        auditoria=auditoria,
     )
 
 
@@ -553,6 +567,9 @@ def prestamos_cobrar(pid):
     tasa_m = float(info[18] or 0)
     interes_mora = db.calcular_interes_mora(valor_cuota, prox, fecha, mora_act, tasa_m)
     total_sugerido = round(valor_cuota + interes_mora, 2)
+    pagadas = info[14] or 0
+    num_cuota = int(pagadas) + 1
+    telefono = info[16] if len(info) > 16 else ""
     return render_template(
         "prestamos_cobrar.html",
         pid=pid,
@@ -563,6 +580,8 @@ def prestamos_cobrar(pid):
         total_sugerido=total_sugerido,
         proximo_pago=prox or "",
         mora_activa=mora_act,
+        telefono=telefono,
+        num_cuota=num_cuota,
     )
 
 
@@ -573,28 +592,33 @@ def prestamos_pago(pid):
     try:
         valor = float(request.form.get("valor", "0"))
         fecha = request.form.get("fecha", today_str())
+        nota = request.form.get("nota", "").strip()
         pago_id, num_cuota, interes_mora, valor_cuota_base = db.registrar_pago(
-            pid, fecha, valor, uid, is_admin
+            pid, fecha, valor, uid, is_admin, nota
         )
+        session["_ultimo_pago"] = {
+            "pid": pid,
+            "pago_id": pago_id,
+            "num_cuota": num_cuota,
+            "valor": valor,
+            "fecha": fecha,
+            "interes_mora": interes_mora,
+            "valor_cuota_base": valor_cuota_base,
+        }
         info = db.obtener_prestamo(pid, uid, is_admin)
         nombre = info[2]
-        buf = recibos.generar_recibo_pdf(
-            nombre,
-            pid,
-            num_cuota,
-            valor,
-            fecha,
-            uid,
-            is_admin,
-            valor_cuota_base=valor_cuota_base,
-            interes_mora=interes_mora,
-        )
-        flash("Pago registrado. Descarga el recibo.", "ok")
-        return send_file(
-            buf,
-            as_attachment=True,
-            download_name=f"recibo_{pid}_{pago_id}.pdf",
-            mimetype="application/pdf",
+        telefono = info[16] if len(info) > 16 else ""
+        wa_url = url_whatsapp(telefono, nombre, valor, num_cuota) if telefono else ""
+        flash("Pago registrado.", "ok")
+        return render_template(
+            "pago_exito.html",
+            pid=pid,
+            nombre=nombre,
+            telefono=telefono,
+            wa_url=wa_url,
+            valor=valor,
+            num_cuota=num_cuota,
+            pdf_url=url_for("descargar_recibo", pid=pid, pago_id=pago_id),
         )
     except Exception as e:
         flash(str(e), "error")
@@ -722,23 +746,42 @@ def pagos_eliminar(pago_id):
 @app.route("/configuracion", methods=["GET", "POST"])
 @login_required
 def configuracion():
-    uid, _, __ = ctx_user()
+    uid, username, is_admin = ctx_user()
     if request.method == "POST":
-        actual = request.form.get("password_actual", "")
-        n1 = request.form.get("password_nueva", "")
-        n2 = request.form.get("password_nueva2", "")
-        row = db.obtener_usuario_por_id(uid)
-        if not row or not check_password_hash(row[2], actual):
-            flash("La clave actual no es correcta.", "error")
-        elif len(n1) < 6:
-            flash("La nueva clave debe tener al menos 6 caracteres.", "error")
-        elif n1 != n2:
-            flash("Las claves nuevas no coinciden.", "error")
-        else:
-            db.actualizar_password_usuario(uid, generate_password_hash(n1))
-            flash("Clave actualizada.", "ok")
-            return redirect(url_for("configuracion"))
-    return render_template("configuracion.html")
+        action = request.form.get("accion", "")
+        if action == "cambiar_usuario":
+            nuevo = request.form.get("nuevo_usuario", "").strip()
+            confirmar = request.form.get("confirmar_usuario", "").strip()
+            if len(nuevo) < 3:
+                flash("El usuario debe tener al menos 3 caracteres.", "error")
+            elif nuevo != confirmar:
+                flash("Los nombres de usuario no coinciden.", "error")
+            else:
+                exist = db.obtener_usuario_por_username(nuevo)
+                if exist and exist[0] != uid:
+                    flash("Ese nombre de usuario ya está en uso.", "error")
+                else:
+                    db.actualizar_username_usuario(uid, nuevo)
+                    session["username"] = nuevo
+                    flash("Usuario actualizado.", "ok")
+                    return redirect(url_for("configuracion"))
+        elif action == "cambiar_password":
+            actual = request.form.get("password_actual", "")
+            n1 = request.form.get("password_nueva", "")
+            n2 = request.form.get("password_nueva2", "")
+            row = db.obtener_usuario_por_id(uid)
+            if not row or not check_password_hash(row[2], actual):
+                flash("La clave actual no es correcta.", "error")
+            elif len(n1) < 6:
+                flash("La nueva clave debe tener al menos 6 caracteres.", "error")
+            elif n1 != n2:
+                flash("Las claves nuevas no coinciden.", "error")
+            else:
+                db.actualizar_password_usuario(uid, generate_password_hash(n1))
+                flash("Clave actualizada.", "ok")
+                return redirect(url_for("configuracion"))
+    row = db.obtener_usuario_por_id(uid)
+    return render_template("configuracion.html", username_actual=username)
 
 
 @app.route("/admin/usuarios", methods=["GET", "POST"])
@@ -851,3 +894,86 @@ def prestamos_notas(pid):
     row = db.listar_prestamos("p.id = %s", (pid,), uid, is_admin)
     notas = row[0][14] if row else ""
     return render_template("prestamos_notas.html", pid=pid, nombre=info[2], notas=notas or "")
+
+
+@app.route("/prestamos/<int:pid>/recibo/<int:pago_id>")
+@login_required
+def descargar_recibo(pid, pago_id):
+    uid, _, is_admin = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+    nombre = info[2]
+    datos = session.get("_ultimo_pago", {})
+    if datos.get("pago_id") != pago_id or datos.get("pid") != pid:
+        datos = {"pid": pid, "pago_id": pago_id, "num_cuota": 1, "valor": 0, "fecha": today_str(), "interes_mora": 0, "valor_cuota_base": 0}
+    buf = recibos_generar_recibo_pdf(
+        nombre,
+        pid,
+        datos.get("num_cuota", 1),
+        datos.get("valor", 0),
+        datos.get("fecha", today_str()),
+        uid,
+        is_admin,
+        valor_cuota_base=datos.get("valor_cuota_base", 0),
+        interes_mora=datos.get("interes_mora", 0),
+    )
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"recibo_{pid}_{pago_id}.pdf",
+        mimetype="application/pdf",
+    )
+
+
+@app.route("/cobro/hoy")
+@login_required
+def cobro_hoy():
+    uid, _, is_admin = ctx_user()
+    rows = db.listar_cobro_hoy(uid, is_admin)
+    total = sum(float(r[5] or 0) for r in rows)
+    mora_total = 0
+    for r in rows:
+        if r[7]:
+            dias = r[12] or 0
+            if dias > 0 and r[8]:
+                valor_cuota = float(r[5] or 0)
+                tasa = float(r[8] or 0)
+                mora_total += valor_cuota * (tasa / 100) * dias
+    return render_template("cobro_hoy.html", rows=rows, total=total, mora_total=mora_total, count=len(rows))
+
+
+@app.route("/gastos", methods=["GET", "POST"])
+@login_required
+def gastos():
+    from datetime import datetime
+    uid, _, is_admin = ctx_user()
+    db.ensure_gastos_table()
+    año = int(request.args.get("año", datetime.now().year))
+    mes = int(request.args.get("mes", datetime.now().month))
+    if request.method == "POST":
+        fecha = request.form.get("fecha", today_str())
+        desc = request.form.get("descripcion", "").strip()
+        valor = float(request.form.get("valor", "0"))
+        categoria = request.form.get("categoria", "Otro")
+        if desc and valor > 0:
+            db.registrar_gasto(uid, fecha, desc, valor, categoria)
+            flash("Gasto registrado.", "ok")
+        return redirect(url_for("gastos", año=año, mes=mes))
+    rows = db.listar_gastos_mes(uid, is_admin, año, mes)
+    total = sum(float(r[3] or 0) for r in rows)
+    return render_template("gastos.html", rows=rows, total=total, año=año, mes=mes)
+
+
+@app.route("/gastos/<int:gasto_id>/eliminar", methods=["POST"])
+@login_required
+def eliminar_gasto(gasto_id):
+    uid, _, is_admin = ctx_user()
+    from datetime import datetime
+    año = int(request.form.get("año", datetime.now().year))
+    mes = int(request.form.get("mes", datetime.now().month))
+    if db.eliminar_gasto(gasto_id, uid, is_admin):
+        flash("Gasto eliminado.", "ok")
+    else:
+        flash("No se pudo eliminar.", "error")
+    return redirect(url_for("gastos", año=año, mes=mes))

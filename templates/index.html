@@ -18,6 +18,16 @@
     <p class="text-slate-500 text-xs mt-1">{{ num_pagos_periodo }} pago(s) registrado(s)</p>
   </div>
   <div class="bg-panel rounded-2xl border border-slate-700 p-4">
+    <p class="text-slate-400 text-xs font-semibold">Capital en calle</p>
+    <p class="text-xl font-bold text-accent">{{ fmt_money(capital_en_calle) }}</p>
+    <p class="text-slate-500 text-[10px] mt-0.5">Saldos restantes</p>
+  </div>
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
+    <p class="text-slate-400 text-xs font-semibold">Cobrado hoy</p>
+    <p class="text-xl font-bold text-accent">{{ fmt_money(cobrado_hoy) }}</p>
+    <p class="text-slate-500 text-[10px] mt-0.5">💰 Total día</p>
+  </div>
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
     <p class="text-slate-400 text-xs font-semibold">Activos</p>
     <p class="text-2xl font-bold text-accent">{{ activos }}</p>
     <p class="text-slate-500 text-[10px] mt-0.5">Préstamos en curso</p>

@@ -2,6 +2,12 @@
 {% block title %}Préstamos{% endblock %}
 {% block content %}
 <h1 class="text-xl font-bold mb-3">Préstamos</h1>
+<div class="relative mb-3">
+  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+  </div>
+  <input type="text" id="busqueda-rapida" placeholder="Buscar por cliente o identificación..." class="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#1F2937] border border-slate-600 text-white placeholder-slate-500 focus:border-[#22D3EE] focus:outline-none transition-colors">
+</div>
 <div class="flex flex-wrap gap-2 mb-4">
   <a href="{{ url_for('prestamos_list', estado='activos') }}" class="px-3 py-1 rounded-full text-sm {% if filtro=='activos' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300{% endif %}">Activos</a>
   <a href="{{ url_for('prestamos_list', estado='pagados') }}" class="px-3 py-1 rounded-full text-sm {% if filtro=='pagados' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300{% endif %}">Pagados</a>
@@ -9,7 +15,7 @@
   <a href="{{ url_for('prestamos_list', estado='todos') }}" class="px-3 py-1 rounded-full text-sm {% if filtro=='todos' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300{% endif %}">Todos</a>
 </div>
 <a href="{{ url_for('prestamos_nuevo') }}" class="block text-center mb-4 py-2 rounded-xl bg-accent text-slate-900 font-bold text-sm">+ Nuevo préstamo</a>
-<div class="space-y-3">
+<div class="space-y-3" id="lista-prestamos">
   {% for p in prestamos %}
   {% set maps_h = url_maps(p[17], p[18]) %}
   {% set tel_h = url_tel(p[16]) %}
@@ -17,7 +23,7 @@
   {% set prox_iso = p[13] %}
   {% set prox_txt = fecha_proximo_pago_texto(prox_iso) %}
   {% set tiene_nota = ((p[14] | default('', true)) | trim | length) > 0 %}
-  <div class="list-row-interactive rounded-xl border border-slate-700 p-3">
+  <div class="list-row-interactive rounded-xl border border-slate-700 p-3 prestamo-item" data-cliente="{{ p[1].lower() }}" data-ident="{{ p[2].lower() }}">
     <div class="flex justify-between gap-2">
       <div class="min-w-0 flex-1">
         <p class="font-semibold text-white truncate">{{ p[1] }}</p>
@@ -60,5 +66,26 @@
   {% else %}
   <p class="text-slate-500 text-sm">Sin préstamos en este filtro.</p>
   {% endfor %}
+  <p id="no-resultados" class="text-slate-500 text-sm hidden">No se encontraron resultados</p>
 </div>
+<script>
+(function() {
+  var input = document.getElementById('busqueda-rapida');
+  var items = document.querySelectorAll('.prestamo-item');
+  var noRes = document.getElementById('no-resultados');
+  if (!input || items.length === 0) return;
+  input.addEventListener('input', function() {
+    var q = input.value.toLowerCase().trim();
+    var visible = 0;
+    items.forEach(function(el) {
+      var cliente = el.dataset.cliente || '';
+      var ident = el.dataset.ident || '';
+      var match = q === '' || cliente.indexOf(q) !== -1 || ident.indexOf(q) !== -1;
+      el.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    if (noRes) noRes.classList.toggle('hidden', visible > 0);
+  });
+})();
+</script>
 {% endblock %}

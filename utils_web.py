@@ -74,12 +74,15 @@ def url_tel(tel):
     return f"tel:+{d}"
 
 
-def url_whatsapp(tel):
+def url_whatsapp(tel, nombre="", valor=0, num_cuota=0):
     d = solo_digitos_telefono(tel)
     if not d:
         return ""
     if len(d) <= 10 and not d.startswith("57"):
         d = "57" + d
+    if nombre or valor or num_cuota:
+        msg = f"Hola {nombre}, confirmamos recibo de pago por ${int(valor):,} correspondiente a la cuota {num_cuota} de su préstamo. Gracias por su pago. — Financiera Nuevo Progreso"
+        return f"https://wa.me/{d}?text=" + quote(msg)
     return f"https://wa.me/{d}"
 
 

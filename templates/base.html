@@ -215,7 +215,10 @@
     <a href="{{ url_for('pagos_list') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'pagos_list' %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">💵</span>Pagos
     </a>
-    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf') %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('cobro_hoy') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'cobro_hoy' %}text-accent{% else %}text-slate-400{% endif %}">
+      <span class="text-lg leading-none">🗓</span>Cobro
+    </a>
+    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','gastos') %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">⚙</span>Más
     </a>
   </nav>

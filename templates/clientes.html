@@ -6,6 +6,13 @@
   <a href="{{ url_for('clientes_nuevo') }}" class="px-3 py-2 rounded-xl bg-accent text-slate-900 text-sm font-bold shrink-0">+ Nuevo</a>
 </div>
 
+<div class="relative mb-3">
+  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+  </div>
+  <input type="text" id="busqueda-rapida" placeholder="Buscar por nombre o identificación..." class="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#1F2937] border border-slate-600 text-white placeholder-slate-500 focus:border-[#22D3EE] focus:outline-none transition-colors">
+</div>
+
 <div class="flex flex-wrap gap-1.5 mb-4">
   <a href="{{ url_for('clientes_list', estado='todo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='todo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Todo</a>
   <a href="{{ url_for('clientes_list', estado='activo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='activo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Con crédito activo</a>
@@ -14,10 +21,18 @@
   <a href="{{ url_for('clientes_list', estado='sin_activo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='sin_activo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Sin crédito activo</a>
 </div>
 
-<div class="space-y-2">
+<div class="space-y-2" id="lista-clientes">
   {% for c in clientes %}
-  <div class="list-row-interactive rounded-xl border border-slate-700 p-3 flex justify-between items-stretch gap-2">
-    <a href="{{ url_for('clientes_perfil', cid=c[0]) }}" class="flex-1 min-w-0 block py-0.5 active:opacity-80">
+  <div class="list-row-interactive rounded-xl border border-slate-700 p-3 flex justify-between items-stretch gap-2 cliente-item" data-nombre="{{ c[1].lower() }}" data-identificacion="{{ c[2].lower() }}">
+    <a href="{{ url_for('clientes_perfil', cid=c[0]) }}" class="flex-1 min-w-0 block py-0.5 active:opacity-80 flex items-center gap-2">
+      {% if c[6] %}
+      <img src="{{ c[6] }}" class="w-10 h-10 rounded-full object-cover border border-cyan-500 shrink-0">
+      {% else %}
+      <div class="w-10 h-10 rounded-full bg-panel2 border border-cyan-500 flex items-center justify-center text-sm font-bold text-cyan-400 shrink-0">
+        {{ c[1][0] }}
+      </div>
+      {% endif %>
+      <div class="min-w-0">
       <p class="font-semibold text-white">{{ c[1] }}</p>
       <p class="text-xs text-slate-400">{{ c[2] }} · {{ c[3] or '—' }}</p>
       <span class="inline-block mt-1.5 text-[11px] font-bold text-accent">Ver perfil →</span>
@@ -32,5 +47,26 @@
   {% else %}
   <p class="text-slate-500 text-sm">No hay clientes con este filtro.</p>
   {% endfor %}
+  <p id="no-resultados" class="text-slate-500 text-sm hidden">No se encontraron resultados</p>
 </div>
+<script>
+(function() {
+  var input = document.getElementById('busqueda-rapida');
+  var items = document.querySelectorAll('.cliente-item');
+  var noRes = document.getElementById('no-resultados');
+  if (!input || items.length === 0) return;
+  input.addEventListener('input', function() {
+    var q = input.value.toLowerCase().trim();
+    var visible = 0;
+    items.forEach(function(el) {
+      var nombre = el.dataset.nombre || '';
+      var ident = el.dataset.identificacion || '';
+      var match = q === '' || nombre.indexOf(q) !== -1 || ident.indexOf(q) !== -1;
+      el.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    if (noRes) noRes.classList.toggle('hidden', visible > 0);
+  });
+})();
+</script>
 {% endblock %}

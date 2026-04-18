@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Gastos{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-3">Control de gastos</h1>
+<div class="flex flex-wrap gap-2 mb-4">
+  <a href="{{ url_for('gastos', año= año, mes=mes-1) if mes > 1 else url_for('gastos', año=año-1, mes=11) }}" class="px-3 py-1 rounded bg-panel2 text-slate-300 text-sm">← Anterior</a>
+  <span class="px-3 py-1 rounded bg-accent text-slate-900 text-sm font-bold">{{ ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][mes-1].upper() }} {{ año }}</span>
+  <a href="{{ url_for('gastos', año=año, mes=mes+1) if mes < 12 else url_for('gastos', año=año+1, mes=1) }}" class="px-3 py-1 rounded bg-panel2 text-slate-300 text-sm">Siguiente →</a>
+</div>
+
+<div class="bg-panel rounded-2xl border border-slate-700 p-4 mb-4">
+  <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Registrar gasto</h2>
+  <form method="post" class="space-y-3" data-loading-submit data-loading-label="Guardando…">
+    <input type="date" name="fecha" value="{{ today_str() }}" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <input type="text" name="descripcion" placeholder="Descripción" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <input type="number" name="valor" step="0.01" min="0" placeholder="Valor" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+    <select name="categoria" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+      <option value="Transporte">Transporte</option>
+      <option value="Papelería">Papelería</option>
+      <option value="Servicios">Servicios</option>
+      <option value="Arriendo">Arriendo</option>
+      <option value="Otro" selected>Otro</option>
+    </select>
+    <button type="submit" class="w-full py-3 rounded-xl bg-rose-600 text-white font-bold">Registrar gasto</button>
+  </form>
+</div>
+
+<div class="bg-panel rounded-2xl border border-slate-700 p-4 mb-4">
+  <div class="flex justify-between items-center mb-3">
+    <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold">Gastos del mes</h2>
+    <span class="text-lg font-bold text-rose-400">{{ fmt_money(total) }}</span>
+  </div>
+  <div class="space-y-2">
+    {% for r in rows %}
+    <div class="flex justify-between items-center gap-2 border-b border-slate-700 pb-2">
+      <div class="min-w-0">
+        <p class="text-sm text-white">{{ r[2] }}</p>
+        <p class="text-xs text-slate-400">{{ r[1] }} · {{ r[4] }}</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="text-sm text-rose-400 font-semibold">{{ fmt_money(r[3]) }}</span>
+        <form method="post" action="{{ url_for('eliminar_gasto', gasto_id=r[0]) }}">
+          <input type="hidden" name="año" value="{{ año }}">
+          <input type="hidden" name="mes" value="{{ mes }}">
+          <button type="submit" class="text-xs text-rose-500" onclick="return confirm('¿Eliminar?');">✕</button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <p class="text-slate-500 text-sm">No hay gastos este mes.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<a href="{{ url_for('configuracion') }}" class="block text-center text-sm text-slate-400">← Volver a configuración</a>
+{% endblock %}

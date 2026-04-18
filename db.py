@@ -41,11 +41,30 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS mora_activa BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS tasa_mora_diaria DOUBLE PRECISION NOT NULL DEFAULT 0",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS interes_mora DOUBLE PRECISION NOT NULL DEFAULT 0",
+        "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS nota TEXT",
+        "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto TEXT",
     ]
     with get_conn() as conn:
         cur = conn.cursor()
         for s in stmts:
             cur.execute(s)
+    ensure_auditoria_table()
+
+
+def ensure_auditoria_table() -> None:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS auditoria_prestamos (
+                id SERIAL PRIMARY KEY,
+                prestamo_id INTEGER NOT NULL,
+                usuario_id INTEGER NOT NULL,
+                fecha TIMESTAMP NOT NULL DEFAULT NOW(),
+                campo_modificado VARCHAR(50) NOT NULL,
+                valor_anterior TEXT,
+                valor_nuevo TEXT
+            )
+        """)
 
 
 def calcular_interes_mora(
@@ -95,6 +114,15 @@ def count_usuarios() -> int:
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM usuarios")
         return int(cur.fetchone()[0])
+
+
+def actualizar_username_usuario(uid: int, username: str) -> None:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE usuarios SET username = %s WHERE id = %s",
+            (username.strip().lower(), uid),
+        )
 
 
 def crear_usuario(username: str, password_hash: str, rol: str = "usuario") -> int:
@@ -288,17 +316,27 @@ def actualizar_cliente(
     direccion: str,
     user_id: int,
     is_admin: bool,
+    foto: str = None,
 ) -> bool:
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            f"""
-            UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s
-            WHERE id=%s {extra}
-            """,
-            (nombre, identificacion, telefono, barrio, direccion, cid) + params,
-        )
+        if foto is not None:
+            cur.execute(
+                f"""
+                UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s, foto=%s
+                WHERE id=%s {extra}
+                """,
+                (nombre, identificacion, telefono, barrio, direccion, foto, cid) + params,
+            )
+        else:
+            cur.execute(
+                f"""
+                UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s
+                WHERE id=%s {extra}
+                """,
+                (nombre, identificacion, telefono, barrio, direccion, cid) + params,
+            )
         return cur.rowcount > 0
 
 
@@ -461,6 +499,141 @@ def listar_cuotas_vencer(user_id: int, is_admin: bool) -> list[tuple]:
         return cur.fetchall()
 
 
+def listar_cobro_hoy(user_id: int, is_admin: bool) -> list[tuple]:
+    """Préstamos con próximo_pago hoy o vencido, ordenados por barrio."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    q = f"""
+        SELECT p.id, c.nombre, c.barrio, c.direccion, c.telefono,
+               p.valor_cuota, p.proximo_pago, p.mora_activa, p.tasa_mora_diaria,
+               p.total_pagar, p.pagadas, p.cuotas,
+               GREATEST(0, (CURRENT_DATE - (p.proximo_pago::date)))::int AS dias_mora
+        FROM prestamos p
+        JOIN clientes c ON c.id = p.cliente_id
+        WHERE p.estado = 'ACTIVO'
+          AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
+          AND (p.proximo_pago::date) <= CURRENT_DATE
+          {scope}
+        ORDER BY c.barrio ASC NULLS LAST, c.nombre ASC
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(q, tuple(sparams))
+        return cur.fetchall()
+
+
+def sum_saldo_restante_total(user_id: int, is_admin: bool) -> float:
+    """Suma de saldos restantes de todos los préstamos activos."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    q = f"""
+        SELECT COALESCE(SUM(
+            p.total_pagar - (p.pagadas * p.valor_cuota)
+        ), 0)
+        FROM prestamos p
+        JOIN clientes c ON c.id = p.cliente_id
+        WHERE p.estado = 'ACTIVO' {scope}
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(q, tuple(sparams))
+        return float(cur.fetchone()[0] or 0)
+
+
+def guardar_auditoria_prestamo(prestamo_id: int, usuario_id: int, campo: str, anterior: str, nuevo: str) -> None:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO auditoria_prestamos (prestamo_id, usuario_id, campo_modificado, valor_anterior, valor_nuevo)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (prestamo_id, usuario_id, campo, anterior, nuevo),
+        )
+
+
+def listar_auditoria_prestamo(prestamo_id: int, user_id: int, is_admin: bool) -> list[tuple]:
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    q = f"""
+        SELECT a.fecha, a.campo_modificado, a.valor_anterior, a.valor_nuevo, u.username
+        FROM auditoria_prestamos a
+        JOIN prestamos p ON p.id = a.prestamo_id
+        JOIN clientes c ON c.id = p.cliente_id
+        JOIN usuarios u ON u.id = a.usuario_id
+        WHERE a.prestamo_id = %s {scope}
+        ORDER BY a.fecha DESC
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(q, (prestamo_id,) + sparams)
+        return cur.fetchall()
+
+
+def ensure_gastos_table() -> None:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS gastos (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+                descripcion TEXT NOT NULL,
+                valor DOUBLE PRECISION NOT NULL,
+                categoria VARCHAR(50) NOT NULL,
+                creado_en TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        """)
+
+
+def registrar_gasto(user_id: int, fecha: str, descripcion: str, valor: float, categoria: str) -> int:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO gastos (user_id, fecha, descripcion, valor, categoria)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (user_id, fecha, descripcion, valor, categoria),
+        )
+        return int(cur.fetchone()[0])
+
+
+def listar_gastos_mes(user_id: int, is_admin: bool, año: int = None, mes: int = None) -> list[tuple]:
+    from datetime import datetime
+    if año is None:
+        año = datetime.now().year
+    if mes is None:
+        mes = datetime.now().month
+    fecha_ini = f"{año}-{mes:02d}-01"
+    if mes == 12:
+        fecha_fin = f"{año + 1}-01-01"
+    else:
+        fecha_fin = f"{año}-{mes + 1:02d}-01"
+    scope, sparams = _filtro_owner("g", user_id, is_admin)
+    q = f"""
+        SELECT g.id, g.fecha, g.descripcion, g.valor, g.categoria
+        FROM gastos g
+        WHERE g.fecha >= %s AND g.fecha < %s {scope}
+        ORDER BY g.fecha DESC, g.id DESC
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(q, (fecha_ini, fecha_fin) + sparams)
+        return cur.fetchall()
+
+
+def total_gastos_mes(user_id: int, is_admin: bool, año: int = None, mes: int = None) -> float:
+    rows = listar_gastos_mes(user_id, is_admin, año, mes)
+    return sum(float(r[3] or 0) for r in rows)
+
+
+def eliminar_gasto(gasto_id: int, user_id: int, is_admin: bool) -> bool:
+    scope, sparams = _filtro_owner("g", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM gastos WHERE id = %s {scope}", (gasto_id,) + sparams)
+        return cur.rowcount > 0
+
+
 def contar_prestamos_activos(user_id: int, is_admin: bool) -> int:
     scope, sparams = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
@@ -561,7 +734,7 @@ def actualizar_prestamo(
         raise ValueError("Las cuotas no pueden ser menores que las ya registradas como pagadas.")
 
     total_pagado = sum_pagos_por_prestamo(pid, user_id, is_admin)
-    interes_total = float(monto) * (float(tasa) / 100.0)
+    interes_total = float(monto) * (tasa / 100.0)
     total_pagar = float(monto) + interes_total
     if total_pagar + 1e-6 < total_pagado:
         raise ValueError(
@@ -577,6 +750,20 @@ def actualizar_prestamo(
     mora_t = float(info[18] or 0) if tasa_mora_diaria is None else float(tasa_mora_diaria or 0)
 
     extra, params = _filtro_owner("c", user_id, is_admin)
+    cambios = []
+    if str(info[3]) != fecha:
+        cambios.append(("fecha", str(info[3]), fecha))
+    if str(info[5]).lower() != frecuencia.lower():
+        cambios.append(("frecuencia", str(info[5]), frecuencia))
+    if int(info[6]) != cuotas_i:
+        cambios.append(("cuotas", str(info[6])), str(cuotas_i)))
+    if float(info[7]) != monto:
+        cambios.append(("monto", str(info[7])), str(monto)))
+    if float(info[8]) != tasa:
+        cambios.append(("tasa", str(info[8])), str(tasa)))
+    if str(info[9]) != vencimiento:
+        cambios.append(("vencimiento", str(info[9])), vencimiento))
+
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -606,6 +793,9 @@ def actualizar_prestamo(
             )
             + params,
         )
+        if cur.rowcount > 0:
+            for campo, ant, nue in cambios:
+                guardar_auditoria_prestamo(pid, user_id, campo, ant, nue)
         return cur.rowcount > 0
 
 
@@ -625,7 +815,7 @@ def actualizar_nota_prestamo(pid, nota, user_id: int, is_admin: bool) -> bool:
 
 
 # ---------- pagos ----------
-def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_admin: bool) -> tuple:
+def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_admin: bool, nota: str = "") -> tuple:
     """
     Registra un pago. Calcula interés por mora si el préstamo lo tiene habilitado.
     Retorna (pago_id, num_cuota, interes_mora, valor_cuota_base).
@@ -676,11 +866,11 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
 
         cur.execute(
             """
-            INSERT INTO pagos (prestamo_id, fecha, valor, cuota, saldo_restante, interes_mora)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO pagos (prestamo_id, fecha, valor, cuota, saldo_restante, interes_mora, nota)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (prestamo_id, fecha, valor, cuota_num, saldo_restante, interes_mora),
+            (prestamo_id, fecha, valor, cuota_num, saldo_restante, interes_mora, nota),
         )
         pid_pago = int(cur.fetchone()[0])
 
@@ -715,7 +905,8 @@ def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
                prestamos.estado,
                prestamos.proximo_pago,
                prestamos.notas,
-               COALESCE(pagos.interes_mora, 0)
+               COALESCE(pagos.interes_mora, 0),
+               COALESCE(pagos.nota, '')
         FROM pagos
         JOIN prestamos ON prestamos.id = pagos.prestamo_id
         JOIN clientes ON clientes.id = prestamos.cliente_id
