@@ -756,13 +756,13 @@ def actualizar_prestamo(
     if str(info[5]).lower() != frecuencia.lower():
         cambios.append(("frecuencia", str(info[5]), frecuencia))
     if int(info[6]) != cuotas_i:
-        cambios.append(("cuotas", str(info[6])), str(cuotas_i)))
+        cambios.append(("cuotas", str(info[6]), str(cuotas_i)))
     if float(info[7]) != monto:
-        cambios.append(("monto", str(info[7])), str(monto)))
+        cambios.append(("monto", str(info[7]), str(monto)))
     if float(info[8]) != tasa:
-        cambios.append(("tasa", str(info[8])), str(tasa)))
+        cambios.append(("tasa", str(info[8]), str(tasa)))
     if str(info[9]) != vencimiento:
-        cambios.append(("vencimiento", str(info[9])), vencimiento))
+        cambios.append(("vencimiento", str(info[9]), vencimiento))
 
     with get_conn() as conn:
         cur = conn.cursor()
