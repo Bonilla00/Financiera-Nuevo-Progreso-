@@ -34,8 +34,9 @@
 
   <div class="space-y-3">
     {% for p in prestamos %}
+    {# Usamos cid (ID del cliente) para el link y id (ID del préstamo) para mostrar #}
     <div class="list-row-interactive rounded-2xl border p-4 relative overflow-hidden {% if p.en_mora %}border-red-500/50 bg-red-900/10{% else %}border-slate-800 bg-panel{% endif %}"
-         onclick="window.location.href='{{ url_for('clientes_perfil', cid=p.id_1) }}'">
+         onclick="window.location.href='{{ url_for('clientes_perfil', cid=p.cid) }}'">
 
       {% if p.en_mora %}
       <div class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">

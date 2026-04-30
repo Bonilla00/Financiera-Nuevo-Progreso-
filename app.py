@@ -462,16 +462,28 @@ def cuotas_vencer():
 def prestamos_list():
     uid, _, is_admin, _ = ctx_user()
     filtro = request.args.get("estado", "activos")
-    if filtro == "activos":
-        where, params = "p.estado = %s", ("ACTIVO",)
-    elif filtro == "pagados":
-        where, params = "p.estado = %s", ("PAGADO",)
-    elif filtro == "mora":
-        where, params = "p.estado = %s AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE", ("ACTIVO",)
-    else:
-        where, params = "", ()
-    rows = db.listar_prestamos(where, params, uid, is_admin)
-    return render_template("prestamos.html", prestamos=rows, filtro=filtro)
+
+    where = ""
+    params = ()
+
+    try:
+        if filtro == "activos":
+            where, params = "p.estado = %s", ("ACTIVO",)
+        elif filtro == "pagados":
+            where, params = "p.estado = %s", ("PAGADO",)
+        elif filtro == "mora":
+            # Usamos la misma lógica segura del backend para filtrar
+            where = "p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE"
+            params = ()
+
+        rows = db.listar_prestamos(where, params, uid, is_admin)
+        return render_template("prestamos.html", prestamos=rows, filtro=filtro)
+
+    except Exception as e:
+        # Logging del error para debug
+        print(f"Error en /prestamos: {e}")
+        flash("Ocurrió un error al cargar la lista de préstamos.", "error")
+        return redirect(url_for("index"))
 
 
 @app.route("/prestamos/nuevo", methods=["GET", "POST"])

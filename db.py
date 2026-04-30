@@ -460,24 +460,43 @@ def listar_prestamos(
     user_id: int = 0,
     is_admin: bool = True,
 ):
+    """
+    Lista préstamos con alias explícitos para evitar colisiones de ID
+    y cálculo de mora seguro para PostgreSQL.
+    """
     scope, sparams = _filtro_owner("c", user_id, is_admin)
+
+    # Query con alias explícitos y manejo seguro de fechas
     q = f"""
-        SELECT p.id, c.nombre, c.identificacion, p.monto, p.tasa, p.cuotas,
-               p.valor_cuota, p.fecha, p.vencimiento, p.estado, p.pagadas,
-               p.total_pagar, p.frecuencia, p.proximo_pago, p.notas,
-               c.id, c.telefono, c.direccion, c.barrio,
-               p.mora_activa, p.tasa_mora_diaria,
-               (p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE) as en_mora
+        SELECT
+            p.id as id,
+            p.monto, p.tasa, p.cuotas, p.valor_cuota,
+            p.fecha, p.vencimiento, p.estado, p.pagadas,
+            p.total_pagar, p.frecuencia, p.proximo_pago, p.notas,
+            c.id as cid,
+            c.nombre, c.identificacion, c.telefono, c.barrio,
+            CASE
+                WHEN p.estado = 'ACTIVO'
+                     AND p.proximo_pago IS NOT NULL
+                     AND p.proximo_pago <> ''
+                     AND p.proximo_pago::date < CURRENT_DATE
+                THEN TRUE
+                ELSE FALSE
+            END as en_mora
         FROM prestamos p
         JOIN clientes c ON c.id = p.cliente_id
         WHERE 1=1 {scope}
     """
+
     args = list(sparams)
     if where:
         q += " AND " + where
         args.extend(params)
+
     q += " ORDER BY p.id DESC"
+
     with get_conn() as conn:
+        # Usamos RealDictCursor para acceder por nombre de columna en el template
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(q, tuple(args))
         return cur.fetchall()
