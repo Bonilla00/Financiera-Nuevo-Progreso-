@@ -1,33 +1,34 @@
 
 # FinancieraNuevoProgresoApp
 
-Aplicación **básica** de escritorio (Windows) para *Financiera Nuevo progreso* usando:
+Aplicación financiera moderna con soporte para escritorio (Windows) y web (PWA), migrada completamente a **PostgreSQL**.
+
+## Tecnologías
 - Python 3.10+
-- Tkinter + CustomTkinter
-- SQLite (persistencia local)
+- Tkinter + CustomTkinter (Escritorio)
+- Flask (Web/PWA)
+- PostgreSQL (Persistencia centralizada)
 - fpdf2 para generar recibos PDF
-- Pillow para manejo de imagenes (logo/splash)
+- Pillow para manejo de imágenes
 - PyInstaller para empaquetar a `.exe`
 
 ## Estructura
 ```
 FinancieraNuevoProgresoApp/
-├─ main.py
-├─ db.py
-├─ utils.py
-├─ recibos.py
-├─ config.py
+├─ main.py       (App de escritorio)
+├─ app.py        (App web Flask)
+├─ db.py         (Capa de datos PostgreSQL)
+├─ utils.py      (Utilidades comunes)
+├─ recibos.py    (Generación de PDFs)
+├─ config.py     (Configuración de temas y rutas)
 ├─ requirements.txt
 ├─ build.bat
-├─ run.bat
-└─ assets/
-   └─ logo.txt   (placeholder, opcional)
+└─ assets/       (Logos y recursos)
 ```
 
-La base de datos se guardará en:
-`./financiera.db` (en la carpeta del proyecto)  
-Los recibos PDF en:
-`./reportes/`
+## Configuración Obligatoria
+El proyecto requiere una base de datos PostgreSQL. Debes configurar la variable de entorno:
+`DATABASE_URL=postgresql://usuario:password@host:puerto/nombre_db`
 
 ## Uso (modo desarrollo)
 1) Instala Python 3.10+
@@ -38,43 +39,15 @@ python -m venv .venv
 pip install -r requirements.txt
 python main.py
 ```
-> La app creará la base de datos y carpetas automáticamente si no existen.
+> Al iniciar por primera vez, si no existen usuarios, la app creará automáticamente un usuario:
+> - **Usuario:** `admin`
+> - **Clave:** `admin123`
 
-## Ejecutar pruebas
-Desde la raiz del proyecto:
-```
-python -m unittest discover -s tests -p "test_*.py"
-```
-
-## Calidad de codigo (opcional)
-Instalar herramientas:
-```
-python -m pip install black ruff
-```
-
-Formatear:
-```
-python -m black .
-```
-
-Analizar lint:
-```
-python -m ruff check .
-```
+## Copias de Seguridad
+El sistema utiliza volcados SQL estándar:
+- **Exportar:** Genera un archivo `.sql` con toda la estructura y datos.
+- **Importar:** Restaura la base de datos desde un archivo `.sql` (sobrescribe datos actuales).
+Las copias se almacenan por defecto en la carpeta `./backups/`.
 
 ## Empaquetar a .exe (Windows)
-Ejecuta:
-```
-build.bat
-```
-Esto:
-- Crea/activa un entorno virtual `.venv`
-- Instala dependencias
-- Ejecuta PyInstaller con modo `--onefile --windowed` (sin consola)
-- Genera `dist/FinancieraNuevoProgreso.exe`
-
-## Notas
-- El nombre de empresa en recibos y el título se fija a **"Financiera Nuevo progreso"**.
-- Puedes ajustar colores y preferencias en `config.py`.
-- Este proyecto es un **punto de partida**; puedes expandir módulos (morosos, liquidados, copias de seguridad, etc.).
-- El proyecto incluye `.gitignore` para no versionar entorno virtual, DB local, PDFs y artefactos de build.
+Ejecuta `build.bat`. Esto generará `dist/FinancieraNuevoProgreso.exe`. Asegúrate de que el entorno donde se ejecute el `.exe` tenga acceso a la base de datos PostgreSQL configurada.
