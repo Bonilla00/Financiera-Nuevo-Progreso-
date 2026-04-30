@@ -15,6 +15,7 @@ from flask import (
     send_file,
     session,
     url_for,
+    jsonify,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -79,22 +80,25 @@ def _parse_fecha_iso(val):
         return None
 
 
-def prestamo_en_mora_fila(row, hoy: datetime) -> bool:
-    if row[9] != "ACTIVO":
-        return False
-    prox = _parse_fecha_iso(row[13] if len(row) > 13 else None)
-    venc = _parse_fecha_iso(row[8])
-    ref = prox if prox is not None else venc
-    if ref is None:
-        return False
-    return ref < hoy
-
-
 def ctx_user():
     uid = session.get("user_id")
     if not uid:
-        return None, None, False
-    return int(uid), session.get("username", ""), session.get("is_admin", False)
+        return None, None, False, "solo_lectura"
+    return int(uid), session.get("username", ""), session.get("is_admin", False), session.get("rol", "solo_lectura")
+
+
+def require_role(roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return redirect(url_for('login', next=request.path))
+            if session.get('rol') not in roles and not session.get('is_admin'):
+                flash("No tienes permiso para acceder a esta sección.", "error")
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 
 def login_required(f):
@@ -103,7 +107,6 @@ def login_required(f):
         if not session.get("user_id"):
             return redirect(url_for("login", next=request.path))
         return f(*args, **kwargs)
-
     return w
 
 
@@ -115,17 +118,17 @@ def admin_required(f):
         if not session.get("is_admin"):
             abort(403)
         return f(*args, **kwargs)
-
     return w
 
 
 @app.context_processor
 def inject_globals():
-    _, __, is_admin = ctx_user()
+    _, __, is_admin, rol = ctx_user()
     return {
         "fmt_money": fmt_money,
         "today_str": today_str,
         "is_admin": is_admin,
+        "rol": rol,
         "fecha_proximo_pago_texto": fecha_proximo_pago_texto,
         "frecuencia_label": frecuencia_label,
         "url_tel": url_tel,
@@ -166,14 +169,15 @@ def login():
         row = db.obtener_usuario_por_username(u)
         if not row:
             flash("Usuario o clave incorrectos.", "error")
-        elif not row[4]:
+        elif not row['activo']:
             flash("Cuenta desactivada. Contacta al administrador.", "error")
-        elif not check_password_hash(row[2], p):
+        elif not check_password_hash(row['password_hash'], p):
             flash("Usuario o clave incorrectos.", "error")
         else:
-            session["user_id"] = row[0]
-            session["username"] = row[1]
-            session["is_admin"] = row[3] == "admin"
+            session["user_id"] = row['id']
+            session["username"] = row['username']
+            session["is_admin"] = (row['rol'] == "admin")
+            session["rol"] = row['rol']
             nxt = request.args.get("next") or url_for("index")
             return redirect(nxt)
     return render_template("login.html")
@@ -188,45 +192,45 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    uid, _, is_admin = ctx_user()
-    periodo = request.args.get("periodo", "hoy")
-    f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
-    cobrado_periodo = db.sum_pagos_por_rango(f_ini, f_fin, uid, is_admin)
-    num_pagos_periodo = db.contar_pagos_en_rango(f_ini, f_fin, uid, is_admin)
-    activos = db.contar_prestamos_activos(uid, is_admin)
-    prs_activos = db.listar_prestamos("p.estado = %s", ("ACTIVO",), uid, is_admin)
-    hoy_dt = datetime.strptime(today_str(), "%Y-%m-%d")
-    mora = sum(1 for p in prs_activos if prestamo_en_mora_fila(p, hoy_dt))
-    capital_en_calle = db.sum_saldo_restante_total(uid, is_admin)
-    cobrado_hoy = db.sum_pagos_hoy(uid, is_admin)
+    uid, _, is_admin, _ = ctx_user()
+    stats = db.obtener_stats_dashboard(uid, is_admin)
+
+    # Alertas para el dashboard
+    mora_list = db.listar_prestamos("p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE", (), uid, is_admin)
+    vencen_manana = db.listar_prestamos("p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date = CURRENT_DATE + 1", (), uid, is_admin)
+
     return render_template(
         "index.html",
-        cobrado_periodo=cobrado_periodo,
-        num_pagos_periodo=num_pagos_periodo,
-        activos=activos,
-        mora=mora,
-        periodo=periodo,
-        periodo_etiqueta=periodo_etiqueta,
-        f_ini=f_ini,
-        f_fin=f_fin,
-        capital_en_calle=capital_en_calle,
-        cobrado_hoy=cobrado_hoy,
+        stats=stats,
+        mora=mora_list,
+        vencen_manana=vencen_manana,
     )
+
+
+@app.route("/api/buscar_clientes")
+@login_required
+def api_buscar_clientes():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify([])
+    uid, _, is_admin, _ = ctx_user()
+    results = db.buscar_clientes_ajax(q, uid, is_admin)
+    return jsonify(results)
 
 
 @app.route("/clientes")
 @login_required
 def clientes_list():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     filtro = request.args.get("estado", "todo")
     rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
     return render_template("clientes.html", clientes=rows, filtro=filtro)
 
 
 @app.route("/clientes/nuevo", methods=["GET", "POST"])
-@login_required
+@require_role(['admin', 'cobrador'])
 def clientes_nuevo():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     if request.method == "POST":
         try:
             nombre = request.form.get("nombre", "").strip()
@@ -312,11 +316,13 @@ def clientes_nuevo():
 @app.route("/clientes/<int:cid>/perfil", methods=["GET", "POST"])
 @login_required
 def clientes_perfil(cid):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, rol = ctx_user()
     row = db.obtener_cliente(cid, uid, is_admin)
     if not row:
         abort(404)
     if request.method == "POST":
+        if rol == 'solo_lectura':
+            abort(403)
         if request.form.get("accion") != "guardar_datos":
             abort(400)
         db.actualizar_cliente(
@@ -335,21 +341,19 @@ def clientes_perfil(cid):
     prestamos_rows = db.listar_prestamos_por_cliente(cid, uid, is_admin)
     prestamos_view = []
     for p in prestamos_rows:
-        pid = p[0]
-        saldo = max(
-            0.0,
-            round(float(p[11]) - db.sum_pagos_por_prestamo(pid, uid, is_admin), 2),
-        )
+        pid = p['id']
+        saldo = p['total_pagar'] - db.sum_pagos_por_prestamo(pid, uid, is_admin)
         prestamos_view.append(
             {
                 "id": pid,
-                "monto": p[3],
-                "total_pagar": p[11],
-                "pagadas": p[10],
-                "cuotas": p[5],
-                "proximo_pago": p[13] or "",
-                "estado": p[9],
-                "saldo": saldo,
+                "monto": p['monto'],
+                "total_pagar": p['total_pagar'],
+                "pagadas": p['pagadas'],
+                "cuotas": p['cuotas'],
+                "proximo_pago": p['proximo_pago'] or "",
+                "estado": p['estado'],
+                "saldo": max(0.0, round(float(saldo), 2)),
+                "en_mora": p['en_mora']
             }
         )
     auditoria = []
@@ -365,11 +369,11 @@ def clientes_perfil(cid):
 
 
 @app.route("/clientes/<int:cid>/editar", methods=["GET", "POST"])
-@login_required
+@require_role(['admin', 'cobrador'])
 def clientes_editar(cid):
     if request.method == "GET":
         return redirect(url_for("clientes_perfil", cid=cid))
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     row = db.obtener_cliente(cid, uid, is_admin)
     if not row:
         abort(404)
@@ -388,9 +392,9 @@ def clientes_editar(cid):
 
 
 @app.route("/clientes/<int:cid>/eliminar", methods=["POST"])
-@login_required
+@require_role(['admin'])
 def clientes_eliminar(cid):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     if db.eliminar_cliente_y_todo(cid, uid, is_admin):
         flash("Cliente y su historial eliminados.", "ok")
     else:
@@ -399,14 +403,14 @@ def clientes_eliminar(cid):
 
 
 @app.route("/clientes/<int:cid>/foto", methods=["POST"])
-@login_required
+@require_role(['admin', 'cobrador'])
 def subir_foto_cliente(cid):
     from flask import jsonify
     import base64
     import io
     from PIL import Image
     
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     foto_file = request.files.get("foto")
     if not foto_file or not foto_file.filename:
         return jsonify({"ok": False, "error": "No hay archivo"})
@@ -440,7 +444,7 @@ def subir_foto_cliente(cid):
 @app.route("/cuotas/vencidas")
 @login_required
 def cuotas_vencidas():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     rows = db.listar_cuotas_vencidas(uid, is_admin)
     return render_template("cuotas_vencidas.html", rows=rows)
 
@@ -448,7 +452,7 @@ def cuotas_vencidas():
 @app.route("/cuotas/vencer")
 @login_required
 def cuotas_vencer():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     rows = db.listar_cuotas_vencer(uid, is_admin)
     return render_template("cuotas_vencer.html", rows=rows)
 
@@ -456,28 +460,24 @@ def cuotas_vencer():
 @app.route("/prestamos")
 @login_required
 def prestamos_list():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     filtro = request.args.get("estado", "activos")
-    hoy = today_str()
     if filtro == "activos":
         where, params = "p.estado = %s", ("ACTIVO",)
     elif filtro == "pagados":
         where, params = "p.estado = %s", ("PAGADO",)
     elif filtro == "mora":
-        where, params = "p.estado = %s", ("ACTIVO",)
+        where, params = "p.estado = %s AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE", ("ACTIVO",)
     else:
         where, params = "", ()
     rows = db.listar_prestamos(where, params, uid, is_admin)
-    if filtro == "mora":
-        hoy_dt = datetime.strptime(hoy, "%Y-%m-%d")
-        rows = [r for r in rows if prestamo_en_mora_fila(r, hoy_dt)]
     return render_template("prestamos.html", prestamos=rows, filtro=filtro)
 
 
 @app.route("/prestamos/nuevo", methods=["GET", "POST"])
-@login_required
+@require_role(['admin', 'cobrador'])
 def prestamos_nuevo():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     clientes = db.listar_clientes(uid, is_admin)
     if not clientes:
         flash("Crea al menos un cliente antes de un préstamo.", "error")
@@ -523,18 +523,15 @@ def prestamos_nuevo():
 
 
 @app.route("/prestamos/<int:pid>/editar", methods=["GET", "POST"])
-@login_required
+@require_role(['admin'])
 def prestamos_editar(pid):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     info = db.obtener_prestamo(pid, uid, is_admin)
     if not info:
         abort(404)
     cid = int(info[1])
     if str(info[13]).upper() != "ACTIVO":
         flash("Solo se pueden editar préstamos activos.", "error")
-        return redirect(url_for("clientes_perfil", cid=cid))
-    if not is_admin:
-        flash("Solo el administrador puede editar préstamos.", "error")
         return redirect(url_for("clientes_perfil", cid=cid))
 
     if request.method == "POST":
@@ -587,9 +584,9 @@ def prestamos_editar(pid):
 
 
 @app.route("/prestamos/<int:pid>/cobrar")
-@login_required
+@require_role(['admin', 'cobrador'])
 def prestamos_cobrar(pid):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     info = db.obtener_prestamo(pid, uid, is_admin)
     if not info or info[13] != "ACTIVO":
         abort(404)
@@ -619,9 +616,9 @@ def prestamos_cobrar(pid):
 
 
 @app.route("/prestamos/<int:pid>/pago", methods=["POST"])
-@login_required
+@require_role(['admin', 'cobrador'])
 def prestamos_pago(pid):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     try:
         valor = float(request.form.get("valor", "0"))
         fecha = request.form.get("fecha", today_str())
@@ -661,7 +658,7 @@ def prestamos_pago(pid):
 @app.route("/reportes")
 @login_required
 def reportes():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     periodo = request.args.get("periodo", "hoy")
     f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
     total_prestado = db.total_prestado_en_rango(f_ini, f_fin, uid, is_admin)
@@ -712,7 +709,7 @@ def reportes():
 @app.route("/reportes/pdf")
 @login_required
 def reportes_pdf():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     periodo = request.args.get("periodo", "hoy")
     f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
     total_prestado = db.total_prestado_en_rango(f_ini, f_fin, uid, is_admin)
@@ -751,7 +748,7 @@ def reportes_pdf():
 @app.route("/pagos")
 @login_required
 def pagos_list():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     prestamo_filtro = request.args.get("prestamo_id", type=int)
     rows = db.listar_pagos(prestamo_filtro, uid, is_admin)
     grupos = [(fecha, list(items)) for fecha, items in groupby(rows, key=lambda r: r[3])]
@@ -763,9 +760,9 @@ def pagos_list():
 
 
 @app.route("/pagos/<int:pago_id>/eliminar", methods=["POST"])
-@login_required
+@require_role(['admin'])
 def pagos_eliminar(pago_id):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     prestamo_id = int(request.form.get("prestamo_id", "0"))
     if db.eliminar_pago_y_actualizar(prestamo_id, pago_id, uid, is_admin):
         flash("Pago eliminado.", "ok")
@@ -779,7 +776,7 @@ def pagos_eliminar(pago_id):
 @app.route("/configuracion", methods=["GET", "POST"])
 @login_required
 def configuracion():
-    uid, username, is_admin = ctx_user()
+    uid, username, is_admin, _ = ctx_user()
     if request.method == "POST":
         action = request.form.get("accion", "")
         if action == "cambiar_usuario":
@@ -791,7 +788,7 @@ def configuracion():
                 flash("Los nombres de usuario no coinciden.", "error")
             else:
                 exist = db.obtener_usuario_por_username(nuevo)
-                if exist and exist[0] != uid:
+                if exist and exist['id'] != uid:
                     flash("Ese nombre de usuario ya está en uso.", "error")
                 else:
                     db.actualizar_username_usuario(uid, nuevo)
@@ -803,7 +800,7 @@ def configuracion():
             n1 = request.form.get("password_nueva", "")
             n2 = request.form.get("password_nueva2", "")
             row = db.obtener_usuario_por_id(uid)
-            if not row or not check_password_hash(row[2], actual):
+            if not row or not check_password_hash(row['password_hash'], actual):
                 flash("La clave actual no es correcta.", "error")
             elif len(n1) < 6:
                 flash("La nueva clave debe tener al menos 6 caracteres.", "error")
@@ -830,7 +827,7 @@ def admin_usuarios():
                 flash("Usuario muy corto.", "error")
             elif len(p1) < 6:
                 flash("Clave muy corta.", "error")
-            elif rol not in ("admin", "usuario"):
+            elif rol not in ("admin", "cobrador", "solo_lectura", "usuario"):
                 flash("Rol inválido.", "error")
             else:
                 try:
@@ -915,7 +912,7 @@ def backup_restore():
 @app.route("/prestamos/<int:pid>/notas", methods=["GET", "POST"])
 @login_required
 def prestamos_notas(pid):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     info = db.obtener_prestamo(pid, uid, is_admin)
     if not info:
         abort(404)
@@ -925,14 +922,14 @@ def prestamos_notas(pid):
         flash("Observaciones guardadas.", "ok")
         return redirect(url_for("prestamos_list"))
     row = db.listar_prestamos("p.id = %s", (pid,), uid, is_admin)
-    notas = row[0][14] if row else ""
+    notas = row[0]['notas'] if row else ""
     return render_template("prestamos_notas.html", pid=pid, nombre=info[2], notas=notas or "")
 
 
 @app.route("/prestamos/<int:pid>/recibo/<int:pago_id>")
 @login_required
 def descargar_recibo(pid, pago_id):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     info = db.obtener_prestamo(pid, uid, is_admin)
     if not info:
         abort(404)
@@ -940,7 +937,7 @@ def descargar_recibo(pid, pago_id):
     datos = session.get("_ultimo_pago", {})
     if datos.get("pago_id") != pago_id or datos.get("pid") != pid:
         datos = {"pid": pid, "pago_id": pago_id, "num_cuota": 1, "valor": 0, "fecha": today_str(), "interes_mora": 0, "valor_cuota_base": 0}
-    buf = recibos_generar_recibo_pdf(
+    buf = recibos.generar_recibo_pdf(
         nombre,
         pid,
         datos.get("num_cuota", 1),
@@ -962,7 +959,7 @@ def descargar_recibo(pid, pago_id):
 @app.route("/cobro/hoy")
 @login_required
 def cobro_hoy():
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     rows = db.listar_cobro_hoy(uid, is_admin)
     total = sum(float(r[5] or 0) for r in rows)
     mora_total = 0
@@ -980,7 +977,7 @@ def cobro_hoy():
 @login_required
 def gastos():
     from datetime import datetime
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     db.ensure_gastos_table()
     año = int(request.args.get("año", datetime.now().year))
     mes = int(request.args.get("mes", datetime.now().month))
@@ -999,9 +996,9 @@ def gastos():
 
 
 @app.route("/gastos/<int:gasto_id>/eliminar", methods=["POST"])
-@login_required
+@require_role(['admin'])
 def eliminar_gasto(gasto_id):
-    uid, _, is_admin = ctx_user()
+    uid, _, is_admin, _ = ctx_user()
     from datetime import datetime
     año = int(request.form.get("año", datetime.now().year))
     mes = int(request.form.get("mes", datetime.now().month))

@@ -43,12 +43,18 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS interes_mora DOUBLE PRECISION NOT NULL DEFAULT 0",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS nota TEXT",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto TEXT",
+        "ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check",
+        "ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cobrador', 'solo_lectura', 'usuario'))",
     ]
     with get_conn() as conn:
         cur = conn.cursor()
         for s in stmts:
-            cur.execute(s)
+            try:
+                cur.execute(s)
+            except:
+                pass
     ensure_auditoria_table()
+    ensure_gastos_table()
 
 
 def ensure_auditoria_table() -> None:
@@ -139,9 +145,9 @@ def crear_usuario(username: str, password_hash: str, rol: str = "usuario") -> in
         return int(cur.fetchone()[0])
 
 
-def obtener_usuario_por_username(username: str) -> Optional[tuple]:
+def obtener_usuario_por_username(username: str) -> Optional[dict]:
     with get_conn() as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
             """
             SELECT id, username, password_hash, rol, activo
@@ -152,9 +158,9 @@ def obtener_usuario_por_username(username: str) -> Optional[tuple]:
         return cur.fetchone()
 
 
-def obtener_usuario_por_id(uid: int) -> Optional[tuple]:
+def obtener_usuario_por_id(uid: int) -> Optional[dict]:
     with get_conn() as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
             "SELECT id, username, password_hash, rol, activo FROM usuarios WHERE id = %s",
             (uid,),
@@ -264,6 +270,22 @@ def listar_clientes(user_id: int, is_admin: bool) -> list[tuple]:
             """,
             params,
         )
+        return cur.fetchall()
+
+
+def buscar_clientes_ajax(q: str, user_id: int, is_admin: bool):
+    extra, sparams = _filtro_owner("c", user_id, is_admin)
+    params = [f"%{q}%", f"%{q}%", f"%{q}%"] + list(sparams)
+    query = f"""
+        SELECT id, nombre, identificacion, telefono, barrio
+        FROM clientes c
+        WHERE (nombre ILIKE %s OR identificacion ILIKE %s OR telefono ILIKE %s)
+        {extra}
+        ORDER BY nombre ASC LIMIT 20
+    """
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query, params)
         return cur.fetchall()
 
 
@@ -444,7 +466,8 @@ def listar_prestamos(
                p.valor_cuota, p.fecha, p.vencimiento, p.estado, p.pagadas,
                p.total_pagar, p.frecuencia, p.proximo_pago, p.notas,
                c.id, c.telefono, c.direccion, c.barrio,
-               p.mora_activa, p.tasa_mora_diaria
+               p.mora_activa, p.tasa_mora_diaria,
+               (p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE) as en_mora
         FROM prestamos p
         JOIN clientes c ON c.id = p.cliente_id
         WHERE 1=1 {scope}
@@ -455,9 +478,52 @@ def listar_prestamos(
         args.extend(params)
     q += " ORDER BY p.id DESC"
     with get_conn() as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(q, tuple(args))
         return cur.fetchall()
+
+
+def obtener_stats_dashboard(user_id: int, is_admin: bool):
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Conteo por estado
+        cur.execute(f"""
+            SELECT p.estado, COUNT(*) as cantidad
+            FROM prestamos p
+            JOIN clientes c ON p.cliente_id = c.id
+            WHERE 1=1 {scope}
+            GROUP BY p.estado
+        """, sparams)
+        estados_rows = cur.fetchall()
+        estados = {row['estado']: row['cantidad'] for row in estados_rows}
+
+        # Préstamos en mora (específico)
+        cur.execute(f"""
+            SELECT COUNT(*) as cantidad
+            FROM prestamos p
+            JOIN clientes c ON p.cliente_id = c.id
+            WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> ''
+              AND p.proximo_pago::date < CURRENT_DATE
+              {scope}
+        """, sparams)
+        estados['MORA'] = cur.fetchone()['cantidad']
+
+        # Dinero prestado vs Cobrado
+        cur.execute(f"SELECT SUM(monto) as total_prestado FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE 1=1 {scope}", sparams)
+        prestado = cur.fetchone()['total_prestado'] or 0
+
+        cur.execute(f"SELECT SUM(valor) as total_cobrado FROM pagos pg JOIN prestamos p ON pg.prestamo_id = p.id JOIN clientes c ON p.cliente_id = c.id WHERE 1=1 {scope}", sparams)
+        cobrado = cur.fetchone()['total_cobrado'] or 0
+
+        return {
+            "estados": estados,
+            "total_prestado": prestado,
+            "total_cobrado": cobrado
+        }
 
 
 def listar_cuotas_vencidas(user_id: int, is_admin: bool) -> list[tuple]:
@@ -819,7 +885,7 @@ def actualizar_nota_prestamo(pid, nota, user_id: int, is_admin: bool) -> bool:
 def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_admin: bool, nota: str = "") -> tuple:
     """
     Registra un pago. Calcula interés por mora si el préstamo lo tiene habilitado.
-    Retorna (pago_id, num_cuota, interes_mora, valor_cuota_base).
+    Permite pagos parciales y recalcula las cuotas pagadas según el total acumulado.
     """
     with get_conn() as conn:
         cur = conn.cursor()
@@ -859,11 +925,19 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
             bool(mora_activa),
             float(tasa_mora_diaria or 0),
         )
-        min_cuota_mora = float(valor_cuota) + interes_mora
 
-        cuota_num = int(pagadas) + 1
-        total_pagado = (int(pagadas) * float(valor_cuota)) + float(valor)
-        saldo_restante = max(0.0, round(float(total_pagar) - total_pagado, 2))
+        # Cálculo de nuevas cuotas pagadas basado en el total acumulado cobrado
+        total_cobrado_previo = sum_pagos_por_prestamo(prestamo_id, user_id, is_admin)
+        nuevo_total_cobrado = total_cobrado_previo + float(valor)
+
+        # El número de cuotas pagadas se redondea hacia abajo según el valor de la cuota base
+        # Por ejemplo, si la cuota es 100 y ha pagado 250, lleva 2 cuotas pagadas y 50 de saldo a favor de la 3ra.
+        nuevas_pagadas = int(nuevo_total_cobrado // float(valor_cuota))
+        if nuevas_pagadas > int(cuotas):
+            nuevas_pagadas = int(cuotas)
+
+        saldo_restante = max(0.0, round(float(total_pagar) - nuevo_total_cobrado, 2))
+        cuota_actual_del_pago = int(pagadas) + 1
 
         cur.execute(
             """
@@ -871,16 +945,11 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (prestamo_id, fecha, valor, cuota_num, saldo_restante, interes_mora, nota),
+            (prestamo_id, fecha, valor, cuota_actual_del_pago, saldo_restante, interes_mora, nota),
         )
         pid_pago = int(cur.fetchone()[0])
 
-        if interes_mora > 0:
-            ok_cuota = float(valor) + 1e-6 >= min_cuota_mora * 0.999
-        else:
-            ok_cuota = float(valor) + 1e-6 >= float(valor_cuota) * 0.999
-        nuevas_pagadas = int(pagadas) + 1 if ok_cuota else int(pagadas)
-        nuevo_estado = "PAGADO" if nuevas_pagadas >= int(cuotas) or saldo_restante <= 1 else "ACTIVO"
+        nuevo_estado = "PAGADO" if saldo_restante <= 1 or nuevas_pagadas >= int(cuotas) else "ACTIVO"
         prox = proxima_fecha_pago(fecha_ini, frecuencia, nuevas_pagadas, int(cuotas))
 
         cur.execute(
@@ -889,7 +958,7 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
             """,
             (nuevas_pagadas, nuevo_estado, prox, prestamo_id),
         )
-        return pid_pago, cuota_num, interes_mora, float(valor_cuota)
+        return pid_pago, cuota_actual_del_pago, interes_mora, float(valor_cuota)
 
 
 def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
@@ -941,31 +1010,27 @@ def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: boo
         if not cur.fetchone():
             return False
 
-        cur.execute("SELECT valor, cuota FROM pagos WHERE id=%s", (pago_id,))
-        row = cur.fetchone()
-        if not row:
-            return False
-
         cur.execute("DELETE FROM pagos WHERE id=%s", (pago_id,))
 
+        # Recalcular el estado del préstamo
+        total_cobrado = sum_pagos_por_prestamo(prestamo_id, user_id, is_admin)
+
         cur.execute(
-            "SELECT pagadas, cuotas, total_pagar, valor_cuota, fecha, frecuencia FROM prestamos WHERE id=%s",
+            "SELECT total_pagar, valor_cuota, cuotas, fecha, frecuencia FROM prestamos WHERE id=%s",
             (prestamo_id,),
         )
         p = cur.fetchone()
-        if not p:
-            return False
+        if not p: return False
 
-        pagadas, cuotas, total_pagar, valor_cuota, fecha_ini, frecuencia = p
-        nuevas_pagadas = max(0, int(pagadas) - 1)
-        total_pagado = nuevas_pagadas * float(valor_cuota)
-        saldo_restante = max(0.0, round(float(total_pagar) - total_pagado, 2))
+        total_pagar, valor_cuota, cuotas, fecha_ini, frecuencia = p
+        nuevas_pagadas = int(total_cobrado // float(valor_cuota))
+        saldo_restante = max(0.0, round(float(total_pagar) - total_cobrado, 2))
+        nuevo_estado = "PAGADO" if saldo_restante <= 1 or nuevas_pagadas >= int(cuotas) else "ACTIVO"
         prox = proxima_fecha_pago(fecha_ini, frecuencia, nuevas_pagadas, int(cuotas))
-        estado = "PAGADO" if nuevas_pagadas >= int(cuotas) or saldo_restante <= 1 else "ACTIVO"
 
         cur.execute(
             "UPDATE prestamos SET pagadas=%s, estado=%s, proximo_pago=%s WHERE id=%s",
-            (nuevas_pagadas, estado, prox, prestamo_id),
+            (nuevas_pagadas, nuevo_estado, prox, prestamo_id),
         )
         return True
 

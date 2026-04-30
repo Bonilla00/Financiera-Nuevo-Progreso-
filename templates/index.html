@@ -1,45 +1,139 @@
 {% extends "base.html" %}
-{% block title %}Inicio — Financiera NP{% endblock %}
+{% block title %}Inicio - Financiera NP{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
 {% block content %}
-<h1 class="text-xl font-bold text-white mb-2">Panel</h1>
-<p class="text-slate-500 text-xs mb-3">{{ periodo_etiqueta }} · {{ f_ini }}{% if f_ini != f_fin %} → {{ f_fin }}{% endif %}</p>
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-white">Panel de Control</h1>
+    <span class="text-xs text-slate-400">{{ today_str() }}</span>
+  </div>
 
-<div class="flex flex-wrap gap-2 mb-4">
-  <a href="{{ url_for('index', periodo='hoy') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='hoy' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Hoy</a>
-  <a href="{{ url_for('index', periodo='ayer') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='ayer' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Ayer</a>
-  <a href="{{ url_for('index', periodo='7d') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='7d' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Últimos 7 días</a>
-  <a href="{{ url_for('index', periodo='mes') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='mes' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Este mes</a>
+  <!-- Resumen Financiero -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="rounded-2xl bg-panel p-5 border border-slate-800">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Prestado</p>
+      <p class="mt-1 text-2xl font-bold text-white">{{ fmt_money(stats.total_prestado) }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-5 border border-slate-800">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Cobrado</p>
+      <p class="mt-1 text-2xl font-bold text-accent">{{ fmt_money(stats.total_cobrado) }}</p>
+    </div>
+  </div>
+
+  <!-- Gráfica y Alertas -->
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div class="rounded-2xl bg-panel p-6 border border-slate-800">
+      <h2 class="text-sm font-bold text-slate-300 mb-4 uppercase tracking-widest text-center">Estado de Préstamos</h2>
+      <div class="relative h-64">
+        <canvas id="chartEstados"></canvas>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">Alertas Urgentes</h2>
+
+      {% if mora %}
+      <div class="rounded-2xl bg-red-900/20 border border-red-500/30 p-4">
+        <div class="flex items-center gap-3 text-red-400">
+          <span class="text-xl">⚠️</span>
+          <div>
+            <p class="text-sm font-bold">Préstamos en Mora ({{ mora|length }})</p>
+            <p class="text-xs opacity-80">Requieren gestión inmediata de cobro.</p>
+          </div>
+        </div>
+        <div class="mt-3 space-y-2">
+          {% for p in mora[:3] %}
+          <div class="flex justify-between items-center bg-red-900/30 rounded-lg p-2 text-xs">
+            <span class="font-medium text-white">{{ p.nombre }}</span>
+            <span class="text-red-300">{{ fmt_money(p.valor_cuota) }}</span>
+          </div>
+          {% endfor %}
+          {% if mora|length > 3 %}
+          <a href="{{ url_for('prestamos_list', estado='mora') }}" class="block text-center text-xs text-red-400 font-bold mt-2">Ver todos →</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if vencen_manana %}
+      <div class="rounded-2xl bg-amber-900/20 border border-amber-500/30 p-4">
+        <div class="flex items-center gap-3 text-amber-400">
+          <span class="text-xl">📅</span>
+          <div>
+            <p class="text-sm font-bold">Vencen Mañana ({{ vencen_manana|length }})</p>
+            <p class="text-xs opacity-80">Recordatorios para seguimiento preventivo.</p>
+          </div>
+        </div>
+        <div class="mt-3 space-y-2 text-xs">
+          {% for p in vencen_manana[:3] %}
+          <div class="flex justify-between items-center bg-amber-900/30 rounded-lg p-2">
+            <span class="font-medium text-white">{{ p.nombre }}</span>
+            <span class="text-amber-300">{{ fmt_money(p.valor_cuota) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if not mora and not vencen_manana %}
+      <div class="rounded-2xl bg-emerald-900/20 border border-emerald-500/30 p-8 text-center">
+        <span class="text-4xl">✅</span>
+        <p class="mt-2 text-sm text-emerald-400 font-medium">¡Todo al día!</p>
+        <p class="text-xs text-emerald-500/70">No hay alertas pendientes para hoy.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
-<div class="grid grid-cols-2 gap-3 mb-4">
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4 col-span-2">
-    <p class="text-slate-400 text-xs font-semibold">Cobrado en el período</p>
-    <p class="text-3xl font-bold text-accent">{{ fmt_money(cobrado_periodo) }}</p>
-    <p class="text-slate-500 text-xs mt-1">{{ num_pagos_periodo }} pago(s) registrado(s)</p>
-  </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-slate-400 text-xs font-semibold">Capital en calle</p>
-    <p class="text-xl font-bold text-accent">{{ fmt_money(capital_en_calle) }}</p>
-    <p class="text-slate-500 text-[10px] mt-0.5">Saldos restantes</p>
-  </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-slate-400 text-xs font-semibold">Cobrado hoy</p>
-    <p class="text-xl font-bold text-accent">{{ fmt_money(cobrado_hoy) }}</p>
-    <p class="text-slate-500 text-[10px] mt-0.5">💰 Total día</p>
-  </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-slate-400 text-xs font-semibold">Activos</p>
-    <p class="text-2xl font-bold text-accent">{{ activos }}</p>
-    <p class="text-slate-500 text-[10px] mt-0.5">Préstamos en curso</p>
-  </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-slate-400 text-xs font-semibold">En mora</p>
-    <p class="text-2xl font-bold text-rose-400">{{ mora }}</p>
-    <p class="text-slate-500 text-[10px] mt-0.5">A la fecha de hoy</p>
-  </div>
-</div>
-
-<a href="{{ url_for('prestamos_nuevo') }}" class="block text-center mb-4 py-3 rounded-xl bg-accent text-slate-900 font-bold text-sm border border-cyan-300 active:opacity-90">+ Nuevo préstamo</a>
-
-<p class="text-slate-500 text-xs">Los administradores ven todo el negocio. Activos y mora son el estado actual; el cobrado sigue el período elegido.</p>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('chartEstados').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Activos', 'Pagados', 'En Mora'],
+            datasets: [{
+                data: [
+                    {{ stats.estados.get('ACTIVO', 0) }},
+                    {{ stats.estados.get('PAGADO', 0) }},
+                    {{ stats.estados.get('MORA', 0) }}
+                ],
+                backgroundColor: ['#22D3EE', '#1E293B', '#F87171'],
+                borderColor: '#0F172A',
+                borderWidth: 4,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#94A3B8',
+                        font: { size: 11, weight: 'bold' },
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1F2937',
+                    titleColor: '#F3F4F6',
+                    bodyColor: '#D1D5DB',
+                    padding: 12,
+                    cornerRadius: 12,
+                    displayColors: false
+                }
+            },
+            cutout: '70%'
+        }
+    });
+});
+</script>
 {% endblock %}

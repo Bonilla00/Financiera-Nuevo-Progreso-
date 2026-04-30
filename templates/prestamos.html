@@ -1,91 +1,79 @@
 {% extends "base.html" %}
-{% block title %}Préstamos{% endblock %}
+{% block title %}Préstamos - Financiera NP{% endblock %}
+
 {% block content %}
-<h1 class="text-xl font-bold mb-3">Préstamos</h1>
-<div class="relative mb-3">
-  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-white">Préstamos</h1>
+    {% if rol != 'solo_lectura' %}
+    <a href="{{ url_for('prestamos_nuevo') }}" class="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-slate-900 shadow-lg active:scale-95 transition-transform">
+      + Nuevo
+    </a>
+    {% endif %}
   </div>
-  <input type="text" id="busqueda-rapida" placeholder="Buscar por cliente o identificación..." class="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#1F2937] border border-slate-600 text-white placeholder-slate-500 focus:border-[#22D3EE] focus:outline-none transition-colors">
-</div>
-<div class="flex flex-wrap gap-2 mb-4">
-  <a href="{{ url_for('prestamos_list', estado='activos') }}" class="px-3 py-1 rounded-full text-sm {% if filtro=='activos' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300{% endif %}">Activos</a>
-  <a href="{{ url_for('prestamos_list', estado='pagados') }}" class="px-3 py-1 rounded-full text-sm {% if filtro=='pagados' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300{% endif %}">Pagados</a>
-  <a href="{{ url_for('prestamos_list', estado='mora') }}" class="px-3 py-1 rounded-full text-sm {% if filtro=='mora' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300{% endif %}">Mora</a>
-  <a href="{{ url_for('prestamos_list', estado='todos') }}" class="px-3 py-1 rounded-full text-sm {% if filtro=='todos' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300{% endif %}">Todos</a>
-</div>
-<a href="{{ url_for('prestamos_nuevo') }}" class="block text-center mb-4 py-2 rounded-xl bg-accent text-slate-900 font-bold text-sm">+ Nuevo préstamo</a>
-<div class="space-y-3" id="lista-prestamos">
-  {% for p in prestamos %}
-  {% set maps_h = url_maps(p[17], p[18]) %}
-  {% set tel_h = url_tel(p[16]) %}
-  {% set wa_h = url_whatsapp(p[16]) %}
-  {% set prox_iso = p[13] %}
-  {% set prox_txt = fecha_proximo_pago_texto(prox_iso) %}
-  {% set tiene_nota = ((p[14] | default('', true)) | trim | length) > 0 %}
-  <div class="list-row-interactive rounded-xl border border-slate-700 p-3 prestamo-item" data-cliente="{{ p[1].lower() }}" data-ident="{{ p[2].lower() }}">
-    <div class="flex justify-between gap-2">
-      <div class="min-w-0 flex-1">
-        <p class="font-semibold text-white truncate">{{ p[1] }}</p>
-        <p class="text-xs text-slate-400">{{ fmt_money(p[3]) }} · {{ frecuencia_label(p[12]) }} · Cuota {{ fmt_money(p[6]) }}</p>
-        <p class="text-xs text-slate-300 mt-1">
-          {% if prox_iso and prox_txt %}
-          Próx. pago: <span class="text-accent font-semibold">{{ prox_txt }}</span>
-          {% else %}
-          <span class="text-slate-500">Próx. pago: —</span>
-          {% endif %}
-        </p>
-        <div class="flex flex-wrap items-center gap-2 mt-2">
-          {% if maps_h %}
-          <a href="{{ maps_h }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-panel2 border border-slate-600 text-accent hover:border-accent" title="Abrir en Google Maps" aria-label="Google Maps">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          </a>
-          {% endif %}
-          {% if tel_h %}
-          <a href="{{ tel_h }}" class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-panel2 border border-slate-600 text-accent hover:border-accent" title="Llamar" aria-label="Llamar">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-          </a>
-          {% endif %}
-          {% if wa_h %}
-          <a href="{{ wa_h }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-panel2 border border-slate-600 text-emerald-400 hover:border-emerald-400" title="WhatsApp" aria-label="WhatsApp">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-          </a>
-          {% endif %}
+
+  <!-- Filtros -->
+  <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+    <a href="{{ url_for('prestamos_list', estado='activos') }}"
+       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'activos' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
+       Activos
+    </a>
+    <a href="{{ url_for('prestamos_list', estado='mora') }}"
+       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'mora' %}bg-red-500 text-white{% else %}bg-slate-800 text-slate-400{% endif %}">
+       En Mora
+    </a>
+    <a href="{{ url_for('prestamos_list', estado='pagados') }}"
+       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'pagados' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
+       Pagados
+    </a>
+    <a href="{{ url_for('prestamos_list', estado='todos') }}"
+       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'todos' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
+       Todos
+    </a>
+  </div>
+
+  <div class="space-y-3">
+    {% for p in prestamos %}
+    <div class="list-row-interactive rounded-2xl border p-4 relative overflow-hidden {% if p.en_mora %}border-red-500/50 bg-red-900/10{% else %}border-slate-800 bg-panel{% endif %}"
+         onclick="window.location.href='{{ url_for('clientes_perfil', cid=p.id_1) }}'">
+
+      {% if p.en_mora %}
+      <div class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
+        En Mora
+      </div>
+      {% endif %}
+
+      <div class="flex justify-between items-start">
+        <div class="space-y-1">
+          <p class="text-sm font-bold text-white uppercase">{{ p.nombre }}</p>
+          <p class="text-xs text-slate-400">ID #{{ p.id }} · {{ fmt_money(p.monto) }}</p>
+          <div class="flex items-center gap-2 mt-2">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold uppercase tracking-wider">
+              {{ p.frecuencia }}
+            </span>
+            <span class="text-[10px] px-2 py-0.5 rounded {% if p.estado == 'ACTIVO' %}bg-emerald-900/30 text-emerald-400{% else %}bg-slate-800 text-slate-500{% endif %} font-bold uppercase tracking-wider">
+              {{ p.estado }}
+            </span>
+          </div>
+        </div>
+
+        <div class="text-right">
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Próx. Pago</p>
+          <p class="text-sm font-bold {% if p.en_mora %}text-red-400{% else %}text-white{% endif %}">
+            {{ p.proximo_pago or 'Finalizado' }}
+          </p>
+          <p class="text-xs font-bold text-accent mt-1">{{ fmt_money(p.valor_cuota) }}</p>
         </div>
       </div>
-      <div class="text-right text-xs shrink-0 max-w-[40%]">
-        {% if tiene_nota %}<span class="text-red-400" title="Hay notas">●</span>{% endif %}
-        {% if p[9] == 'ACTIVO' %}
-        <a href="{{ url_for('prestamos_cobrar', pid=p[0]) }}" class="js-action-busy block mt-2 py-2 rounded-lg bg-accent2 text-white text-xs font-bold text-center">Cobrar</a>
-        {% endif %}
-        <a href="{{ url_for('pagos_list', prestamo_id=p[0]) }}" class="block mt-2 text-accent text-xs font-medium">Historial pagos</a>
-        <a href="{{ url_for('prestamos_notas', pid=p[0]) }}" class="block mt-1 text-xs font-semibold {% if tiene_nota %}text-red-400{% else %}text-accent{% endif %}">Notas{% if tiene_nota %} ·{% endif %}</a>
-      </div>
     </div>
+    {% endfor %}
+
+    {% if not prestamos %}
+    <div class="py-12 text-center">
+      <span class="text-4xl">📋</span>
+      <p class="mt-2 text-sm text-slate-500 font-medium">No se encontraron préstamos</p>
+    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <p class="text-slate-500 text-sm">Sin préstamos en este filtro.</p>
-  {% endfor %}
-  <p id="no-resultados" class="text-slate-500 text-sm hidden">No se encontraron resultados</p>
 </div>
-<script>
-(function() {
-  var input = document.getElementById('busqueda-rapida');
-  var items = document.querySelectorAll('.prestamo-item');
-  var noRes = document.getElementById('no-resultados');
-  if (!input || items.length === 0) return;
-  input.addEventListener('input', function() {
-    var q = input.value.toLowerCase().trim();
-    var visible = 0;
-    items.forEach(function(el) {
-      var cliente = el.dataset.cliente || '';
-      var ident = el.dataset.ident || '';
-      var match = q === '' || cliente.indexOf(q) !== -1 || ident.indexOf(q) !== -1;
-      el.classList.toggle('hidden', !match);
-      if (match) visible++;
-    });
-    if (noRes) noRes.classList.toggle('hidden', visible > 0);
-  });
-})();
-</script>
 {% endblock %}

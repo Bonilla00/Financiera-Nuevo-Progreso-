@@ -1,66 +1,115 @@
 {% extends "base.html" %}
-{% block title %}Clientes{% endblock %}
+{% block title %}Clientes - Financiera NP{% endblock %}
+
 {% block content %}
-<div class="flex justify-between items-center mb-3">
-  <h1 class="text-xl font-bold">Clientes</h1>
-  <a href="{{ url_for('clientes_nuevo') }}" class="px-3 py-2 rounded-xl bg-accent text-slate-900 text-sm font-bold shrink-0">+ Nuevo</a>
-</div>
-
-<div class="relative mb-3">
-  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-  </div>
-  <input type="text" id="busqueda-rapida" placeholder="Buscar por nombre o identificación..." class="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#1F2937] border border-slate-600 text-white placeholder-slate-500 focus:border-[#22D3EE] focus:outline-none transition-colors">
-</div>
-
-<div class="flex flex-wrap gap-1.5 mb-4">
-  <a href="{{ url_for('clientes_list', estado='todo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='todo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Todo</a>
-  <a href="{{ url_for('clientes_list', estado='activo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='activo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Con crédito activo</a>
-  <a href="{{ url_for('clientes_list', estado='pago_hoy') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='pago_hoy' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Pagaron hoy</a>
-  <a href="{{ url_for('clientes_list', estado='pendiente_hoy') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='pendiente_hoy' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Pendiente hoy</a>
-  <a href="{{ url_for('clientes_list', estado='sin_activo') }}" class="px-2.5 py-1 rounded-full text-[11px] font-semibold {% if filtro=='sin_activo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Sin crédito activo</a>
-</div>
-
-<div class="space-y-2" id="lista-clientes">
-  {% for c in clientes %}
-  <div class="list-row-interactive rounded-xl border border-slate-700 p-3 flex justify-between items-stretch gap-2 cliente-item" data-nombre="{{ c[1].lower() }}" data-identificacion="{{ c[2].lower() }}">
-    <a href="{{ url_for('clientes_perfil', cid=c[0]) }}" class="flex-1 min-w-0 block py-0.5 active:opacity-80">
-      <div class="min-w-0">
-        <p class="font-semibold text-white">{{ c[1] }}</p>
-        <p class="text-xs text-slate-400">{{ c[2] }} · {{ c[3] or '—' }}</p>
-        <span class="inline-block mt-1.5 text-[11px] font-bold text-accent">Ver perfil →</span>
-      </div>
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-white">Clientes</h1>
+    {% if rol != 'solo_lectura' %}
+    <a href="{{ url_for('clientes_nuevo') }}" class="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-slate-900 shadow-lg active:scale-95 transition-transform">
+      + Nuevo
     </a>
-    <div class="flex flex-col gap-1 shrink-0 justify-center items-end">
-      <a href="{{ url_for('clientes_perfil', cid=c[0]) }}" class="text-xs font-semibold text-accent px-2 py-1 rounded-lg border border-cyan-600/50">Ver perfil</a>
-      <form method="post" action="{{ url_for('clientes_eliminar', cid=c[0]) }}" onsubmit="return confirm('¿Eliminar cliente y todo su historial?');" data-loading-submit data-loading-label="Procesando…">
-        <button type="submit" class="text-xs text-rose-400 px-2">Eliminar</button>
-      </form>
-    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <p class="text-slate-500 text-sm">No hay clientes con este filtro.</p>
-  {% endfor %}
-  <p id="no-resultados" class="text-slate-500 text-sm hidden">No se encontraron resultados</p>
+
+  <!-- Buscador -->
+  <div class="relative group">
+    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+      <span class="text-slate-500">🔍</span>
+    </span>
+    <input type="text" id="buscador-ajax"
+           class="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-2xl bg-panel text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+           placeholder="Nombre, identificación o teléfono...">
+  </div>
+
+  <!-- Filtros Rápidos -->
+  <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+    <a href="{{ url_for('clientes_list', estado='todo') }}"
+       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'todo' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
+       Todos
+    </a>
+    <a href="{{ url_for('clientes_list', estado='activo') }}"
+       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'activo' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
+       Con Crédito
+    </a>
+    <a href="{{ url_for('clientes_list', estado='sin_activo') }}"
+       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'sin_activo' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
+       Sin Crédito
+    </a>
+  </div>
+
+  <div id="contenedor-clientes" class="space-y-3">
+    {% for c in clientes %}
+    <div class="list-row-interactive rounded-2xl border border-slate-800 p-4 relative overflow-hidden" onclick="window.location.href='{{ url_for('clientes_perfil', cid=c[0]) }}'">
+      <div class="flex justify-between items-start">
+        <div class="space-y-1">
+          <p class="text-sm font-bold text-white uppercase">{{ c[1] }}</p>
+          <p class="text-xs text-slate-400">{{ c[2] }} · {{ c[3] }}</p>
+          <p class="text-xs text-slate-500 italic">{{ c[4] or 'Sin barrio' }}</p>
+        </div>
+        <div class="text-accent">→</div>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if not clientes %}
+    <div class="py-12 text-center">
+      <span class="text-4xl">👥</span>
+      <p class="mt-2 text-sm text-slate-500 font-medium">No se encontraron clientes</p>
+    </div>
+    {% endif %}
+  </div>
 </div>
+
 <script>
-(function() {
-  var input = document.getElementById('busqueda-rapida');
-  var items = document.querySelectorAll('.cliente-item');
-  var noRes = document.getElementById('no-resultados');
-  if (!input || items.length === 0) return;
-  input.addEventListener('input', function() {
-    var q = input.value.toLowerCase().trim();
-    var visible = 0;
-    items.forEach(function(el) {
-      var nombre = el.dataset.nombre || '';
-      var ident = el.dataset.identificacion || '';
-      var match = q === '' || nombre.indexOf(q) !== -1 || ident.indexOf(q) !== -1;
-      el.classList.toggle('hidden', !match);
-      if (match) visible++;
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('buscador-ajax');
+    const contenedor = document.getElementById('contenedor-clientes');
+    let timeout = null;
+
+    input.addEventListener('input', function(e) {
+        clearTimeout(timeout);
+        const q = e.target.value.trim();
+
+        if (q.length < 2 && q.length > 0) return;
+
+        timeout = setTimeout(async () => {
+            if (q.length === 0) {
+                window.location.reload();
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/buscar_clientes?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+
+                if (data.length === 0) {
+                    contenedor.innerHTML = `
+                        <div class="py-12 text-center">
+                          <span class="text-4xl">🔎</span>
+                          <p class="mt-2 text-sm text-slate-500 font-medium">No hubo resultados para "${q}"</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                contenedor.innerHTML = data.map(c => `
+                    <div class="list-row-interactive rounded-2xl border border-slate-800 p-4 relative overflow-hidden" onclick="window.location.href='/clientes/${c.id}/perfil'">
+                      <div class="flex justify-between items-start">
+                        <div class="space-y-1">
+                          <p class="text-sm font-bold text-white uppercase">${c.nombre}</p>
+                          <p class="text-xs text-slate-400">${c.identificacion} · ${c.telefono}</p>
+                          <p class="text-xs text-slate-500 italic">${c.barrio || 'Sin barrio'}</p>
+                        </div>
+                        <div class="text-accent">→</div>
+                      </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error("Error buscando clientes:", err);
+            }
+        }, 300);
     });
-    if (noRes) noRes.classList.toggle('hidden', visible > 0);
-  });
-})();
+});
 </script>
 {% endblock %}
