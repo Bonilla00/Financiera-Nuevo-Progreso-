@@ -1123,6 +1123,36 @@ def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
         return cur.fetchall()
 
 
+def obtener_pago_para_recibo(prestamo_id: int, pago_id: int, user_id: int, is_admin: bool):
+    """Devuelve los datos completos de un pago validando alcance por rol/propietario."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            f"""
+            SELECT pg.id AS pago_id,
+                   pg.prestamo_id,
+                   pg.fecha,
+                   pg.valor,
+                   pg.cuota,
+                   pg.saldo_restante,
+                   COALESCE(pg.interes_mora, 0) AS interes_mora,
+                   COALESCE(pg.nota, '') AS nota,
+                   p.valor_cuota AS valor_cuota_base,
+                   p.cuotas AS total_cuotas,
+                   c.nombre AS nombre_cliente
+            FROM pagos pg
+            JOIN prestamos p ON p.id = pg.prestamo_id
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE pg.id = %s
+              AND pg.prestamo_id = %s
+              {scope}
+            """,
+            (pago_id, prestamo_id) + sparams,
+        )
+        return cur.fetchone()
+
+
 def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: bool) -> bool:
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:

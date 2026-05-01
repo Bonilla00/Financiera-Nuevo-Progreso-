@@ -5,11 +5,11 @@
   <h1 class="text-xl font-bold">Historial de pagos</h1>
   {% if filtro_prestamo_id %}
   <div class="flex items-center justify-between gap-2 text-sm">
-    <p class="text-slate-400">Filtrando préstamo #{{ filtro_prestamo_id }}</p>
+    <p class="text-slate-400">Filtrando prestamo #{{ filtro_prestamo_id }}</p>
     <a href="{{ url_for('pagos_list') }}" class="text-accent font-medium shrink-0">Ver todos</a>
   </div>
   {% endif %}
-  <p class="text-slate-500 text-xs">Agrupado por fecha de pago (más reciente primero).</p>
+  <p class="text-slate-500 text-xs">Agrupado por fecha de pago, mas reciente primero.</p>
 </div>
 <div class="space-y-6">
   {% for fecha, items in pagos_grupos %}
@@ -19,17 +19,23 @@
       {% for r in items %}
       <div class="list-row-interactive rounded-xl border border-slate-700 p-3 flex justify-between items-center gap-2">
         <div class="min-w-0 flex-1">
-          <p class="font-medium">{{ r[1] }}</p>
-          <p class="text-xs text-slate-400">Préstamo {{ r[2] }} · Cuota {{ r[5] }}</p>
-          <p class="text-sm text-accent font-semibold">{{ fmt_money(r[4]) }}</p>
-          {% if r[11] and r[11].strip() %}
-          <p class="text-xs text-slate-500 mt-1 italic">Nota: {{ r[11].strip() }}</p>
+          <p class="font-medium">{{ r.cliente }}</p>
+          <p class="text-xs text-slate-400">Prestamo {{ r.prestamo_id }} &middot; Cuota {{ r.cuota }}</p>
+          <p class="text-sm text-accent font-semibold">{{ fmt_money(r.valor) }}</p>
+          {% if r.interes_mora > 0 %}
+          <p class="text-xs text-amber-300 mt-1">Mora: {{ fmt_money(r.interes_mora) }}</p>
+          {% endif %}
+          {% if r.nota %}
+          <p class="text-xs text-slate-500 mt-1 italic">Nota: {{ r.nota }}</p>
           {% endif %}
         </div>
-        <form method="post" action="{{ url_for('pagos_eliminar', pago_id=r[0]) }}" onsubmit="return confirm('¿Eliminar este pago?');" data-loading-submit data-loading-label="Procesando…">
-          <input type="hidden" name="prestamo_id" value="{{ r[2] }}">
-          <button type="submit" class="text-xs text-rose-400 px-2">Quitar</button>
-        </form>
+        <div class="flex flex-col items-end gap-2 shrink-0">
+          <a href="{{ url_for('descargar_recibo', pid=r.prestamo_id, pago_id=r.id) }}" class="text-xs text-accent px-2">Recibo</a>
+          <form method="post" action="{{ url_for('pagos_eliminar', pago_id=r.id) }}" onsubmit="return confirm('Eliminar este pago?');" data-loading-submit data-loading-label="Procesando...">
+            <input type="hidden" name="prestamo_id" value="{{ r.prestamo_id }}">
+            <button type="submit" class="text-xs text-rose-400 px-2">Quitar</button>
+          </form>
+        </div>
       </div>
       {% endfor %}
     </div>

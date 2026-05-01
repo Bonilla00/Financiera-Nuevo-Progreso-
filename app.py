@@ -21,6 +21,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
 import recibos
+from recibos import generar_recibo_pdf
 from utils_web import (
     add_days,
     fecha_proximo_pago_texto,
@@ -35,11 +36,41 @@ app.secret_key = os.environ.get("SECRET_KEY", "cambia-esto-en-produccion")
 
 
 @app.before_request
-def _ensure_db_schema():
+def before_request():
+    endpoint = request.endpoint or ""
+    public_endpoints = {"static", "login", "logout", "setup"}
+
+    if endpoint in {"static", "logout"}:
+        return None
+
     if app.config.get("DB_SCHEMA_READY"):
-        return
-    db.ensure_schema_migrations()
-    app.config["DB_SCHEMA_READY"] = True
+        pass
+    else:
+        db.ensure_schema_migrations()
+        app.config["DB_SCHEMA_READY"] = True
+
+    if endpoint in public_endpoints:
+        return None
+
+    uid = session.get("user_id")
+    if not uid:
+        return None
+
+    if "rol" not in session or "is_admin" not in session or "username" not in session:
+        row = db.obtener_usuario_por_id(int(uid))
+        if not row or not row.get("activo", True):
+            session.clear()
+            flash("Tu sesión ya no está activa. Inicia sesión nuevamente.", "error")
+            return redirect(url_for("login"))
+        session["user_id"] = row.get("id")
+        session["username"] = row.get("username")
+        session["rol"] = row.get("rol") or "usuario"
+        session["is_admin"] = session["rol"] == "admin"
+
+    if endpoint.startswith("admin_") and not session.get("is_admin", False):
+        abort(403)
+
+    return None
 
 
 def _rango_periodo_dashboard(periodo: str) -> tuple[str, str, str]:
@@ -84,7 +115,11 @@ def ctx_user():
     uid = session.get("user_id")
     if not uid:
         return None, None, False, "solo_lectura"
-    return int(uid), session.get("username", ""), session.get("is_admin", False), session.get("rol", "solo_lectura")
+    rol = session.get("rol", "solo_lectura")
+    is_admin = session.get("is_admin")
+    if is_admin is None:
+        is_admin = rol == "admin"
+    return int(uid), session.get("username", ""), bool(is_admin), rol
 
 
 def require_role(roles):
@@ -733,6 +768,8 @@ def prestamos_pago(pid):
             "valor_cuota_base": valor_cuota_base,
         }
         info = db.obtener_prestamo(pid, uid, is_admin)
+        if not info:
+            raise ValueError("No se encontró el préstamo después de registrar el pago.")
         nombre = info[2]
         telefono = info[16] if len(info) > 16 else ""
         wa_url = url_whatsapp(telefono, nombre, valor, num_cuota) if telefono else ""
@@ -850,9 +887,27 @@ def pagos_list():
         return redirect(url_for('admin_usuarios'))
 
     uid, _, is_admin, _ = ctx_user()
-    prestamo_filtro = request.args.get("prestamo_id", type=int)
-    rows = db.listar_pagos(prestamo_filtro, uid, is_admin)
-    grupos = [(fecha, list(items)) for fecha, items in groupby(rows, key=lambda r: r[3])]
+    prestamo_filtro = request.args.get("prestamo_id", default=None, type=int)
+    try:
+        rows = db.listar_pagos(prestamo_filtro, uid, is_admin)
+    except Exception as e:
+        flash(f"No se pudo cargar el historial de pagos: {e}", "error")
+        rows = []
+    pagos = [
+        {
+            "id": r[0],
+            "cliente": r[1] or "Sin nombre",
+            "prestamo_id": r[2],
+            "fecha": str(r[3] or ""),
+            "valor": float(r[4] or 0),
+            "cuota": int(r[5] or 0),
+            "saldo_restante": float(r[6] or 0),
+            "interes_mora": float(r[11] or 0),
+            "nota": str(r[12] or "").strip(),
+        }
+        for r in rows
+    ]
+    grupos = [(fecha, list(items)) for fecha, items in groupby(pagos, key=lambda r: r["fecha"])]
     return render_template(
         "pagos.html",
         pagos_grupos=grupos,
@@ -1062,32 +1117,35 @@ def prestamos_notas(pid):
 @login_required
 def descargar_recibo(pid, pago_id):
     uid, _, is_admin, _ = ctx_user()
-    info = db.obtener_prestamo(pid, uid, is_admin)
-    if not info:
-        abort(404)
-    nombre = info[2]
-    datos = session.get("_ultimo_pago", {})
-    if datos.get("pago_id") != pago_id or datos.get("pid") != pid:
-        datos = {"pid": pid, "pago_id": pago_id, "num_cuota": 1, "valor": 0, "fecha": today_str(), "interes_mora": 0, "valor_cuota_base": 0}
+    try:
+        pago = db.obtener_pago_para_recibo(pid, pago_id, uid, is_admin)
+        if not pago:
+            flash("El pago solicitado no existe o no tienes permiso para verlo.", "error")
+            return redirect(url_for("pagos_list"))
 
-    # Reemplazamos PDF por Imagen (Pillow) para facilitar compartir en WhatsApp/Móvil
-    buf = recibos.generar_recibo_imagen(
-        nombre,
-        pid,
-        datos.get("num_cuota", 1),
-        datos.get("valor", 0),
-        datos.get("fecha", today_str()),
-        uid,
-        is_admin,
-        valor_cuota_base=datos.get("valor_cuota_base", 0),
-        interes_mora=datos.get("interes_mora", 0),
-    )
-    return send_file(
-        buf,
-        as_attachment=True,
-        download_name=f"recibo_{pid}_{pago_id}.png",
-        mimetype="image/png",
-    )
+        buf = generar_recibo_pdf(
+            pago["nombre_cliente"] or "Cliente",
+            pid,
+            int(pago["cuota"] or 1),
+            float(pago["valor"] or 0),
+            str(pago["fecha"] or today_str()),
+            uid,
+            is_admin,
+            valor_cuota_base=float(pago["valor_cuota_base"] or 0),
+            interes_mora=float(pago["interes_mora"] or 0),
+        )
+        if not buf:
+            raise ValueError("No se pudo generar el archivo PDF.")
+        buf.seek(0)
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=f"recibo_{pid}_{pago_id}.pdf",
+            mimetype="application/pdf",
+        )
+    except Exception as e:
+        flash(f"No se pudo generar el recibo: {e}", "error")
+        return redirect(url_for("pagos_list", prestamo_id=pid))
 
 
 @app.route("/cobro/hoy")
