@@ -46,6 +46,53 @@ def _prestamo_get(info, key, default=None):
     return info[idx]
 
 
+def _money(v: float) -> str:
+    return f"${float(v):,.2f}"
+
+
+def _fecha_recibo(fecha) -> str:
+    raw = str(fecha or "").strip()
+    dt = None
+    candidates = (
+        (raw, "%Y-%m-%d %H:%M:%S"),
+        (raw[:16], "%Y-%m-%d %H:%M"),
+        (raw[:10], "%Y-%m-%d"),
+    )
+    for value, fmt in candidates:
+        try:
+            dt = datetime.strptime(value, fmt)
+            break
+        except ValueError:
+            continue
+    if dt is None:
+        dt = datetime.now()
+    if len(raw) <= 10:
+        now = datetime.now()
+        dt = dt.replace(hour=now.hour, minute=now.minute)
+    ampm = "am" if dt.hour < 12 else "pm"
+    hour = dt.hour % 12 or 12
+    return f"{dt.day:02d} / {dt.month:02d} / {dt.year} {hour}:{dt.minute:02d} {ampm}"
+
+
+def _font(size: int, bold: bool = False):
+    names = [
+        "arialbd.ttf" if bold else "arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    ]
+    for name in names:
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            pass
+    return ImageFont.load_default()
+
+
+def _draw_value_line(draw, xy, text, font, line_y, line_end_x, line_fill, line_width=3):
+    draw.text(xy, text, font=font, fill=(0, 0, 0))
+    draw.line((xy[0], line_y, line_end_x, line_y), fill=line_fill, width=line_width)
+
+
 def generar_recibo_imagen(
     nombre_cliente,
     prestamo_id,
@@ -56,6 +103,7 @@ def generar_recibo_imagen(
     is_admin: bool,
     valor_cuota_base: float | None = None,
     interes_mora: float = 0.0,
+    recibo_no: int | None = None,
 ) -> BytesIO:
     info = db.obtener_prestamo(prestamo_id, user_id, is_admin)
     if not info:
@@ -248,6 +296,76 @@ def generar_recibo_pdf(
     if isinstance(raw, str):
         raw = raw.encode("latin-1")
     buf = BytesIO(raw)
+    buf.seek(0)
+    return buf
+
+
+def generar_recibo_imagen(
+    nombre_cliente,
+    prestamo_id,
+    num_cuota_pagada,
+    valor_total,
+    fecha,
+    user_id: int,
+    is_admin: bool,
+    valor_cuota_base: float | None = None,
+    interes_mora: float = 0.0,
+    recibo_no: int | None = None,
+) -> BytesIO:
+    info = db.obtener_prestamo(prestamo_id, user_id, is_admin)
+    if not info:
+        raise ValueError("Prestamo no encontrado")
+
+    total_cuotas = int(_prestamo_get(info, "cuotas", 0) or 0)
+    width, height = 1168, 578
+    cyan = (36, 157, 170)
+    black = (0, 0, 0)
+    gray = (198, 198, 198)
+
+    img = Image.new("RGB", (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((2, 2, width - 3, height - 3), outline=cyan, width=5)
+
+    title_font = _font(50)
+    label_font = _font(42, bold=True)
+    value_font = _font(42)
+    date_font = _font(38)
+
+    title = "RECIBO DE PAGO"
+    title_box = draw.textbbox((0, 0), title, font=title_font)
+    draw.text(
+        ((width - (title_box[2] - title_box[0])) / 2, 54),
+        title,
+        font=title_font,
+        fill=cyan,
+    )
+
+    receipt_no = str(recibo_no or prestamo_id)
+    fecha_txt = _fecha_recibo(fecha)
+
+    y = 166
+    draw.text((82, y), "Recibo No.", font=label_font, fill=black)
+    _draw_value_line(draw, (334, y), receipt_no, value_font, y + 43, 494, black, 2)
+    draw.text((516, y), "Fecha:", font=label_font, fill=black)
+    _draw_value_line(draw, (676, y), fecha_txt, date_font, y + 43, 1090, black, 2)
+
+    y = 302
+    draw.text((82, y), "RECIBIDO DE:", font=label_font, fill=black)
+    _draw_value_line(draw, (396, y), str(nombre_cliente), label_font, y + 44, 1090, gray)
+
+    y += 78
+    draw.text((82, y), "MONTO TOTAL:", font=label_font, fill=black)
+    _draw_value_line(draw, (420, y), _money(valor_total), value_font, y + 44, 1090, gray)
+
+    y += 78
+    concepto = f"PAGO CUOTA {int(num_cuota_pagada or 1)}/{max(1, total_cuotas)}"
+    if float(interes_mora or 0) > 0:
+        concepto += f" + MORA {_money(interes_mora)}"
+    draw.text((82, y), "CONCEPTO:", font=label_font, fill=black)
+    _draw_value_line(draw, (354, y), concepto, value_font, y + 44, 1090, gray)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
     buf.seek(0)
     return buf
 

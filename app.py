@@ -21,7 +21,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
 import recibos
-from recibos import generar_recibo_pdf
+from recibos import generar_recibo_imagen, generar_recibo_pdf
 from utils_web import (
     add_days,
     fecha_proximo_pago_texto,
@@ -1123,7 +1123,7 @@ def descargar_recibo(pid, pago_id):
             flash("El pago solicitado no existe o no tienes permiso para verlo.", "error")
             return redirect(url_for("pagos_list"))
 
-        buf = generar_recibo_pdf(
+        buf = generar_recibo_imagen(
             pago["nombre_cliente"] or "Cliente",
             pid,
             int(pago["cuota"] or 1),
@@ -1133,15 +1133,16 @@ def descargar_recibo(pid, pago_id):
             is_admin,
             valor_cuota_base=float(pago["valor_cuota_base"] or 0),
             interes_mora=float(pago["interes_mora"] or 0),
+            recibo_no=int(pago["pago_id"] or pago_id),
         )
         if not buf:
-            raise ValueError("No se pudo generar el archivo PDF.")
+            raise ValueError("No se pudo generar el recibo.")
         buf.seek(0)
         return send_file(
             buf,
             as_attachment=True,
-            download_name=f"recibo_{pid}_{pago_id}.pdf",
-            mimetype="application/pdf",
+            download_name=f"recibo_{pid}_{pago_id}.png",
+            mimetype="image/png",
         )
     except Exception as e:
         flash(f"No se pudo generar el recibo: {e}", "error")
