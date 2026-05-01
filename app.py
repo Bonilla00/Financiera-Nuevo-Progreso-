@@ -273,19 +273,10 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    uid, _, is_admin, _ = ctx_user()
-    stats = db.obtener_stats_dashboard(uid, is_admin)
-
-    # Alertas para el dashboard
-    mora_list = db.listar_prestamos("p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE", (), uid, is_admin)
-    vencen_manana = db.listar_prestamos("p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date = CURRENT_DATE + 1", (), uid, is_admin)
-
-    return render_template(
-        "index.html",
-        stats=stats,
-        mora=mora_list,
-        vencen_manana=vencen_manana,
-    )
+    """Redirección inteligente según rol al entrar a la home."""
+    if session.get('rol') == 'admin':
+        return redirect(url_for('admin_usuarios'))
+    return redirect(url_for('clientes_list'))
 
 
 @app.route("/api/buscar_clientes")
@@ -302,6 +293,10 @@ def api_buscar_clientes():
 @app.route("/clientes")
 @login_required
 def clientes_list():
+    """Restricción: El admin no gestiona clientes."""
+    if session.get('rol') == 'admin':
+        return redirect(url_for('admin_usuarios'))
+
     uid, _, is_admin, _ = ctx_user()
     filtro = request.args.get("estado", "todo")
     rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
@@ -542,6 +537,10 @@ def cuotas_vencer():
 @app.route("/prestamos")
 @login_required
 def prestamos_list():
+    """Restricción: El admin no gestiona préstamos."""
+    if session.get('rol') == 'admin':
+        return redirect(url_for('admin_usuarios'))
+
     uid, _, is_admin, _ = ctx_user()
     filtro = request.args.get("estado", "activos")
 
@@ -844,6 +843,10 @@ def reportes_pdf():
 @app.route("/pagos")
 @login_required
 def pagos_list():
+    """Restricción: El admin no gestiona pagos."""
+    if session.get('rol') == 'admin':
+        return redirect(url_for('admin_usuarios'))
+
     uid, _, is_admin, _ = ctx_user()
     prestamo_filtro = request.args.get("prestamo_id", type=int)
     rows = db.listar_pagos(prestamo_filtro, uid, is_admin)
