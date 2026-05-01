@@ -266,7 +266,9 @@ def cambiar_password():
 
 @app.route("/logout")
 def logout():
+    """Limpia la sesión y redirige al login."""
     session.clear()
+    flash("Has cerrado sesión correctamente.", "ok")
     return redirect(url_for("login"))
 
 
@@ -1067,7 +1069,9 @@ def descargar_recibo(pid, pago_id):
     datos = session.get("_ultimo_pago", {})
     if datos.get("pago_id") != pago_id or datos.get("pid") != pid:
         datos = {"pid": pid, "pago_id": pago_id, "num_cuota": 1, "valor": 0, "fecha": today_str(), "interes_mora": 0, "valor_cuota_base": 0}
-    buf = recibos.generar_recibo_pdf(
+
+    # Reemplazamos PDF por Imagen (Pillow) para facilitar compartir en WhatsApp/Móvil
+    buf = recibos.generar_recibo_imagen(
         nombre,
         pid,
         datos.get("num_cuota", 1),
@@ -1081,8 +1085,8 @@ def descargar_recibo(pid, pago_id):
     return send_file(
         buf,
         as_attachment=True,
-        download_name=f"recibo_{pid}_{pago_id}.pdf",
-        mimetype="application/pdf",
+        download_name=f"recibo_{pid}_{pago_id}.png",
+        mimetype="image/png",
     )
 
 

@@ -1,14 +1,122 @@
-"""Genera PDF en memoria para descarga (Flask)."""
+"""Genera PDF o Imagen en memoria para descarga (Flask)."""
 import os
 import unicodedata
 from datetime import datetime
 from io import BytesIO
 
 from fpdf import FPDF
+from PIL import Image, ImageDraw, ImageFont
 
 import db
 
 _LOGO_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "static", "logo.png"))
+
+
+def generar_recibo_imagen(
+    nombre_cliente,
+    prestamo_id,
+    num_cuota_pagada,
+    valor_total,
+    fecha,
+    user_id: int,
+    is_admin: bool,
+    valor_cuota_base: float | None = None,
+    interes_mora: float = 0.0,
+) -> BytesIO:
+    info = db.obtener_prestamo(prestamo_id, user_id, is_admin)
+    if not info:
+        raise ValueError("Préstamo no encontrado")
+
+    total_cuotas = int(info['cuotas'])
+    cuotas_restantes = max(0, total_cuotas - (num_cuota_pagada - 1))
+
+    if valor_cuota_base is None:
+        valor_cuota_base = float(info['valor_cuota'])
+
+    # Configuración de imagen
+    width, height = 600, 800
+    bg_color = (255, 255, 255)
+    cyan = (34, 211, 238)
+    dark_blue = (15, 23, 42)
+    text_color = (51, 65, 85)
+
+    img = Image.new("RGB", (width, height), bg_color)
+    draw = ImageDraw.Draw(img)
+
+    # Intentar cargar fuentes (usar default si falla)
+    # Nota: En entornos Linux/Server es mejor pasar rutas absolutas a .ttf
+    font_path = "arial.ttf"
+    try:
+        font_title = ImageFont.truetype(font_path, 32)
+        font_subtitle = ImageFont.truetype(font_path, 24)
+        font_label = ImageFont.truetype(font_path, 20)
+        font_bold = ImageFont.truetype(font_path, 20, index=0) # Index for bold if available
+        font_footer = ImageFont.truetype(font_path, 16)
+    except:
+        font_title = ImageFont.load_default()
+        font_subtitle = ImageFont.load_default()
+        font_label = ImageFont.load_default()
+        font_bold = ImageFont.load_default()
+        font_footer = ImageFont.load_default()
+
+    # Título
+    draw.text((width/2, 50), "FINANCIERA NUEVO PROGRESO", font=font_title, fill=dark_blue, anchor="mm")
+    draw.line((50, 80, 550, 80), fill=cyan, width=4)
+
+    # Subtítulo
+    draw.text((width/2, 110), "RECIBO DE PAGO", font=font_subtitle, fill=text_color, anchor="mm")
+
+    # Logo
+    y_offset = 140
+    if os.path.isfile(_LOGO_PATH):
+        try:
+            logo = Image.open(_LOGO_PATH)
+            logo.thumbnail((120, 120))
+            img.paste(logo, (int((width - logo.width) / 2), y_offset), logo if logo.mode == 'RGBA' else None)
+            y_offset += logo.height + 40
+        except:
+            y_offset += 40
+    else:
+        y_offset += 40
+
+    # Datos
+    mora_f = float(interes_mora or 0)
+    data = [
+        ("Cliente", str(nombre_cliente)),
+        ("Préstamo", f"#{prestamo_id}"),
+        ("Cuota pagada", str(num_cuota_pagada)),
+        ("Cuotas restantes", str(cuotas_restantes)),
+        ("Valor cuota", f"${float(valor_cuota_base):,.2f}"),
+    ]
+    if mora_f > 0.001:
+        data.append(("Interés por mora", f"${mora_f:,.2f}"))
+    data.append(("Total pagado", f"${float(valor_total):,.2f}"))
+    data.append(("Fecha del pago", str(fecha)))
+
+    label_x = 70
+    value_x = 280
+    row_h = 45
+
+    for i, (label, val) in enumerate(data):
+        if i % 2 == 0:
+            draw.rectangle((60, y_offset, 540, y_offset + row_h), fill=(248, 250, 252))
+
+        draw.text((label_x, y_offset + 10), label, font=font_label, fill=text_color)
+        draw.text((value_x, y_offset + 10), val, font=font_bold, fill=dark_blue)
+        draw.rectangle((60, y_offset, 540, y_offset + row_h), outline=(203, 213, 225), width=1)
+        y_offset += row_h
+
+    # Footer
+    y_offset += 40
+    gen = datetime.now().strftime("%Y-%m-%d %H:%M")
+    draw.text((width/2, y_offset), f"Documento generado el {gen}", font=font_footer, fill=(100, 116, 139), anchor="mm")
+    draw.text((width/2, y_offset + 30), "Gracias por su pago puntual.", font=font_footer, fill=(100, 116, 139), anchor="mm")
+
+    # Guardar en BytesIO
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 
 def generar_recibo_pdf(
@@ -25,11 +133,12 @@ def generar_recibo_pdf(
     info = db.obtener_prestamo(prestamo_id, user_id, is_admin)
     if not info:
         raise ValueError("Préstamo no encontrado")
-    total_cuotas = int(info[6])
+
+    total_cuotas = int(info['cuotas'])
     cuotas_restantes = max(0, total_cuotas - (num_cuota_pagada - 1))
 
     if valor_cuota_base is None:
-        valor_cuota_base = float(info[11])
+        valor_cuota_base = float(info['valor_cuota'])
 
     pdf = FPDF()
     pdf.add_page()
