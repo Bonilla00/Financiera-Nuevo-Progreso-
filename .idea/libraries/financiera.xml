@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="financiera">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/financiera.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
