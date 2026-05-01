@@ -32,6 +32,7 @@
 </form>
 
 {% if is_admin %}
+<a href="{{ url_for('admin_dashboard') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-bold mb-3 shadow-lg shadow-cyan-900/20">Monitoreo Global (Admin)</a>
 <a href="{{ url_for('admin_usuarios') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-accent font-semibold mb-3">Usuarios (admin)</a>
 <a href="{{ url_for('backup_sql') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-semibold mb-3">Descargar backup .sql</a>
 

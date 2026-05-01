@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Monitoreo Admin - Financiera NP{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-white">Monitoreo Global</h1>
+    <a href="{{ url_for('admin_usuarios_list') }}" class="text-xs text-accent font-bold uppercase tracking-widest hover:underline">Gestionar Usuarios →</a>
+  </div>
+
+  <!-- Métricas Globales -->
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Usuarios</p>
+      <p class="text-xl font-bold text-white">{{ stats.usuarios }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Clientes</p>
+      <p class="text-xl font-bold text-accent">{{ stats.clientes }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Préstamos</p>
+      <p class="text-xl font-bold text-white">{{ stats.prestamos }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Pagos</p>
+      <p class="text-xl font-bold text-emerald-400">{{ stats.pagos }}</p>
+    </div>
+  </div>
+
+  <!-- Logs Recientes -->
+  <div class="rounded-2xl bg-panel border border-slate-800 overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-800 bg-slate-900/50">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Actividad Reciente</h2>
+    </div>
+    <div class="divide-y divide-slate-800">
+      {% for log in logs %}
+      <div class="px-4 py-3 flex justify-between items-center text-xs">
+        <div class="space-y-1">
+          <p class="text-white font-medium">{{ log.accion }}</p>
+          <p class="text-slate-500">{{ log.username or 'Sistema' }} · {{ log.fecha.strftime('%H:%M:%S') }}</p>
+        </div>
+        <span class="text-slate-600 font-mono text-[10px]">{{ log.fecha.strftime('%d/%m/%Y') }}</span>
+      </div>
+      {% else %}
+      <div class="p-8 text-center text-slate-600 text-sm italic">
+        No hay registros de actividad.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

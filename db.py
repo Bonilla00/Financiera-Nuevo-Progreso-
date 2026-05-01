@@ -48,7 +48,7 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cobrador', 'solo_lectura', 'usuario'))",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT TRUE",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE",
-        # Asegurar que no haya valores NULL que rompan la lógica
+        "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, user_id INT, accion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
         "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL"
     ]
@@ -58,12 +58,69 @@ def ensure_schema_migrations() -> None:
                 cur = conn.cursor()
                 cur.execute(s)
         except Exception as e:
-            # Ignorar si la columna ya existe o errores menores
             print(f"Info migración: {e}")
 
     ensure_auditoria_table()
     ensure_gastos_table()
     crear_admin_inicial()
+
+
+def registrar_log(user_id: int | None, accion: str):
+    """Registra una acción en la tabla de logs."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("INSERT INTO logs (user_id, accion) VALUES (%s, %s)", (user_id, accion))
+
+
+def obtener_metricas_globales():
+    """Obtiene métricas totales de todo el sistema para el admin."""
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT COUNT(*) as total FROM usuarios")
+        u = cur.fetchone()['total']
+        cur.execute("SELECT COUNT(*) as total FROM clientes")
+        c = cur.fetchone()['total']
+        cur.execute("SELECT COUNT(*) as total FROM prestamos")
+        pr = cur.fetchone()['total']
+        cur.execute("SELECT COUNT(*) as total FROM pagos")
+        pa = cur.fetchone()['total']
+        return {"usuarios": u, "clientes": c, "prestamos": pr, "pagos": pa}
+
+
+def listar_usuarios_con_estadisticas():
+    """Lista usuarios con su conteo de clientes asociados."""
+    query = """
+        SELECT u.id, u.username, u.rol, u.activo,
+               (SELECT COUNT(*) FROM clientes WHERE owner_user_id = u.id) as num_clientes
+        FROM usuarios u
+        ORDER BY u.username ASC
+    """
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query)
+        return cur.fetchall()
+
+
+def obtener_logs_recientes(limit=50, user_id=None):
+    """Obtiene los logs más recientes con el nombre de usuario."""
+    params = [limit]
+    extra_where = ""
+    if user_id:
+        extra_where = "WHERE l.user_id = %s"
+        params.insert(0, user_id)
+
+    query = f"""
+        SELECT l.fecha, l.accion, u.username
+        FROM logs l
+        LEFT JOIN usuarios u ON l.user_id = u.id
+        {extra_where}
+        ORDER BY l.fecha DESC
+        LIMIT %s
+    """
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query, tuple(params))
+        return cur.fetchall()
 
 
 def crear_admin_inicial():

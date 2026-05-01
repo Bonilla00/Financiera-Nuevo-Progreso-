@@ -187,6 +187,8 @@ def login():
                 session["rol"] = row.get('rol')
                 session["is_admin"] = (row.get('rol') == "admin")
 
+                db.registrar_log(session["user_id"], "Inicio de sesión")
+
                 # BLOQUEO DE SEGURIDAD: Cambio de clave obligatorio
                 if row.get('debe_cambiar_password'):
                     flash("Debes cambiar tu contraseña inicial por seguridad.", "error")
@@ -200,6 +202,43 @@ def login():
             return render_template("login.html")
 
     return render_template("login.html")
+
+
+@app.route("/admin/dashboard")
+@admin_required
+def admin_dashboard():
+    stats = db.obtener_metricas_globales()
+    logs = db.obtener_logs_recientes(20)
+    return render_template("admin_dashboard.html", stats=stats, logs=logs)
+
+
+@app.route("/admin/usuarios_full")
+@admin_required
+def admin_usuarios_list():
+    users = db.listar_usuarios_con_estadisticas()
+    return render_template("admin_usuarios_list.html", users=users)
+
+
+@app.route("/admin/usuarios/<int:uid>/detalle")
+@admin_required
+def admin_usuario_detalle(uid):
+    user = db.obtener_usuario_por_id(uid)
+    if not user: abort(404)
+
+    # Obtenemos datos del usuario (actuamos como si fuéramos él para reutilizar funciones)
+    clientes = db.listar_clientes(uid, False)
+    prestamos = db.listar_prestamos("", (), uid, False)
+    pagos = db.listar_pagos(None, uid, False)
+    logs = db.obtener_logs_recientes(30, user_id=uid)
+
+    return render_template(
+        "admin_usuario_detalle.html",
+        user=user,
+        clientes=clientes,
+        prestamos=prestamos,
+        pagos=pagos,
+        logs=logs
+    )
 
 
 @app.route("/cambiar_password", methods=["GET", "POST"])
@@ -335,6 +374,7 @@ def clientes_nuevo():
                 mora_activa=mora_on,
                 tasa_mora_diaria=tasa_mora,
             )
+            db.registrar_log(uid, f"Nuevo cliente ({nombre}) y préstamo de {fmt_money(monto)}")
             flash("Cliente y préstamo guardados.", "ok")
             return redirect(url_for("clientes_list"))
         except Exception as e:
@@ -569,6 +609,7 @@ def prestamos_nuevo():
                 mora_activa=mora_on,
                 tasa_mora_diaria=tasa_mora,
             )
+            db.registrar_log(uid, f"Nuevo préstamo ID #{cid} por {fmt_money(monto)}")
             flash("Préstamo creado.", "ok")
             return redirect(url_for("prestamos_list"))
         except Exception as e:
@@ -680,6 +721,7 @@ def prestamos_pago(pid):
         pago_id, num_cuota, interes_mora, valor_cuota_base = db.registrar_pago(
             pid, fecha, valor, uid, is_admin, nota
         )
+        db.registrar_log(uid, f"Pago registrado de {fmt_money(valor)} para préstamo #{pid}")
         session["_ultimo_pago"] = {
             "pid": pid,
             "pago_id": pago_id,

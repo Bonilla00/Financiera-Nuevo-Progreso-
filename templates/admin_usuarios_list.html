@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Usuarios del Sistema - Admin{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-white">Usuarios del Sistema</h1>
+    <a href="{{ url_for('admin_dashboard') }}" class="text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-accent">← Dashboard</a>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4">
+    {% for u in users %}
+    <div class="rounded-2xl bg-panel p-5 border border-slate-800 flex justify-between items-center transition-all hover:border-slate-700">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2">
+          <p class="text-sm font-bold text-white uppercase">{{ u.username }}</p>
+          <span class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase {% if u.rol == 'admin' %}bg-cyan-900/30 text-cyan-400{% else %}bg-slate-800 text-slate-500{% endif %}">
+            {{ u.rol }}
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-500 font-medium">
+          {{ u.num_clientes }} clientes registrados · ID #{{ u.id }}
+        </p>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="text-right">
+          <span class="text-[10px] font-bold uppercase tracking-widest {% if u.activo %}text-emerald-400{% else %}text-rose-500{% endif %}">
+            {% if u.activo %}● Activo{% else %}○ Inactivo{% endif %}
+          </span>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ url_for('admin_usuario_detalle', uid=u.id) }}" class="text-slate-400 hover:text-white transition-colors">
+              <span class="text-lg">👁</span>
+            </a>
+            <a href="{{ url_for('admin_usuarios') }}" class="text-accent hover:text-white transition-colors">
+              <span class="text-lg">⚙</span>
+            </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Detalle de Usuario - Admin{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div class="space-y-1">
+      <h1 class="text-xl font-bold text-white uppercase">{{ user.username }}</h1>
+      <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">{{ user.rol }} · ID #{{ user.id }}</p>
+    </div>
+    <a href="{{ url_for('admin_usuarios_list') }}" class="text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-accent">← Volver</a>
+  </div>
+
+  <!-- Resumen del Usuario -->
+  <div class="grid grid-cols-3 gap-4">
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 text-center">
+      <p class="text-[9px] font-bold uppercase text-slate-500 mb-1">Clientes</p>
+      <p class="text-lg font-bold text-white">{{ clientes|length }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 text-center">
+      <p class="text-[9px] font-bold uppercase text-slate-500 mb-1">Préstamos</p>
+      <p class="text-lg font-bold text-white">{{ prestamos|length }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 text-center">
+      <p class="text-[9px] font-bold uppercase text-slate-500 mb-1">Pagos</p>
+      <p class="text-lg font-bold text-white">{{ pagos|length }}</p>
+    </div>
+  </div>
+
+  <!-- Tabs Simples (Conceptuales) -->
+  <div class="space-y-4">
+
+    <!-- Historial de Actividad (Logs) -->
+    <div class="rounded-2xl bg-panel border border-slate-800 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-800 bg-slate-900/50">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Actividad Reciente</h2>
+      </div>
+      <div class="divide-y divide-slate-800 max-h-64 overflow-y-auto">
+        {% for log in logs %}
+        <div class="px-4 py-3 flex justify-between items-center text-[11px]">
+          <p class="text-white">{{ log.accion }}</p>
+          <span class="text-slate-600 font-mono">{{ log.fecha.strftime('%d/%m %H:%M') }}</span>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-slate-600 text-xs italic">Sin actividad registrada.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Lista de Préstamos -->
+    <div class="rounded-2xl bg-panel border border-slate-800 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-800 bg-slate-900/50">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Préstamos del Usuario</h2>
+      </div>
+      <div class="divide-y divide-slate-800">
+        {% for p in prestamos %}
+        <div class="px-4 py-3 flex justify-between items-center">
+          <div class="space-y-0.5">
+            <p class="text-xs font-bold text-white uppercase">{{ p.nombre }}</p>
+            <p class="text-[10px] text-slate-500">{{ fmt_money(p.monto) }} · {{ p.estado }}</p>
+          </div>
+          <span class="text-[10px] font-bold {% if p.en_mora %}text-rose-500{% else %}text-slate-600{% endif %}">
+            {{ p.proximo_pago or 'Finalizado' }}
+          </span>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-slate-600 text-xs italic">No tiene préstamos.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
