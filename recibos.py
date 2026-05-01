@@ -12,6 +12,40 @@ import db
 _LOGO_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "static", "logo.png"))
 
 
+_PRESTAMO_INDEX = {
+    "id": 0,
+    "cliente_id": 1,
+    "nombre": 2,
+    "identificacion": 3,
+    "fecha": 4,
+    "frecuencia": 5,
+    "cuotas": 6,
+    "monto": 7,
+    "tasa": 8,
+    "interes_total": 9,
+    "total_pagar": 10,
+    "valor_cuota": 11,
+    "vencimiento": 12,
+    "estado": 13,
+    "pagadas": 14,
+    "proximo_pago": 15,
+    "notas": 16,
+    "mora_activa": 17,
+    "tasa_mora_diaria": 18,
+}
+
+
+def _prestamo_get(info, key, default=None):
+    if info is None:
+        return default
+    if isinstance(info, dict):
+        return info.get(key, default)
+    idx = _PRESTAMO_INDEX.get(key)
+    if idx is None or idx >= len(info):
+        return default
+    return info[idx]
+
+
 def generar_recibo_imagen(
     nombre_cliente,
     prestamo_id,
@@ -27,11 +61,11 @@ def generar_recibo_imagen(
     if not info:
         raise ValueError("Préstamo no encontrado")
 
-    total_cuotas = int(info['cuotas'])
+    total_cuotas = int(_prestamo_get(info, "cuotas", 0) or 0)
     cuotas_restantes = max(0, total_cuotas - (num_cuota_pagada - 1))
 
     if valor_cuota_base is None:
-        valor_cuota_base = float(info['valor_cuota'])
+        valor_cuota_base = float(_prestamo_get(info, "valor_cuota", 0) or 0)
 
     # Configuración de imagen
     width, height = 600, 800
@@ -134,11 +168,11 @@ def generar_recibo_pdf(
     if not info:
         raise ValueError("Préstamo no encontrado")
 
-    total_cuotas = int(info['cuotas'])
+    total_cuotas = int(_prestamo_get(info, "cuotas", 0) or 0)
     cuotas_restantes = max(0, total_cuotas - (num_cuota_pagada - 1))
 
     if valor_cuota_base is None:
-        valor_cuota_base = float(info['valor_cuota'])
+        valor_cuota_base = float(_prestamo_get(info, "valor_cuota", 0) or 0)
 
     pdf = FPDF()
     pdf.add_page()

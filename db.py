@@ -1091,7 +1091,7 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
 
 
 def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
-    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    scope, sparams = _filtro_owner("clientes", user_id, is_admin)
     base = f"""
         SELECT pagos.id,
                clientes.nombre,
