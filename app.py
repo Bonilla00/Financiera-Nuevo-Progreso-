@@ -914,41 +914,50 @@ def configuracion():
 @admin_required
 def admin_usuarios():
     if request.method == "POST":
-        action = request.form.get("action")
-        if action == "crear":
-            u = request.form.get("username", "").strip()
-            p1 = request.form.get("password", "")
-            rol = request.form.get("rol", "usuario")
-            if len(u) < 3:
-                flash("Usuario muy corto.", "error")
-            elif len(p1) < 6:
-                flash("Clave muy corta.", "error")
-            else:
-                try:
-                    db.crear_usuario(u, generate_password_hash(p1), rol=rol)
-                    flash(f"Usuario {u} creado.", "ok")
-                except psycopg2.IntegrityError:
-                    flash("Ese nombre de usuario ya existe.", "error")
-                except Exception as e:
-                    flash(str(e), "error")
-        elif action == "actualizar":
-            uid = int(request.form.get("user_id", "0"))
-            rol = request.form.get("rol", "usuario")
-            activo = request.form.get("activo") == "on"
-            admins = [r for r in db.listar_usuarios() if r[2] == "admin" and r[3]]
-            if not activo and uid == session["user_id"]:
-                flash("No puedes desactivarte a ti mismo.", "error")
-            elif rol != "admin" and uid == session["user_id"]:
-                flash("No puedes quitarte el rol admin a ti mismo.", "error")
-            elif rol != "admin" and len(admins) == 1 and admins[0][0] == uid:
-                flash("Debe existir al menos un administrador activo.", "error")
-            else:
-                db.admin_actualizar_usuario(uid, rol, activo)
-                flash("Usuario actualizado.", "ok")
-        return redirect(url_for("admin_usuarios"))
+        # Lógica para Crear Usuario
+        u = request.form.get("username", "").strip()
+        p = request.form.get("password", "")
+        r = request.form.get("rol", "cobrador")
 
-    usuarios = db.listar_usuarios()
+        if db.obtener_usuario_por_username(u):
+            flash("El nombre de usuario ya existe.", "error")
+        else:
+            h = generate_password_hash(p)
+            db.crear_usuario(u, h, rol=r)
+            flash(f"Usuario {u} creado correctamente.", "ok")
+        return redirect(url_for('admin_usuarios'))
+
+    usuarios = db.listar_usuarios_admin()
     return render_template("admin_usuarios.html", usuarios=usuarios)
+
+
+@app.route("/admin/usuarios/<int:uid>/editar", methods=["GET", "POST"])
+@admin_required
+def admin_usuario_editar(uid):
+    user = db.obtener_usuario_por_id(uid)
+    if not user: abort(404)
+
+    if request.method == "POST":
+        new_u = request.form.get("username", "").strip()
+        new_r = request.form.get("rol")
+        db.admin_update_user_basic(uid, new_u, new_r)
+        flash("Datos actualizados correctamente.", "ok")
+        return redirect(url_for('admin_usuarios'))
+
+    return render_template("admin_usuario_editar.html", u=user)
+
+
+@app.route("/admin/usuarios/<int:uid>/password", methods=["POST"])
+@admin_required
+def admin_usuario_pass_update(uid):
+    new_p = request.form.get("new_password", "")
+    if len(new_p) < 8:
+        flash("La contraseña debe tener al menos 8 caracteres.", "error")
+    else:
+        h = generate_password_hash(new_p)
+        db.admin_update_user_password(uid, h)
+        flash("Contraseña actualizada con éxito.", "ok")
+    return redirect(url_for('admin_usuarios'))
 
 
 @app.route("/admin/usuarios/<int:uid>/toggle", methods=["POST"])
@@ -957,42 +966,14 @@ def admin_usuario_toggle(uid):
     if uid == session['user_id']:
         flash("No puedes desactivar tu propia cuenta.", "error")
     else:
-        nuevo_estado = db.admin_toggle_activo(uid)
+        # Reutilizamos la lógica de toggle pero mapeada a la nueva estructura si es necesario
+        # En este caso db.py tenía una versión que borramos, vamos a restaurar la necesaria
+        with db.get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("UPDATE usuarios SET activo = NOT activo WHERE id = %s RETURNING activo", (uid,))
+            nuevo_estado = cur.fetchone()[0]
         estado_txt = "activado" if nuevo_estado else "desactivado"
         flash(f"Usuario {estado_txt}.", "ok")
-    return redirect(url_for('admin_usuarios'))
-
-
-@app.route("/admin/usuarios/<int:uid>/password", methods=["POST"])
-@admin_required
-def admin_usuario_password(uid):
-    p = request.form.get("new_password", "")
-    if len(p) < 6:
-        flash("La clave debe tener al menos 6 caracteres.", "error")
-    else:
-        h = generate_password_hash(p)
-        db.admin_cambiar_password(uid, h)
-        flash("Contraseña actualizada correctamente.", "ok")
-    return redirect(url_for('admin_usuarios'))
-
-
-@app.route("/admin/reset_password", methods=["POST"])
-@admin_required
-def admin_reset_password_route():
-    """Ruta para reseteo de contraseña recibiendo user_id por formulario."""
-    uid = request.form.get("user_id")
-    p = request.form.get("password")
-
-    if not uid or not p:
-        flash("Datos incompletos.", "error")
-        return redirect(url_for('admin_usuarios'))
-
-    if len(p) < 6:
-        flash("La clave debe tener al menos 6 caracteres.", "error")
-    else:
-        h = generate_password_hash(p)
-        db.actualizar_password_usuario(int(uid), h)
-        flash("Contraseña restablecida con éxito.", "ok")
     return redirect(url_for('admin_usuarios'))
 
 
@@ -1002,7 +983,10 @@ def admin_usuario_eliminar(uid):
     if uid == session['user_id']:
         flash("No puedes eliminar tu propia cuenta.", "error")
     else:
-        db.admin_eliminar_usuario(uid)
+        # Reutilizamos eliminación directa
+        with db.get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM usuarios WHERE id = %s", (uid,))
         flash("Usuario eliminado permanentemente.", "ok")
     return redirect(url_for('admin_usuarios'))
 

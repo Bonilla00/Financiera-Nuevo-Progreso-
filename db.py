@@ -273,31 +273,29 @@ def actualizar_password_usuario(uid: int, password_hash: str) -> None:
         )
 
 
-def admin_actualizar_usuario(uid: int, rol: str, activo: bool) -> None:
+def listar_usuarios_admin():
+    """Lista todos los usuarios para la gestión administrativa."""
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id, username, rol, activo, creado_en FROM usuarios ORDER BY id ASC")
+        return cur.fetchall()
+
+
+def admin_update_user_basic(uid: int, username: str, rol: str):
+    """Actualiza solo datos básicos (no password)."""
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "UPDATE usuarios SET rol = %s, activo = %s WHERE id = %s",
-            (rol, activo, uid),
-        )
-
-
-def admin_cambiar_password(uid: int, password_hash: str) -> None:
-    actualizar_password_usuario(uid, password_hash)
-
-
-def admin_toggle_activo(uid: int):
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("UPDATE usuarios SET activo = NOT activo WHERE id = %s RETURNING activo", (uid,))
-        return cur.fetchone()[0]
-
-
-def admin_eliminar_usuario(uid: int):
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM usuarios WHERE id = %s", (uid,))
+        cur.execute("UPDATE usuarios SET username = %s, rol = %s WHERE id = %s",
+                    (username.strip().lower(), rol, uid))
         return cur.rowcount > 0
+
+
+def admin_update_user_password(uid: int, password_hash: str):
+    """Actualiza únicamente la contraseña de un usuario."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE usuarios SET password_hash = %s, debe_cambiar_password = FALSE WHERE id = %s",
+                    (password_hash, uid))
 
 
 def admin_reset_password(uid: int, password_hash: str) -> None:

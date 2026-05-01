@@ -1,76 +1,75 @@
 {% extends "base.html" %}
-{% block title %}Usuarios{% endblock %}
+{% block title %}Gestión de Usuarios - Admin{% endblock %}
+
 {% block content %}
-<h1 class="text-xl font-bold mb-2 text-white">Gestión de Usuarios</h1>
-<p class="text-slate-400 text-sm mb-4">Administra los accesos y roles del sistema.</p>
-
-<form method="post" class="bg-panel rounded-2xl border border-slate-800 p-5 mb-6 space-y-3 shadow-xl" data-loading-submit data-loading-label="Procesando…">
-  <input type="hidden" name="action" value="crear">
-  <h2 class="font-bold text-accent text-xs uppercase tracking-widest">Crear nuevo usuario</h2>
-  <div class="grid grid-cols-1 gap-3">
-    <input name="username" placeholder="Nombre de usuario" required class="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-white focus:ring-2 focus:ring-accent outline-none transition-all">
-    <input type="password" name="password" placeholder="Contraseña inicial" required minlength="6" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-white focus:ring-2 focus:ring-accent outline-none transition-all">
-    <select name="rol" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-white focus:ring-2 focus:ring-accent outline-none transition-all">
-      <option value="solo_lectura">Solo Lectura</option>
-      <option value="cobrador">Cobrador</option>
-      <option value="usuario">Usuario (Owner)</option>
-      <option value="admin">Administrador</option>
-    </select>
-  </div>
-  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold text-sm shadow-lg active:scale-95 transition-transform">
-    Crear Usuario
-  </button>
-</form>
-
-<div class="space-y-4">
-  {% for u in usuarios %}
-  <div class="bg-panel rounded-2xl border border-slate-800 p-4 shadow-lg">
-    <div class="flex justify-between items-start mb-3">
-      <div>
-        <p class="font-bold text-white uppercase">{{ u[1] }}</p>
-        <p class="text-[10px] text-slate-500 font-bold tracking-tighter">ID #{{ u[0] }} · CREADO EL {{ u[4] }}</p>
-      </div>
-      <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest {% if u[3] %}bg-emerald-900/30 text-emerald-400{% else %}bg-red-900/30 text-red-400{% endif %}">
-        {% if u[3] %}Activo{% else %}Inactivo{% endif %}
-      </span>
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-white uppercase tracking-tight">Gestión de Usuarios</h1>
+        <div class="px-3 py-1 rounded-full bg-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-slate-700">Panel Admin</div>
     </div>
 
-    <form method="post" class="space-y-3" data-loading-submit data-loading-label="Procesando…">
-      <input type="hidden" name="action" value="actualizar">
-      <input type="hidden" name="user_id" value="{{ u[0] }}">
+    <!-- Formulario Crear (Card) -->
+    <div class="bg-panel rounded-3xl border border-slate-800 p-6 shadow-xl">
+        <h2 class="text-xs font-bold text-accent uppercase tracking-widest mb-4">Crear Nuevo Acceso</h2>
+        <form method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <input type="text" name="username" placeholder="Usuario" required class="bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-white outline-none focus:ring-2 focus:ring-accent transition-all">
+            <input type="password" name="password" placeholder="Contraseña" required class="bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-white outline-none focus:ring-2 focus:ring-accent transition-all">
+            <select name="rol" class="bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-white outline-none">
+                <option value="cobrador">Cobrador</option>
+                <option value="solo_lectura">Solo Lectura</option>
+                <option value="admin">Administrador</option>
+            </select>
+            <button type="submit" class="bg-accent hover:bg-cyan-400 text-slate-900 font-bold rounded-2xl py-2 transition-all active:scale-95 shadow-lg shadow-cyan-900/20">Crear Usuario</button>
+        </form>
+    </div>
 
-      <div class="flex gap-2">
-        <select name="rol" class="flex-1 rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-white">
-          <option value="solo_lectura" {% if u[2]=='solo_lectura' %}selected{% endif %}>Solo Lectura</option>
-          <option value="cobrador" {% if u[2]=='cobrador' %}selected{% endif %}>Cobrador</option>
-          <option value="usuario" {% if u[2]=='usuario' %}selected{% endif %}>Usuario</option>
-          <option value="admin" {% if u[2]=='admin' %}selected{% endif %}>Admin</option>
-        </select>
+    <!-- Lista de Usuarios -->
+    <div class="grid grid-cols-1 gap-4">
+        {% for u in usuarios %}
+        <div class="bg-panel border border-slate-800 rounded-3xl p-5 shadow-lg transition-all {{ 'opacity-50 grayscale' if not u.activo }}">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-xl border border-slate-700">
+                        {{ '🛡️' if u.rol == 'admin' else '💼' if u.rol == 'cobrador' else '👁️' }}
+                    </div>
+                    <div>
+                        <h3 class="text-white font-bold text-lg uppercase leading-tight">{{ u.username }}</h3>
+                        <div class="flex gap-2 items-center">
+                            <span class="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase border border-slate-700">{{ u.rol }}</span>
+                            <span class="text-[10px] font-bold uppercase {{ 'text-emerald-400' if u.activo else 'text-rose-500' }}">
+                                {{ '● Activo' if u.activo else '○ Inactivo' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
-        <label class="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 rounded-xl cursor-pointer">
-          <input type="checkbox" name="activo" value="on" {% if u[3] %}checked{% endif %} class="accent-accent">
-          <span class="text-[10px] font-bold text-slate-400 uppercase">Activo</span>
-        </label>
+                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                    <!-- Form Password Rápido -->
+                    <form action="{{ url_for('admin_usuario_pass_update', uid=u.id) }}" method="POST" class="flex gap-1">
+                        <input type="password" name="new_password" placeholder="Nueva clave" required class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white w-32 focus:border-emerald-500 transition-all outline-none">
+                        <button type="submit" class="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white p-2 rounded-xl border border-emerald-600/30 transition-all" title="Reset Password">🔑</button>
+                    </form>
 
-        <button type="submit" class="px-4 py-2 rounded-xl bg-slate-700 text-white text-[10px] font-bold uppercase hover:bg-slate-600 transition-colors">
-          OK
-        </button>
-      </div>
-    </form>
+                    <!-- Acciones -->
+                    <div class="flex gap-1">
+                        <a href="{{ url_for('admin_usuario_editar', uid=u.id) }}" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-xl border border-blue-600/30 text-[10px] font-bold uppercase transition-all">Editar</a>
 
-    <form method="post" class="mt-3 pt-3 border-t border-slate-800 flex gap-2 items-center" data-loading-submit data-loading-label="Procesando…">
-      <input type="hidden" name="action" value="reset_password">
-      <input type="hidden" name="user_id" value="{{ u[0] }}">
-      <input type="password" name="new_password" placeholder="Nueva contraseña" minlength="6" class="flex-1 rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-white">
-      <button type="submit" class="px-3 py-2 rounded-xl bg-slate-800 text-[10px] font-bold text-slate-400 uppercase hover:text-white transition-colors">
-        Reset
-      </button>
-    </form>
-  </div>
-  {% endfor %}
+                        <form action="{{ url_for('admin_usuario_toggle', uid=u.id) }}" method="POST">
+                            <button type="submit" class="bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white px-3 py-1.5 rounded-xl border border-amber-600/30 text-[10px] font-bold uppercase transition-all">
+                                {{ 'Apagar' if u.activo else 'Encender' }}
+                            </button>
+                        </form>
+
+                        {% if u.id != session.user_id %}
+                        <form action="{{ url_for('admin_usuario_eliminar', uid=u.id) }}" method="POST" onsubmit="return confirm('¿Eliminar permanentemente?')">
+                            <button type="submit" class="bg-rose-600/20 text-rose-500 hover:bg-rose-600 hover:text-white px-3 py-1.5 rounded-xl border border-rose-600/30 text-[10px] font-bold uppercase transition-all">Eliminar</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
-
-<a href="{{ url_for('configuracion') }}" class="block mt-8 text-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-accent transition-colors">
-  ← Volver a configuración
-</a>
 {% endblock %}
