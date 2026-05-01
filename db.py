@@ -11,6 +11,7 @@ from typing import Optional
 
 import psycopg2
 import psycopg2.extras
+from werkzeug.security import generate_password_hash
 
 
 def _dsn() -> str:
