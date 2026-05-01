@@ -166,7 +166,7 @@ def obtener_usuario_por_username(username: str) -> Optional[dict]:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
             """
-            SELECT id, username, password_hash, rol, activo
+            SELECT id, username, password_hash, rol, activo, debe_cambiar_password
             FROM usuarios WHERE LOWER(username) = LOWER(%s)
             """,
             (username.strip(),),
@@ -178,7 +178,7 @@ def obtener_usuario_por_id(uid: int) -> Optional[dict]:
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            "SELECT id, username, password_hash, rol, activo FROM usuarios WHERE id = %s",
+            "SELECT id, username, password_hash, rol, activo, debe_cambiar_password FROM usuarios WHERE id = %s",
             (uid,),
         )
         return cur.fetchone()
