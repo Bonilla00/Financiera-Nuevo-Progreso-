@@ -164,29 +164,41 @@ def login():
     if db.count_usuarios() == 0:
         return redirect(url_for("setup"))
     if request.method == "POST":
-        u = request.form.get("username", "").strip()
-        p = request.form.get("password", "")
-        row = db.obtener_usuario_por_username(u)
+        try:
+            u = (request.form.get("username") or "").strip()
+            p = (request.form.get("password") or "")
 
-        if not row:
-            flash("Usuario o clave incorrectos.", "error")
-        elif not row['activo']:
-            flash("Cuenta desactivada. Contacta al administrador.", "error")
-        elif not check_password_hash(row['password_hash'], p):
-            flash("Usuario o clave incorrectos.", "error")
-        else:
-            session["user_id"] = row['id']
-            session["username"] = row['username']
-            session["is_admin"] = (row['rol'] == "admin")
-            session["rol"] = row['rol']
+            if not u or not p:
+                flash("Por favor, ingresa usuario y contraseña.", "error")
+                return render_template("login.html")
 
-            # BLOQUEO DE SEGURIDAD: Cambio de clave obligatorio
-            if row.get('debe_cambiar_password'):
-                flash("Debes cambiar tu contraseña inicial por seguridad.", "error")
-                return redirect(url_for("cambiar_password"))
+            row = db.obtener_usuario_por_username(u)
 
-            nxt = request.args.get("next") or url_for("index")
-            return redirect(nxt)
+            if not row:
+                flash("Usuario o clave incorrectos.", "error")
+            elif not row.get('activo', True):
+                flash("Cuenta desactivada. Contacta al administrador.", "error")
+            elif not check_password_hash(row.get('password_hash', ''), p):
+                flash("Usuario o clave incorrectos.", "error")
+            else:
+                session.clear()
+                session["user_id"] = row.get('id')
+                session["username"] = row.get('username')
+                session["rol"] = row.get('rol')
+                session["is_admin"] = (row.get('rol') == "admin")
+
+                # BLOQUEO DE SEGURIDAD: Cambio de clave obligatorio
+                if row.get('debe_cambiar_password'):
+                    flash("Debes cambiar tu contraseña inicial por seguridad.", "error")
+                    return redirect(url_for("cambiar_password"))
+
+                nxt = request.args.get("next") or url_for("index")
+                return redirect(nxt)
+        except Exception as e:
+            print(f"--- ERROR CRÍTICO EN LOGIN: {e} ---")
+            flash("Error interno del servidor. Inténtalo de nuevo.", "error")
+            return render_template("login.html")
+
     return render_template("login.html")
 
 

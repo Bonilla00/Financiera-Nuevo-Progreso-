@@ -46,6 +46,7 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check",
         "ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cobrador', 'solo_lectura', 'usuario'))",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE",
     ]
     with get_conn() as conn:
         cur = conn.cursor()
