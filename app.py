@@ -892,6 +892,26 @@ def admin_usuario_password(uid):
     return redirect(url_for('admin_usuarios'))
 
 
+@app.route("/admin/reset_password", methods=["POST"])
+@admin_required
+def admin_reset_password_route():
+    """Ruta para reseteo de contraseña recibiendo user_id por formulario."""
+    uid = request.form.get("user_id")
+    p = request.form.get("password")
+
+    if not uid or not p:
+        flash("Datos incompletos.", "error")
+        return redirect(url_for('admin_usuarios'))
+
+    if len(p) < 6:
+        flash("La clave debe tener al menos 6 caracteres.", "error")
+    else:
+        h = generate_password_hash(p)
+        db.actualizar_password_usuario(int(uid), h)
+        flash("Contraseña restablecida con éxito.", "ok")
+    return redirect(url_for('admin_usuarios'))
+
+
 @app.route("/admin/usuarios/<int:uid>/eliminar", methods=["POST"])
 @admin_required
 def admin_usuario_eliminar(uid):
