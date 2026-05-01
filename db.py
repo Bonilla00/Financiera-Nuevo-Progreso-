@@ -47,14 +47,19 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cobrador', 'solo_lectura', 'usuario'))",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT TRUE",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE",
+        # Asegurar que no haya valores NULL que rompan la lógica
+        "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
+        "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL"
     ]
-    with get_conn() as conn:
-        cur = conn.cursor()
-        for s in stmts:
-            try:
+    for s in stmts:
+        try:
+            with get_conn() as conn:
+                cur = conn.cursor()
                 cur.execute(s)
-            except:
-                pass
+        except Exception as e:
+            # Ignorar si la columna ya existe o errores menores
+            print(f"Info migración: {e}")
+
     ensure_auditoria_table()
     ensure_gastos_table()
     crear_admin_inicial()
