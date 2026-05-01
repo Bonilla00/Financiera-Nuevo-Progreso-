@@ -85,7 +85,10 @@ def _font(size: int, bold: bool = False):
             return ImageFont.truetype(name, size)
         except OSError:
             pass
-    return ImageFont.load_default()
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def _draw_value_line(draw, xy, text, font, line_y, line_end_x, line_fill, line_width=3):
@@ -326,15 +329,15 @@ def generar_recibo_imagen(
     draw = ImageDraw.Draw(img)
     draw.rectangle((2, 2, width - 3, height - 3), outline=cyan, width=5)
 
-    title_font = _font(50)
-    label_font = _font(42, bold=True)
-    value_font = _font(42)
+    title_font = _font(60)
+    label_font = _font(44, bold=True)
+    value_font = _font(44)
     date_font = _font(38)
 
     title = "RECIBO DE PAGO"
     title_box = draw.textbbox((0, 0), title, font=title_font)
     draw.text(
-        ((width - (title_box[2] - title_box[0])) / 2, 54),
+        ((width - (title_box[2] - title_box[0])) / 2, 50),
         title,
         font=title_font,
         fill=cyan,
@@ -345,24 +348,24 @@ def generar_recibo_imagen(
 
     y = 166
     draw.text((82, y), "Recibo No.", font=label_font, fill=black)
-    _draw_value_line(draw, (334, y), receipt_no, value_font, y + 43, 494, black, 2)
+    _draw_value_line(draw, (330, y), receipt_no, value_font, y + 45, 500, black, 3)
     draw.text((516, y), "Fecha:", font=label_font, fill=black)
-    _draw_value_line(draw, (676, y), fecha_txt, date_font, y + 43, 1090, black, 2)
+    _draw_value_line(draw, (680, y + 4), fecha_txt, date_font, y + 45, 1090, black, 3)
 
-    y = 302
+    y = 300
     draw.text((82, y), "RECIBIDO DE:", font=label_font, fill=black)
-    _draw_value_line(draw, (396, y), str(nombre_cliente), label_font, y + 44, 1090, gray)
+    _draw_value_line(draw, (400, y), str(nombre_cliente), label_font, y + 46, 1090, gray, 4)
 
     y += 78
     draw.text((82, y), "MONTO TOTAL:", font=label_font, fill=black)
-    _draw_value_line(draw, (420, y), _money(valor_total), value_font, y + 44, 1090, gray)
+    _draw_value_line(draw, (420, y), _money(valor_total), value_font, y + 46, 1090, gray, 4)
 
     y += 78
     concepto = f"PAGO CUOTA {int(num_cuota_pagada or 1)}/{max(1, total_cuotas)}"
     if float(interes_mora or 0) > 0:
         concepto += f" + MORA {_money(interes_mora)}"
     draw.text((82, y), "CONCEPTO:", font=label_font, fill=black)
-    _draw_value_line(draw, (354, y), concepto, value_font, y + 44, 1090, gray)
+    _draw_value_line(draw, (354, y), concepto, value_font, y + 46, 1090, gray, 4)
 
     buf = BytesIO()
     img.save(buf, format="PNG")
