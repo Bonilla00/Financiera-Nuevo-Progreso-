@@ -124,17 +124,21 @@ def obtener_logs_recientes(limit=50, user_id=None):
 
 
 def crear_admin_inicial():
-    """Crea el usuario admin por defecto si la tabla está vacía."""
+    """Crea o actualiza el usuario admin por defecto para asegurar acceso."""
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM usuarios WHERE username = 'admin'")
-        if cur.fetchone()[0] == 0:
-            h = generate_password_hash("admin123")
-            cur.execute("""
-                INSERT INTO usuarios (username, password_hash, rol, debe_cambiar_password, activo)
-                VALUES ('admin', %s, 'admin', TRUE, TRUE)
-            """, (h,))
-            print("🚀 Usuario admin inicial creado: admin / admin123")
+        h = generate_password_hash("admin123")
+        # Usamos un UPSERT (INSERT ... ON CONFLICT) para asegurar que el admin tenga esta clave
+        cur.execute("""
+            INSERT INTO usuarios (username, password_hash, rol, debe_cambiar_password, activo)
+            VALUES ('admin', %s, 'admin', TRUE, TRUE)
+            ON CONFLICT (username)
+            DO UPDATE SET password_hash = EXCLUDED.password_hash,
+                          activo = TRUE,
+                          debe_cambiar_password = TRUE
+            WHERE usuarios.username = 'admin'
+        """, (h,))
+        print("🚀 Usuario admin sincronizado: admin / admin123")
 
 
 def ensure_auditoria_table() -> None:
