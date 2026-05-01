@@ -198,6 +198,24 @@ def admin_actualizar_usuario(uid: int, rol: str, activo: bool) -> None:
         )
 
 
+def admin_cambiar_password(uid: int, password_hash: str) -> None:
+    actualizar_password_usuario(uid, password_hash)
+
+
+def admin_toggle_activo(uid: int):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE usuarios SET activo = NOT activo WHERE id = %s RETURNING activo", (uid,))
+        return cur.fetchone()[0]
+
+
+def admin_eliminar_usuario(uid: int):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM usuarios WHERE id = %s", (uid,))
+        return cur.rowcount > 0
+
+
 def admin_reset_password(uid: int, password_hash: str) -> None:
     actualizar_password_usuario(uid, password_hash)
 

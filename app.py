@@ -839,12 +839,10 @@ def admin_usuarios():
                 flash("Usuario muy corto.", "error")
             elif len(p1) < 6:
                 flash("Clave muy corta.", "error")
-            elif rol not in ("admin", "cobrador", "solo_lectura", "usuario"):
-                flash("Rol inválido.", "error")
             else:
                 try:
                     db.crear_usuario(u, generate_password_hash(p1), rol=rol)
-                    flash("Usuario creado.", "ok")
+                    flash(f"Usuario {u} creado.", "ok")
                 except psycopg2.IntegrityError:
                     flash("Ese nombre de usuario ya existe.", "error")
                 except Exception as e:
@@ -863,17 +861,46 @@ def admin_usuarios():
             else:
                 db.admin_actualizar_usuario(uid, rol, activo)
                 flash("Usuario actualizado.", "ok")
-        elif action == "reset_password":
-            uid = int(request.form.get("user_id", "0"))
-            p1 = request.form.get("new_password", "")
-            if len(p1) < 6:
-                flash("Clave muy corta.", "error")
-            else:
-                db.admin_reset_password(uid, generate_password_hash(p1))
-                flash("Clave restablecida.", "ok")
         return redirect(url_for("admin_usuarios"))
+
     usuarios = db.listar_usuarios()
     return render_template("admin_usuarios.html", usuarios=usuarios)
+
+
+@app.route("/admin/usuarios/<int:uid>/toggle", methods=["POST"])
+@admin_required
+def admin_usuario_toggle(uid):
+    if uid == session['user_id']:
+        flash("No puedes desactivar tu propia cuenta.", "error")
+    else:
+        nuevo_estado = db.admin_toggle_activo(uid)
+        estado_txt = "activado" if nuevo_estado else "desactivado"
+        flash(f"Usuario {estado_txt}.", "ok")
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route("/admin/usuarios/<int:uid>/password", methods=["POST"])
+@admin_required
+def admin_usuario_password(uid):
+    p = request.form.get("new_password", "")
+    if len(p) < 6:
+        flash("La clave debe tener al menos 6 caracteres.", "error")
+    else:
+        h = generate_password_hash(p)
+        db.admin_cambiar_password(uid, h)
+        flash("Contraseña actualizada correctamente.", "ok")
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route("/admin/usuarios/<int:uid>/eliminar", methods=["POST"])
+@admin_required
+def admin_usuario_eliminar(uid):
+    if uid == session['user_id']:
+        flash("No puedes eliminar tu propia cuenta.", "error")
+    else:
+        db.admin_eliminar_usuario(uid)
+        flash("Usuario eliminado permanentemente.", "ok")
+    return redirect(url_for('admin_usuarios'))
 
 
 @app.route("/backup.sql")
