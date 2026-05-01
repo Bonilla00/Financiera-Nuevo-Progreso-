@@ -167,6 +167,7 @@ def login():
         u = request.form.get("username", "").strip()
         p = request.form.get("password", "")
         row = db.obtener_usuario_por_username(u)
+
         if not row:
             flash("Usuario o clave incorrectos.", "error")
         elif not row['activo']:
@@ -178,9 +179,38 @@ def login():
             session["username"] = row['username']
             session["is_admin"] = (row['rol'] == "admin")
             session["rol"] = row['rol']
+
+            # BLOQUEO DE SEGURIDAD: Cambio de clave obligatorio
+            if row.get('debe_cambiar_password'):
+                flash("Debes cambiar tu contraseña inicial por seguridad.", "error")
+                return redirect(url_for("cambiar_password"))
+
             nxt = request.args.get("next") or url_for("index")
             return redirect(nxt)
     return render_template("login.html")
+
+
+@app.route("/cambiar_password", methods=["GET", "POST"])
+def cambiar_password():
+    if 'user_id' not in session:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        p1 = request.form.get("p1", "").strip()
+        p2 = request.form.get("p2", "").strip()
+
+        if len(p1) < 8:
+            flash("La contraseña debe tener al menos 8 caracteres.", "error")
+        elif p1 != p2:
+            flash("Las contraseñas no coinciden.", "error")
+        else:
+            h = generate_password_hash(p1)
+            # Usamos la nueva función que limpia el flag
+            db.completar_cambio_password(session['user_id'], h)
+            flash("Contraseña actualizada correctamente.", "ok")
+            return redirect(url_for("index"))
+
+    return render_template("cambiar_password.html")
 
 
 @app.route("/logout")

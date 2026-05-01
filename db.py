@@ -45,6 +45,7 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto TEXT",
         "ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check",
         "ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cobrador', 'solo_lectura', 'usuario'))",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT TRUE",
     ]
     with get_conn() as conn:
         cur = conn.cursor()
@@ -55,6 +56,21 @@ def ensure_schema_migrations() -> None:
                 pass
     ensure_auditoria_table()
     ensure_gastos_table()
+    crear_admin_inicial()
+
+
+def crear_admin_inicial():
+    """Crea el usuario admin por defecto si la tabla está vacía."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM usuarios WHERE username = 'admin'")
+        if cur.fetchone()[0] == 0:
+            h = generate_password_hash("admin123")
+            cur.execute("""
+                INSERT INTO usuarios (username, password_hash, rol, debe_cambiar_password, activo)
+                VALUES ('admin', %s, 'admin', TRUE, TRUE)
+            """, (h,))
+            print("🚀 Usuario admin inicial creado: admin / admin123")
 
 
 def ensure_auditoria_table() -> None:
@@ -218,6 +234,16 @@ def admin_eliminar_usuario(uid: int):
 
 def admin_reset_password(uid: int, password_hash: str) -> None:
     actualizar_password_usuario(uid, password_hash)
+
+
+def completar_cambio_password(uid: int, password_hash: str) -> None:
+    """Actualiza la clave y marca que ya no debe cambiarla."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE usuarios SET password_hash = %s, debe_cambiar_password = FALSE WHERE id = %s",
+            (password_hash, uid),
+        )
 
 
 # ---------- scope SQL ----------
