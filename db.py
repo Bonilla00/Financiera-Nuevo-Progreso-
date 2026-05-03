@@ -63,7 +63,6 @@ def ensure_schema_migrations() -> None:
             print(f"Info migración: {e}")
 
     ensure_auditoria_table()
-    ensure_gastos_table()
     crear_admin_inicial()
 
 
@@ -774,70 +773,6 @@ def listar_auditoria_prestamo(prestamo_id: int, user_id: int, is_admin: bool) ->
         cur = conn.cursor()
         cur.execute(q, (prestamo_id,) + sparams)
         return cur.fetchall()
-
-
-def ensure_gastos_table() -> None:
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS gastos (
-                id SERIAL PRIMARY KEY,
-                descripcion TEXT NOT NULL,
-                monto DOUBLE PRECISION NOT NULL,
-                fecha DATE NOT NULL DEFAULT CURRENT_DATE,
-                user_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                creado_en TIMESTAMP NOT NULL DEFAULT NOW()
-            )
-        """)
-
-
-def crear_gasto(user_id: int, descripcion: str, monto: float, fecha: str) -> int:
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO gastos (user_id, descripcion, monto, fecha)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-            """,
-            (user_id, descripcion, monto, fecha),
-        )
-        return int(cur.fetchone()[0])
-
-
-def get_gastos(user_id: int, año: int = None, mes: int = None) -> list[tuple]:
-    from datetime import datetime
-    if año is None:
-        año = datetime.now().year
-    if mes is None:
-        mes = datetime.now().month
-    fecha_ini = f"{año}-{mes:02d}-01"
-    if mes == 12:
-        fecha_fin = f"{año + 1}-01-01"
-    else:
-        fecha_fin = f"{año}-{mes + 1:02d}-01"
-    q = """
-        SELECT g.id, g.fecha, g.descripcion, g.monto
-        FROM gastos g
-        WHERE g.fecha >= %s AND g.fecha < %s AND g.user_id = %s
-        ORDER BY g.fecha DESC, g.id DESC
-    """
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(q, (fecha_ini, fecha_fin, user_id))
-        return cur.fetchall()
-
-
-def total_gastos_mes(user_id: int, año: int = None, mes: int = None) -> float:
-    rows = get_gastos(user_id, año, mes)
-    return sum(float(r[3] or 0) for r in rows)
-
-
-def eliminar_gasto(gasto_id: int, user_id: int) -> bool:
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM gastos WHERE id = %s AND user_id = %s", (gasto_id, user_id))
-        return cur.rowcount > 0
 
 
 def contar_prestamos_activos(user_id: int, is_admin: bool) -> int:
