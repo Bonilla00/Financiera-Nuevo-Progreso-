@@ -114,14 +114,16 @@ if (document.getElementById('input-foto')) {
       </div>
 
       <div class="flex flex-col gap-2 mt-4">
-        {% if pr.estado == 'ACTIVO' and is_admin %}
-        <a href="{{ url_for('prestamos_editar', pid=pr.id) }}" class="block text-center py-2 rounded-xl border border-cyan-500 text-cyan-400 text-xs font-bold uppercase tracking-widest">Editar préstamo</a>
-        {% endif %}
-
         <a href="{{ url_for('pagos_list', prestamo_id=pr.id) }}" class="block text-center py-2 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold uppercase tracking-widest">Ver Historial de Pagos</a>
 
         {% if pr.estado == 'ACTIVO' and rol != 'solo_lectura' %}
         <a href="{{ url_for('prestamos_cobrar', pid=pr.id) }}" class="js-action-busy block text-center py-2 rounded-xl bg-accent text-slate-900 text-xs font-bold uppercase tracking-widest shadow-lg">Registrar Cobro</a>
+        {% endif %}
+
+        {% if pr.estado|lower == 'activo' and (is_admin or rol == 'cobrador') %}
+        <a href="{{ url_for('prestamos_editar', pid=pr.id) }}" class="btn-editar">
+          ✏️ Editar crédito
+        </a>
         {% endif %}
       </div>
     </div>
