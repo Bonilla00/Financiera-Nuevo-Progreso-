@@ -654,7 +654,7 @@ def prestamos_nuevo():
 
 
 @app.route("/prestamos/<int:pid>/editar", methods=["GET", "POST"])
-@require_role(['admin'])
+@require_role(['admin', 'cobrador'])
 def prestamos_editar(pid):
     uid, _, is_admin, _ = ctx_user()
     info = db.obtener_prestamo(pid, uid, is_admin)
@@ -683,7 +683,7 @@ def prestamos_editar(pid):
             tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
             if mora_on and tasa_mora < 0:
                 raise ValueError("La tasa de mora no puede ser negativa.")
-            ok = db.actualizar_prestamo(
+            ok = db.editar_prestamo_inteligente(
                 pid,
                 fecha,
                 freq,
@@ -700,7 +700,7 @@ def prestamos_editar(pid):
                 flash("No se pudo actualizar el préstamo.", "error")
             else:
                 flash(
-                    "Préstamo actualizado. Se recalcularon montos y próximo pago; los pagos anteriores se conservan.",
+                    "Préstamo actualizado inteligentemente. Se ajustó sobre el saldo restante; los pagos anteriores se conservan.",
                     "ok",
                 )
             return redirect(url_for("clientes_perfil", cid=cid))

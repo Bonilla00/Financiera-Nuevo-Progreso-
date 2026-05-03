@@ -995,9 +995,110 @@ def actualizar_prestamo(
         return cur.rowcount > 0
 
 
-def actualizar_nota_prestamo(pid, nota, user_id: int, is_admin: bool) -> bool:
+def editar_prestamo_inteligente(
+    pid,
+    fecha,
+    frecuencia,
+    cuotas,
+    monto,
+    tasa,
+    vencimiento,
+    user_id: int,
+    is_admin: bool,
+    *,
+    mora_activa: bool | None = None,
+    tasa_mora_diaria: float | None = None,
+) -> bool:
+    """
+    Edición inteligente de préstamo: si no hay pagos, edita normal.
+    Si hay pagos, ajusta sobre el saldo restante (recalcula como nuevo préstamo sobre saldo).
+    No pierde historial, valida user_id.
+    """
+    info = obtener_prestamo(pid, user_id, is_admin)
+    if not info:
+        return False
+    if str(info[13]).upper() != "ACTIVO":
+        return False
+
+    pagadas = int(info[14])
+    cuotas_i = int(cuotas)
+    if cuotas_i < pagadas:
+        raise ValueError("Las cuotas no pueden ser menores que las ya registradas como pagadas.")
+
+    total_pagado = sum_pagos_por_prestamo(pid, user_id, is_admin)
+
+    # Si no hay pagos, editar normal
+    if total_pagado <= 0:
+        return actualizar_prestamo(
+            pid, fecha, frecuencia, cuotas, monto, tasa, vencimiento,
+            user_id, is_admin, mora_activa=mora_activa, tasa_mora_diaria=tasa_mora_diaria
+        )
+
+    # Si hay pagos, ajustar sobre saldo restante
+    saldo_restante = float(info[10]) - total_pagado  # total_pagar original - total_pagado
+    if saldo_restante <= 0:
+        raise ValueError("El préstamo ya está completamente pagado o no tiene saldo pendiente.")
+
+    # Nuevo monto base es el saldo restante
+    nuevo_monto = saldo_restante
+    nuevo_interes_total = nuevo_monto * (tasa / 100.0)
+    nuevo_total_pagar = nuevo_monto + nuevo_interes_total
+
+    # Validar que el nuevo total sea al menos el saldo restante (no negativo)
+    if nuevo_total_pagar < saldo_restante:
+        raise ValueError("El nuevo cálculo resulta en un total menor al saldo restante.")
+
+    nuevo_valor_cuota = round(nuevo_total_pagar / max(1, cuotas_i - pagadas), 2)  # cuotas restantes
+    prox = proxima_fecha_pago(fecha, frecuencia, pagadas, cuotas_i)
+    nuevo_estado = "PAGADO" if pagadas >= cuotas_i else "ACTIVO"
+
+    mora_a = bool(info[17]) if mora_activa is None else bool(mora_activa)
+    mora_t = float(info[18] or 0) if tasa_mora_diaria is None else float(tasa_mora_diaria or 0)
+
     extra, params = _filtro_owner("c", user_id, is_admin)
+    cambios = [
+        ("fecha", str(info[3]), fecha),
+        ("frecuencia", str(info[5]), frecuencia),
+        ("cuotas", str(info[6]), str(cuotas_i)),
+        ("monto_original", str(info[7]), str(monto)),  # Guardar el monto solicitado
+        ("tasa", str(info[8]), str(tasa)),
+        ("vencimiento", str(info[9]), vencimiento),
+        ("edicion_inteligente", "false", "true"),  # Marcar que fue edición inteligente
+    ]
+
     with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            UPDATE prestamos AS p SET
+                fecha=%s, frecuencia=%s, cuotas=%s, monto=%s, tasa=%s,
+                interes_total=%s, total_pagar=%s, valor_cuota=%s, vencimiento=%s, proximo_pago=%s,
+                estado=%s, mora_activa=%s, tasa_mora_diaria=%s
+            FROM clientes c
+            WHERE p.cliente_id = c.id AND p.id = %s {extra}
+            """,
+            (
+                fecha,
+                frecuencia,
+                cuotas_i,
+                nuevo_monto,  # Monto ajustado al saldo
+                tasa,
+                nuevo_interes_total,
+                nuevo_total_pagar,
+                nuevo_valor_cuota,
+                vencimiento,
+                prox,
+                nuevo_estado,
+                mora_a,
+                mora_t,
+                pid,
+            )
+            + params,
+        )
+        if cur.rowcount > 0:
+            for campo, ant, nue in cambios:
+                guardar_auditoria_prestamo(pid, user_id, campo, ant, nue)
+        return cur.rowcount > 0
         cur = conn.cursor()
         cur.execute(
             f"""
