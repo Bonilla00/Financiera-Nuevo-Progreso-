@@ -384,13 +384,12 @@ def listar_clientes(user_id: int, is_admin: bool) -> list[tuple]:
 
 
 def buscar_clientes_ajax(q: str, user_id: int, is_admin: bool):
-    extra, sparams = _filtro_owner("c", user_id, is_admin)
-    params = [f"%{q}%", f"%{q}%", f"%{q}%"] + list(sparams)
-    query = f"""
+    params = [f"%{q}%", f"%{q}%", f"%{q}%", user_id]
+    query = """
         SELECT id, nombre, identificacion, telefono, barrio
         FROM clientes c
         WHERE (nombre ILIKE %s OR identificacion ILIKE %s OR telefono ILIKE %s)
-        {extra}
+        AND c.owner_user_id = %s
         ORDER BY nombre ASC LIMIT 20
     """
     with get_conn() as conn:
@@ -399,16 +398,28 @@ def buscar_clientes_ajax(q: str, user_id: int, is_admin: bool):
         return cur.fetchall()
 
 
+def get_clientes(user_id: int) -> list[tuple]:
+    """Obtiene todos los clientes de un usuario."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, nombre, identificacion, telefono, barrio, direccion
+            FROM clientes
+            WHERE owner_user_id = %s
+            ORDER BY nombre
+        """, (user_id,))
+        return cur.fetchall()
+
+
 def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[tuple]:
     """filtro: todo | activo | pago_hoy | pendiente_hoy | sin_activo"""
-    extra, sparams = _filtro_owner("c", user_id, is_admin)
     hoy = datetime.now().strftime("%Y-%m-%d")
-    q = f"""
+    q = """
         SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
         FROM clientes c
-        WHERE 1=1 {extra}
+        WHERE c.owner_user_id = %s
     """
-    args: list = list(sparams)
+    args = [user_id]
     f = (filtro or "todo").lower().strip()
     if f == "activo":
         q += """

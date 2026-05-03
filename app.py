@@ -336,13 +336,18 @@ def api_buscar_clientes():
 @login_required
 def clientes_list():
     """Restricción: El admin no gestiona clientes."""
-    if session.get('rol') == 'admin':
-        return redirect(url_for('admin_usuarios'))
+    try:
+        if session.get('rol') == 'admin':
+            return redirect(url_for('admin_usuarios'))
 
-    uid, _, is_admin, _ = ctx_user()
-    filtro = request.args.get("estado", "todo")
-    rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
-    return render_template("clientes.html", clientes=rows, filtro=filtro)
+        uid, _, is_admin, _ = ctx_user()
+        filtro = request.args.get("estado", "todo")
+        rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
+        return render_template("clientes.html", clientes=rows, filtro=filtro)
+    except Exception as e:
+        logger.error(f"Error en ruta /clientes: {str(e)}")
+        flash("Error interno del servidor.", "error")
+        return redirect(url_for("index"))
 
 
 @app.route("/clientes/nuevo", methods=["GET", "POST"])
