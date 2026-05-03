@@ -13,14 +13,7 @@
   <form method="post" class="space-y-3" data-loading-submit data-loading-label="Guardando…">
     <input type="date" name="fecha" value="{{ today_str() }}" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
     <input type="text" name="descripcion" placeholder="Descripción" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-    <input type="number" name="valor" step="0.01" min="0" placeholder="Valor" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-    <select name="categoria" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-      <option value="Transporte">Transporte</option>
-      <option value="Papelería">Papelería</option>
-      <option value="Servicios">Servicios</option>
-      <option value="Arriendo">Arriendo</option>
-      <option value="Otro" selected>Otro</option>
-    </select>
+    <input type="number" name="monto" step="0.01" min="0" placeholder="Monto" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
     <button type="submit" class="w-full py-3 rounded-xl bg-rose-600 text-white font-bold">Registrar gasto</button>
   </form>
 </div>
@@ -35,7 +28,7 @@
     <div class="flex justify-between items-center gap-2 border-b border-slate-700 pb-2">
       <div class="min-w-0">
         <p class="text-sm text-white">{{ r[2] }}</p>
-        <p class="text-xs text-slate-400">{{ r[1] }} · {{ r[4] }}</p>
+        <p class="text-xs text-slate-400">{{ r[1] }}</p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <span class="text-sm text-rose-400 font-semibold">{{ fmt_money(r[3]) }}</span>

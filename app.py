@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import date, datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -33,6 +34,10 @@ from utils_web import (
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambia-esto-en-produccion")
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @app.before_request
@@ -1169,34 +1174,48 @@ def cobro_hoy():
 @app.route("/gastos", methods=["GET", "POST"])
 @login_required
 def gastos():
-    from datetime import datetime
-    uid, _, is_admin, _ = ctx_user()
-    db.ensure_gastos_table()
-    año = int(request.args.get("año", datetime.now().year))
-    mes = int(request.args.get("mes", datetime.now().month))
-    if request.method == "POST":
-        fecha = request.form.get("fecha", today_str())
-        desc = request.form.get("descripcion", "").strip()
-        valor = float(request.form.get("valor", "0"))
-        categoria = request.form.get("categoria", "Otro")
-        if desc and valor > 0:
-            db.registrar_gasto(uid, fecha, desc, valor, categoria)
-            flash("Gasto registrado.", "ok")
-        return redirect(url_for("gastos", año=año, mes=mes))
-    rows = db.listar_gastos_mes(uid, is_admin, año, mes)
-    total = sum(float(r[3] or 0) for r in rows)
-    return render_template("gastos.html", rows=rows, total=total, año=año, mes=mes)
+    try:
+        uid, _, _, _ = ctx_user()
+        db.ensure_gastos_table()
+        año = int(request.args.get("año", datetime.now().year))
+        mes = int(request.args.get("mes", datetime.now().month))
+        if request.method == "POST":
+            fecha = request.form.get("fecha", today_str())
+            desc = request.form.get("descripcion", "").strip()
+            monto = float(request.form.get("monto", "0"))
+            if desc and monto > 0:
+                db.crear_gasto(uid, desc, monto, fecha)
+                flash("Gasto registrado.", "ok")
+                logger.info(f"Gasto registrado por usuario {uid}: {desc} - ${monto}")
+            else:
+                flash("Datos inválidos para el gasto.", "error")
+                logger.warning(f"Datos inválidos para gasto por usuario {uid}")
+            return redirect(url_for("gastos", año=año, mes=mes))
+        rows = db.get_gastos(uid, año, mes)
+        total = sum(float(r[3] or 0) for r in rows)
+        return render_template("gastos.html", rows=rows, total=total, año=año, mes=mes)
+    except Exception as e:
+        logger.error(f"Error en ruta /gastos: {str(e)}")
+        flash("Error interno del servidor.", "error")
+        return redirect(url_for("index"))
 
 
 @app.route("/gastos/<int:gasto_id>/eliminar", methods=["POST"])
-@require_role(['admin'])
+@login_required
 def eliminar_gasto(gasto_id):
-    uid, _, is_admin, _ = ctx_user()
-    from datetime import datetime
-    año = int(request.form.get("año", datetime.now().year))
-    mes = int(request.form.get("mes", datetime.now().month))
-    if db.eliminar_gasto(gasto_id, uid, is_admin):
-        flash("Gasto eliminado.", "ok")
-    else:
-        flash("No se pudo eliminar.", "error")
-    return redirect(url_for("gastos", año=año, mes=mes))
+    try:
+        uid, _, _, _ = ctx_user()
+        from datetime import datetime
+        año = int(request.form.get("año", datetime.now().year))
+        mes = int(request.form.get("mes", datetime.now().month))
+        if db.eliminar_gasto(gasto_id, uid):
+            flash("Gasto eliminado.", "ok")
+            logger.info(f"Gasto {gasto_id} eliminado por usuario {uid}")
+        else:
+            flash("No se pudo eliminar el gasto.", "error")
+            logger.warning(f"Fallo al eliminar gasto {gasto_id} por usuario {uid}")
+        return redirect(url_for("gastos", año=año, mes=mes))
+    except Exception as e:
+        logger.error(f"Error eliminando gasto {gasto_id}: {str(e)}")
+        flash("Error interno del servidor.", "error")
+        return redirect(url_for("gastos"))

@@ -769,31 +769,30 @@ def ensure_gastos_table() -> None:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS gastos (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                fecha DATE NOT NULL DEFAULT CURRENT_DATE,
                 descripcion TEXT NOT NULL,
-                valor DOUBLE PRECISION NOT NULL,
-                categoria VARCHAR(50) NOT NULL,
+                monto DOUBLE PRECISION NOT NULL,
+                fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+                user_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
                 creado_en TIMESTAMP NOT NULL DEFAULT NOW()
             )
         """)
 
 
-def registrar_gasto(user_id: int, fecha: str, descripcion: str, valor: float, categoria: str) -> int:
+def crear_gasto(user_id: int, descripcion: str, monto: float, fecha: str) -> int:
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO gastos (user_id, fecha, descripcion, valor, categoria)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO gastos (user_id, descripcion, monto, fecha)
+            VALUES (%s, %s, %s, %s)
             RETURNING id
             """,
-            (user_id, fecha, descripcion, valor, categoria),
+            (user_id, descripcion, monto, fecha),
         )
         return int(cur.fetchone()[0])
 
 
-def listar_gastos_mes(user_id: int, is_admin: bool, año: int = None, mes: int = None) -> list[tuple]:
+def get_gastos(user_id: int, año: int = None, mes: int = None) -> list[tuple]:
     from datetime import datetime
     if año is None:
         año = datetime.now().year
@@ -804,29 +803,27 @@ def listar_gastos_mes(user_id: int, is_admin: bool, año: int = None, mes: int =
         fecha_fin = f"{año + 1}-01-01"
     else:
         fecha_fin = f"{año}-{mes + 1:02d}-01"
-    scope, sparams = _filtro_owner("g", user_id, is_admin)
-    q = f"""
-        SELECT g.id, g.fecha, g.descripcion, g.valor, g.categoria
+    q = """
+        SELECT g.id, g.fecha, g.descripcion, g.monto
         FROM gastos g
-        WHERE g.fecha >= %s AND g.fecha < %s {scope}
+        WHERE g.fecha >= %s AND g.fecha < %s AND g.user_id = %s
         ORDER BY g.fecha DESC, g.id DESC
     """
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(q, (fecha_ini, fecha_fin) + sparams)
+        cur.execute(q, (fecha_ini, fecha_fin, user_id))
         return cur.fetchall()
 
 
-def total_gastos_mes(user_id: int, is_admin: bool, año: int = None, mes: int = None) -> float:
-    rows = listar_gastos_mes(user_id, is_admin, año, mes)
+def total_gastos_mes(user_id: int, año: int = None, mes: int = None) -> float:
+    rows = get_gastos(user_id, año, mes)
     return sum(float(r[3] or 0) for r in rows)
 
 
-def eliminar_gasto(gasto_id: int, user_id: int, is_admin: bool) -> bool:
-    scope, sparams = _filtro_owner("g", user_id, is_admin)
+def eliminar_gasto(gasto_id: int, user_id: int) -> bool:
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(f"DELETE FROM gastos WHERE id = %s {scope}", (gasto_id,) + sparams)
+        cur.execute("DELETE FROM gastos WHERE id = %s AND user_id = %s", (gasto_id, user_id))
         return cur.rowcount > 0
 
 
