@@ -1,18 +1,20 @@
 {
   "name": "Financiera Nuevo Progreso",
   "short_name": "Financiera NP",
-  "description": "Gestión de préstamos y pagos",
+  "description": "Gestión de préstamos y pagos para tu financiera en móvil.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0F172A",
   "theme_color": "#0F172A",
   "orientation": "portrait-primary",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/static/logo.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/static/icons/icon.svg",

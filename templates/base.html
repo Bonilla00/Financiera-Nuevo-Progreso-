@@ -6,10 +6,11 @@
   <meta name="theme-color" content="#0F172A">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>{% block title %}Financiera NP{% endblock %}</title>
+  <meta name="apple-mobile-web-app-title" content="Financiera NP">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo.png') }}">
+  <title>{% block title %}Financiera NP{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
   <script src="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -150,6 +151,76 @@
     #sim-modal-root.sim-modal-open {
       pointer-events: auto;
     }
+    .app-panel {
+      background: linear-gradient(180deg, rgba(17,24,39,0.95), rgba(15,23,42,0.98));
+      border: 1px solid rgba(148,163,184,0.15);
+      box-shadow: 0 20px 60px rgba(15,23,42,0.35);
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: #22d3ee;
+      color: #0f172a;
+      border-radius: 1rem;
+      padding: 0.9rem 1.2rem;
+      font-weight: 700;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .btn-primary:hover,
+    .btn-primary:focus {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(34,211,238,0.25);
+    }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(148,163,184,0.2);
+      color: #cbd5e1;
+      border-radius: 1rem;
+      padding: 0.9rem 1.2rem;
+    }
+    .input-mobile {
+      width: 100%;
+      border-radius: 1rem;
+      border: 1px solid rgba(148,163,184,0.2);
+      background: #111827;
+      color: #e2e8f0;
+      padding: 0.95rem 1rem;
+    }
+    .pwa-banner {
+      position: fixed;
+      left: 50%;
+      bottom: calc(5.25rem + var(--nav-safe-bottom));
+      transform: translateX(-50%);
+      width: min(95vw, 420px);
+      z-index: 60;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(56,189,248,0.2);
+      background: rgba(15,23,42,0.95);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 25px 55px rgba(15,23,42,0.4);
+      padding: 1rem 1rem 0.85rem;
+      display: none;
+    }
+    .pwa-banner.show {
+      display: block;
+    }
+    .pwa-banner button {
+      min-width: 98px;
+    }
+    @media (max-width: 640px) {
+      body {
+        font-size: 0.96rem;
+      }
+      nav.app-bottom-nav {
+        min-height: 4.5rem;
+      }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -167,11 +238,12 @@
   {% endwith %}
 
   {% if session.user_id %}
-  <header class="max-w-lg mx-auto px-3 pt-2 pb-2 flex justify-center items-center text-center select-none" role="banner">
+  <header class="max-w-lg mx-auto px-3 pt-2 pb-2 flex justify-between items-center text-center select-none" role="banner">
     <div class="brand-title font-bold tracking-tight">
       <div class="text-white">FINANCIERA NUEVO</div>
       <div class="text-[#22C55E]">PROGRESO</div>
     </div>
+    <button id="btn-open-install" type="button" class="btn-secondary text-xs uppercase tracking-wide hidden">Instalar</button>
   </header>
   {% endif %}
 
@@ -243,6 +315,66 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('{{ url_for("static", filename="service-worker.js") }}').catch(() => {});
     }
+  </script>
+  <script>
+    const pwaBanner = document.createElement('div');
+    pwaBanner.id = 'pwa-install-banner';
+    pwaBanner.className = 'pwa-banner';
+    pwaBanner.innerHTML = `
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold text-white">Instala Financiera NP</p>
+          <p class="text-xs text-slate-400">Accede rápido desde tu pantalla de inicio.</p>
+        </div>
+        <button id="btn-install-pwa" class="btn-primary text-sm">Instalar</button>
+      </div>
+    `;
+    document.body.appendChild(pwaBanner);
+
+    let deferredPWAInstallPrompt = null;
+    const installButton = document.getElementById('btn-open-install');
+    const installPromptButton = document.getElementById('btn-install-pwa');
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredPWAInstallPrompt = event;
+      if (installButton) {
+        installButton.classList.remove('hidden');
+      }
+      pwaBanner.classList.add('show');
+    });
+
+    function hideInstallUI() {
+      pwaBanner.classList.remove('show');
+      if (installButton) {
+        installButton.classList.add('hidden');
+      }
+    }
+
+    if (installButton) {
+      installButton.addEventListener('click', () => {
+        if (deferredPWAInstallPrompt) {
+          deferredPWAInstallPrompt.prompt();
+        }
+      });
+    }
+
+    if (installPromptButton) {
+      installPromptButton.addEventListener('click', async () => {
+        if (!deferredPWAInstallPrompt) return;
+        deferredPWAInstallPrompt.prompt();
+        const choice = await deferredPWAInstallPrompt.userChoice;
+        deferredPWAInstallPrompt = null;
+        hideInstallUI();
+        if (choice.outcome === 'accepted') {
+          console.log('PWA instalado');
+        }
+      });
+    }
+
+    window.addEventListener('appinstalled', () => {
+      hideInstallUI();
+    });
   </script>
   <script>
     (function () {
