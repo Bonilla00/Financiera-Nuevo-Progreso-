@@ -345,7 +345,7 @@ def clientes_list():
         rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
         return render_template("clientes.html", clientes=rows, filtro=filtro)
     except Exception as e:
-        logger.error(f"Error en ruta /clientes: {str(e)}")
+        logger.exception("Error en ruta /clientes")
         flash("Error interno del servidor.", "error")
         return redirect(url_for("index"))
 

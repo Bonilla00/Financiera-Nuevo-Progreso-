@@ -44,6 +44,8 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS interes_mora DOUBLE PRECISION NOT NULL DEFAULT 0",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS nota TEXT",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto TEXT",
+        "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS owner_user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE",
+        "CREATE INDEX IF NOT EXISTS idx_clientes_owner ON clientes(owner_user_id)",
         "ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check",
         "ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cobrador', 'solo_lectura', 'usuario'))",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT TRUE",
