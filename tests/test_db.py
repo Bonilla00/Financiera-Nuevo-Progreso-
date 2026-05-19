@@ -1,29 +1,47 @@
+"""
+Tests para la capa de datos PostgreSQL.
+Requiere DATABASE_URL configurada en el entorno.
+
+Uso:
+    DATABASE_URL=postgresql://... python -m pytest tests/test_db.py
+    DATABASE_URL=postgresql://... python -m unittest tests.test_db
+"""
 import os
-import tempfile
 import unittest
 
 import db
 
 
-class TestDbCoreFlows(unittest.TestCase):
+@unittest.skipIf(not os.environ.get("DATABASE_URL"), "DATABASE_URL no configurada")
+class TestDbPostgreSQL(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        db.ensure_schema_migrations()
+
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self._original_db_path = db.db_path
-        self.test_db_file = os.path.join(self.temp_dir.name, "test_financiera.db")
-        db.db_path = lambda: self.test_db_file
-        db.init_db()
+        with db.get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM pagos")
+            cur.execute("DELETE FROM prestamos")
+            cur.execute("DELETE FROM clientes")
+            cur.execute("DELETE FROM usuarios WHERE username LIKE 'test_%'")
+            cur.execute(
+                "INSERT INTO usuarios (username, password_hash, rol, activo, debe_cambiar_password) "
+                "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING",
+                ("test_user", "hash", "cobrador", True, False),
+            )
+            cur.execute("SELECT id FROM usuarios WHERE username = 'test_user'")
+            self.user_id = cur.fetchone()[0]
 
-    def tearDown(self):
-        db.db_path = self._original_db_path
-        self.temp_dir.cleanup()
-
-    def _crear_prestamo_base(self):
+    def _crear_prestamo_base(self, user_id=None, is_admin=False):
+        uid = user_id or self.user_id
         cid = db.get_or_create_cliente(
             "Cliente Prueba",
-            "CC-123",
+            "CC-TEST-001",
             "3000000000",
             "Centro",
             "Calle 1",
+            uid,
         )
         pid = db.nuevo_prestamo(
             cid,
@@ -36,6 +54,8 @@ class TestDbCoreFlows(unittest.TestCase):
             1100.0,
             550.0,
             "2026-03-01",
+            uid,
+            is_admin,
         )
         return cid, pid
 
@@ -53,24 +73,26 @@ class TestDbCoreFlows(unittest.TestCase):
                 1100.0,
                 550.0,
                 "2026-03-01",
+                self.user_id,
+                False,
             )
 
     def test_registrar_y_eliminar_pago_actualiza_estado(self):
         _, pid = self._crear_prestamo_base()
 
-        db.registrar_pago(pid, "2026-01-10", 550.0)
-        prestamo = db.obtener_prestamo(pid)
+        db.registrar_pago(pid, "2026-01-10", 550.0, self.user_id, False)
+        prestamo = db.obtener_prestamo(pid, self.user_id, False)
         self.assertEqual(prestamo[13], "ACTIVO")
         self.assertEqual(prestamo[14], 1)
 
-        pagos = db.listar_pagos(pid)
+        pagos = db.listar_pagos(pid, self.user_id, False)
         self.assertEqual(len(pagos), 1)
         pago_id = pagos[0][0]
 
-        ok = db.eliminar_pago_y_actualizar(pid, pago_id)
+        ok = db.eliminar_pago_y_actualizar(pid, pago_id, self.user_id, False)
         self.assertTrue(ok)
 
-        prestamo = db.obtener_prestamo(pid)
+        prestamo = db.obtener_prestamo(pid, self.user_id, False)
         self.assertEqual(prestamo[13], "ACTIVO")
         self.assertEqual(prestamo[14], 0)
 
@@ -83,12 +105,58 @@ class TestDbCoreFlows(unittest.TestCase):
     def test_prestamo_queda_pagado_al_completar_cuotas(self):
         _, pid = self._crear_prestamo_base()
 
-        db.registrar_pago(pid, "2026-01-10", 550.0)
-        db.registrar_pago(pid, "2026-02-10", 550.0)
+        db.registrar_pago(pid, "2026-01-10", 550.0, self.user_id, False)
+        db.registrar_pago(pid, "2026-02-10", 550.0, self.user_id, False)
 
-        prestamo = db.obtener_prestamo(pid)
+        prestamo = db.obtener_prestamo(pid, self.user_id, False)
         self.assertEqual(prestamo[13], "PAGADO")
         self.assertEqual(prestamo[14], 2)
+
+    def test_calcular_interes_mora(self):
+        mora = db.calcular_interes_mora(100.0, "2026-01-01", "2026-01-11", True, 1.0)
+        self.assertEqual(mora, 10.0)
+
+    def test_calcular_interes_mora_sin_mora(self):
+        mora = db.calcular_interes_mora(100.0, "2026-01-01", "2026-01-11", False, 1.0)
+        self.assertEqual(mora, 0.0)
+
+    def test_calcular_interes_mora_puntual(self):
+        mora = db.calcular_interes_mora(100.0, "2026-01-10", "2026-01-10", True, 1.0)
+        self.assertEqual(mora, 0.0)
+
+    def test_scope_owner_admin_ve_todo(self):
+        self._crear_prestamo_base()
+        todos = db.listar_prestamos("", (), 0, True)
+        self.assertGreater(len(todos), 0)
+
+    def test_scope_owner_no_admin_solo_sus_datos(self):
+        self._crear_prestamo_base()
+        with db.get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO usuarios (username, password_hash, rol, activo, debe_cambiar_password) "
+                "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING",
+                ("test_other", "hash", "cobrador", True, False),
+            )
+            cur.execute("SELECT id FROM usuarios WHERE username = 'test_other'")
+            other_id = cur.fetchone()[0]
+
+        otros = db.listar_prestamos("", (), other_id, False)
+        self.assertEqual(len(otros), 0)
+
+    def test_get_or_create_cliente_reutiliza(self):
+        uid = self.user_id
+        c1 = db.get_or_create_cliente("Reutilizable", "ID-REUSE", "111", "", "", uid)
+        c2 = db.get_or_create_cliente("Reutilizable", "ID-REUSE", "111", "", "", uid)
+        self.assertEqual(c1, c2)
+
+    def test_listar_clientes_filtrado(self):
+        self._crear_prestamo_base()
+        todos = db.listar_clientes_filtrado("todo", self.user_id, False)
+        self.assertGreater(len(todos), 0)
+
+        activos = db.listar_clientes_filtrado("activo", self.user_id, False)
+        self.assertGreater(len(activos), 0)
 
 
 if __name__ == "__main__":
