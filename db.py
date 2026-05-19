@@ -134,21 +134,17 @@ def obtener_logs_recientes(limit=50, user_id=None):
 
 
 def crear_admin_inicial():
-    """Crea o actualiza el usuario admin por defecto para asegurar acceso."""
+    """Crea el usuario admin por defecto solo si no existe."""
     with get_conn() as conn:
         cur = conn.cursor()
-        h = generate_password_hash("admin123")
-        # Usamos un UPSERT (INSERT ... ON CONFLICT) para asegurar que el admin tenga esta clave
+        cur.execute("SELECT id FROM usuarios WHERE username = 'admin'")
+        if cur.fetchone():
+            return
+        h = generate_password_hash(os.environ.get("ADMIN_DEFAULT_PASSWORD", "admin123"))
         cur.execute("""
             INSERT INTO usuarios (username, password_hash, rol, debe_cambiar_password, activo)
             VALUES ('admin', %s, 'admin', TRUE, TRUE)
-            ON CONFLICT (username)
-            DO UPDATE SET password_hash = EXCLUDED.password_hash,
-                          activo = TRUE,
-                          debe_cambiar_password = TRUE
-            WHERE usuarios.username = 'admin'
         """, (h,))
-        print("🚀 Usuario admin sincronizado: admin / admin123")
 
 
 def ensure_auditoria_table() -> None:
@@ -1056,13 +1052,16 @@ def editar_prestamo_inteligente(
             for campo, ant, nue in cambios:
                 guardar_auditoria_prestamo(pid, user_id, campo, ant, nue)
         return cur.rowcount > 0
+
+
+def actualizar_nota_prestamo(pid: int, nota: str, user_id: int, is_admin: bool) -> bool:
+    extra, params = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            f"""
-            UPDATE prestamos p SET notas = %s
-            FROM clientes c
-            WHERE p.cliente_id = c.id AND p.id = %s {extra}
-            """,
+            f"""UPDATE prestamos p SET notas = %s
+                FROM clientes c
+                WHERE p.cliente_id = c.id AND p.id = %s {extra}""",
             (nota, pid) + params,
         )
         return cur.rowcount > 0
@@ -1253,10 +1252,14 @@ def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: boo
 
 
 def eliminar_prestamo(pid: int, user_id: int, is_admin: bool) -> bool:
-    """Elimina un préstamo y todos sus pagos asociados. Cualquier usuario logueado puede eliminar."""
+    """Elimina un préstamo y todos sus pagos asociados. Verifica permisos de owner."""
+    extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id FROM prestamos WHERE id = %s", (pid,))
+        cur.execute(
+            f"SELECT p.id FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE p.id = %s {extra}",
+            (pid,) + params,
+        )
         if not cur.fetchone():
             return False
         cur.execute("DELETE FROM pagos WHERE prestamo_id = %s", (pid,))
@@ -1443,8 +1446,9 @@ def export_database_sql() -> str:
 def restore_database_sql(sql: str) -> None:
     """
     Ejecuta un volcado .sql generado por export_database_sql() (BEGIN/TRUNCATE/INSERTs/COMMIT).
-    Advertencia: borra y repuebla datos según el script.
+    Valida que solo contenga sentencias seguras para prevenir SQL injection.
     """
+    import re
     chunks: list[str] = []
     buf: list[str] = []
     for line in sql.splitlines():
@@ -1462,11 +1466,18 @@ def restore_database_sql(sql: str) -> None:
         if stmt:
             chunks.append(stmt)
 
+    allowed_patterns = re.compile(
+        r"^(BEGIN|COMMIT|TRUNCATE\s+TABLE\s+\w+|INSERT\s+INTO\s+\w+)",
+        re.IGNORECASE,
+    )
+    
     conn = psycopg2.connect(_dsn())
     try:
         conn.autocommit = False
         cur = conn.cursor()
         for stmt in chunks:
+            if not allowed_patterns.match(stmt):
+                raise ValueError(f"Sentencia no permitida: {stmt[:50]}...")
             cur.execute(stmt)
         conn.commit()
     except Exception:

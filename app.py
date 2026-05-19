@@ -236,7 +236,7 @@ def before_request():
 
     uid = session.get("user_id")
     if not uid:
-        return None
+        return redirect(url_for("login", next=request.path))
 
     try:
         if "rol" not in session or "is_admin" not in session or "username" not in session:
@@ -908,7 +908,7 @@ def prestamos_nuevo():
             tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
             if mora_on and tasa_mora < 0:
                 raise ValueError("La tasa de mora no puede ser negativa.")
-            db.nuevo_prestamo(
+            pid = db.nuevo_prestamo(
                 cid,
                 fecha,
                 freq,
@@ -924,7 +924,8 @@ def prestamos_nuevo():
                 mora_activa=mora_on,
                 tasa_mora_diaria=tasa_mora,
             )
-            db.registrar_log(uid, f"Nuevo préstamo ID #{cid} por {fmt_money(monto)}")
+            cliente_nombre = next((c[1] for c in clientes if c[0] == cid), "desconocido")
+            db.registrar_log(uid, f"Nuevo préstamo #{pid} para {cliente_nombre} por {fmt_money(monto)}")
             flash("Préstamo creado.", "ok")
             return redirect(url_for("prestamos_list"))
         except Exception as e:
@@ -994,7 +995,7 @@ def prestamos_editar(pid):
 
 
 @app.route("/prestamos/<int:pid>/eliminar", methods=["POST"])
-@login_required
+@require_role(['admin', 'cobrador'])
 def prestamos_eliminar(pid):
     uid, _, is_admin, _ = ctx_user()
     info = db.obtener_prestamo(pid, uid, is_admin)
@@ -1313,12 +1314,18 @@ def admin_usuario_editar(uid):
 @app.route("/admin/usuarios/<int:uid>/password", methods=["POST"])
 @admin_required
 def admin_usuario_pass_update(uid):
+    user = db.obtener_usuario_por_id(uid)
+    if not user:
+        flash("Usuario no encontrado.", "error")
+        return redirect(url_for('admin_usuarios'))
+    
     new_p = request.form.get("new_password", "")
     if len(new_p) < 8:
         flash("La contraseña debe tener al menos 8 caracteres.", "error")
     else:
         h = generate_password_hash(new_p)
         db.admin_update_user_password(uid, h)
+        db.registrar_log(session["user_id"], f"Contraseña actualizada para usuario #{uid}")
         flash("Contraseña actualizada con éxito.", "ok")
     return redirect(url_for('admin_usuarios'))
 
@@ -1410,7 +1417,7 @@ def prestamos_notas(pid):
         nota = request.form.get("notas", "")
         db.actualizar_nota_prestamo(pid, nota, uid, is_admin)
         flash("Observaciones guardadas.", "ok")
-        return redirect(url_for("prestamos_list"))
+        return redirect(url_for("prestamos_notas", pid=pid))
     row = db.listar_prestamos("p.id = %s", (pid,), uid, is_admin)
     notas = row[0]['notas'] if row else ""
     return render_template("prestamos_notas.html", pid=pid, nombre=info[2], notas=notas or "")
@@ -1699,16 +1706,19 @@ def api_docs():
 
 
 # ---------- Exportar CSV ----------
+import csv
+
 @app.route("/exportar/clientes.csv")
 @login_required
 def exportar_clientes_csv():
-    """Exporta clientes a CSV."""
+    """Exporta clientes a CSV seguro."""
     uid, _, is_admin, _ = ctx_user()
     clientes = db.listar_clientes(uid, is_admin)
-    lines = ["ID,Nombre,Identificación,Teléfono,Barrio,Dirección"]
+    buf = BytesIO()
+    writer = csv.writer(buf)
+    writer.writerow(["ID","Nombre","Identificación","Teléfono","Barrio","Dirección"])
     for c in clientes:
-        lines.append(f'{c[0]},"{c[1]}","{c[2]}","{c[3] or ""}","{c[4] or ""}","{c[5] or ""}"')
-    buf = BytesIO("\n".join(lines).encode("utf-8-sig"))
+        writer.writerow([c[0], c[1], c[2], c[3] or "", c[4] or "", c[5] or ""])
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name="clientes.csv", mimetype="text/csv")
 
@@ -1716,13 +1726,14 @@ def exportar_clientes_csv():
 @app.route("/exportar/prestamos.csv")
 @login_required
 def exportar_prestamos_csv():
-    """Exporta préstamos a CSV."""
+    """Exporta préstamos a CSV seguro."""
     uid, _, is_admin, _ = ctx_user()
     prestamos = db.listar_prestamos("", (), uid, is_admin)
-    lines = ["ID,Cliente,Monto,Tasa,Cuotas,Valor Cuota,Estado,Próximo Pago,Frecuencia"]
+    buf = BytesIO()
+    writer = csv.writer(buf)
+    writer.writerow(["ID","Cliente","Monto","Tasa","Cuotas","Valor Cuota","Estado","Próximo Pago","Frecuencia"])
     for p in prestamos:
-        lines.append(f'{p["id"]},"{p["nombre"]}",{p["monto"]},{p["tasa"]},{p["cuotas"]},{p["valor_cuota"]},"{p["estado"]}","{p["proximo_pago"] or ""}","{p["frecuencia"]}"')
-    buf = BytesIO("\n".join(lines).encode("utf-8-sig"))
+        writer.writerow([p["id"], p["nombre"], p["monto"], p["tasa"], p["cuotas"], p["valor_cuota"], p["estado"], p["proximo_pago"] or "", p["frecuencia"]])
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name="prestamos.csv", mimetype="text/csv")
 
@@ -1730,13 +1741,14 @@ def exportar_prestamos_csv():
 @app.route("/exportar/pagos.csv")
 @login_required
 def exportar_pagos_csv():
-    """Exporta pagos a CSV."""
+    """Exporta pagos a CSV seguro."""
     uid, _, is_admin, _ = ctx_user()
     pagos = db.listar_pagos(None, uid, is_admin)
-    lines = ["ID Pago,Cliente,Préstamo,Fecha,Valor,Cuota,Saldo Restante,Interés Mora,Nota"]
+    buf = BytesIO()
+    writer = csv.writer(buf)
+    writer.writerow(["ID Pago","Cliente","Préstamo","Fecha","Valor","Cuota","Saldo Restante","Interés Mora","Nota"])
     for p in pagos:
-        lines.append(f'{p[0]},"{p[1]}",{p[2]},"{p[3]}",{p[4]},{p[5]},{p[6]},{p[11]},"{p[12]}"')
-    buf = BytesIO("\n".join(lines).encode("utf-8-sig"))
+        writer.writerow([p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[11], p[12]])
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name="pagos.csv", mimetype="text/csv")
 
