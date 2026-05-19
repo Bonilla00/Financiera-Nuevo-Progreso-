@@ -44,8 +44,13 @@
       <div class="flex justify-between items-start">
         <div class="space-y-1">
           <p class="text-sm font-bold text-white uppercase">{{ c[1] }}</p>
-          <p class="text-xs text-slate-400">{{ c[2] }} · {{ c[3] }}</p>
-          <p class="text-xs text-slate-500 italic">{{ c[4] or 'Sin barrio' }}</p>
+          <p class="text-xs text-slate-400">
+            {{ c[2] }} ·
+            {% if c[3] %}<a href="{{ url_whatsapp(c[3]) }}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:underline" onclick="event.stopPropagation()">{{ c[3] }}</a>{% else %}Sin teléfono{% endif %}
+          </p>
+          <p class="text-xs text-slate-500 italic">
+            {% if c[4] or c[5] %}<a href="{{ url_maps(c[5], c[4]) }}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline" onclick="event.stopPropagation()">{{ c[4] or 'Sin barrio' }}</a>{% else %}Sin ubicación{% endif %}
+          </p>
         </div>
         <div class="text-accent">→</div>
       </div>
@@ -94,12 +99,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 contenedor.innerHTML = data.map(c => `
-                    <div class="list-row-interactive rounded-2xl border border-slate-800 p-4 relative overflow-hidden" onclick="window.location.href='/clientes/${c.id}/perfil'">
+                    <div class="list-row-interactive rounded-2xl border border-slate-800 p-4 relative overflow-hidden" onclick="window.location.href='/clientes/\${c.id}/perfil'">
                       <div class="flex justify-between items-start">
                         <div class="space-y-1">
-                          <p class="text-sm font-bold text-white uppercase">${c.nombre}</p>
-                          <p class="text-xs text-slate-400">${c.identificacion} · ${c.telefono}</p>
-                          <p class="text-xs text-slate-500 italic">${c.barrio || 'Sin barrio'}</p>
+                          <p class="text-sm font-bold text-white uppercase">\${c.nombre}</p>
+                          <p class="text-xs text-slate-400">\${c.identificacion} · <a href="https://wa.me/\${c.telefono ? (c.telefono.length <= 10 && !c.telefono.startsWith('57') ? '57' + c.telefono.replace(/\D/g,'') : c.telefono.replace(/\D/g,'')) : ''}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:underline" onclick="event.stopPropagation()">\${c.telefono || 'Sin teléfono'}</a></p>
+                          <p class="text-xs text-slate-500 italic"><a href="https://www.google.com/maps/search/?api=1&query=\${encodeURIComponent((c.barrio || '') + ', ' + (c.direccion || ''))}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline" onclick="event.stopPropagation()">\${c.barrio || 'Sin ubicación'}</a></p>
                         </div>
                         <div class="text-accent">→</div>
                       </div>
