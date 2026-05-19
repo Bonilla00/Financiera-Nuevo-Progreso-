@@ -367,7 +367,10 @@ def obtener_cliente(cid: int, user_id: int, is_admin: bool):
 
 
 def actualizar_foto_cliente(cliente_id: int, foto_base64: str, user_id: int, is_admin: bool) -> bool:
-    extra, params = _filtro_owner("c", user_id, is_admin)
+    if is_admin:
+        extra, params = "", ()
+    else:
+        extra, params = " AND owner_user_id = %s", (user_id,)
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
