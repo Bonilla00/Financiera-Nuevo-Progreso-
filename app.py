@@ -1559,4 +1559,47 @@ def alertas_vencimientos():
     return jsonify(vencidos), 200
 
 
+# ---------- Exportar CSV ----------
+@app.route("/exportar/clientes.csv")
+@login_required
+def exportar_clientes_csv():
+    """Exporta clientes a CSV."""
+    uid, _, is_admin, _ = ctx_user()
+    clientes = db.listar_clientes(uid, is_admin)
+    lines = ["ID,Nombre,Identificación,Teléfono,Barrio,Dirección"]
+    for c in clientes:
+        lines.append(f'{c[0]},"{c[1]}","{c[2]}","{c[3] or ""}","{c[4] or ""}","{c[5] or ""}"')
+    buf = BytesIO("\n".join(lines).encode("utf-8-sig"))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name="clientes.csv", mimetype="text/csv")
+
+
+@app.route("/exportar/prestamos.csv")
+@login_required
+def exportar_prestamos_csv():
+    """Exporta préstamos a CSV."""
+    uid, _, is_admin, _ = ctx_user()
+    prestamos = db.listar_prestamos("", (), uid, is_admin)
+    lines = ["ID,Cliente,Monto,Tasa,Cuotas,Valor Cuota,Estado,Próximo Pago,Frecuencia"]
+    for p in prestamos:
+        lines.append(f'{p["id"]},"{p["nombre"]}",{p["monto"]},{p["tasa"]},{p["cuotas"]},{p["valor_cuota"]},"{p["estado"]}","{p["proximo_pago"] or ""}","{p["frecuencia"]}"')
+    buf = BytesIO("\n".join(lines).encode("utf-8-sig"))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name="prestamos.csv", mimetype="text/csv")
+
+
+@app.route("/exportar/pagos.csv")
+@login_required
+def exportar_pagos_csv():
+    """Exporta pagos a CSV."""
+    uid, _, is_admin, _ = ctx_user()
+    pagos = db.listar_pagos(None, uid, is_admin)
+    lines = ["ID Pago,Cliente,Préstamo,Fecha,Valor,Cuota,Saldo Restante,Interés Mora,Nota"]
+    for p in pagos:
+        lines.append(f'{p[0]},"{p[1]}",{p[2]},"{p[3]}",{p[4]},{p[5]},{p[6]},{p[11]},"{p[12]}"')
+    buf = BytesIO("\n".join(lines).encode("utf-8-sig"))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name="pagos.csv", mimetype="text/csv")
+
+
 

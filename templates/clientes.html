@@ -5,11 +5,12 @@
 <div class="space-y-4">
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-bold text-white">Clientes</h1>
-    {% if rol != 'solo_lectura' %}
-    <a href="{{ url_for('clientes_nuevo') }}" class="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-slate-900 shadow-lg active:scale-95 transition-transform">
-      + Nuevo
-    </a>
-    {% endif %}
+    <div class="flex gap-2">
+      <a href="{{ url_for('exportar_clientes_csv') }}" class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-lg active:scale-95 transition-transform">📥 CSV</a>
+      {% if rol != 'solo_lectura' %}
+      <a href="{{ url_for('clientes_nuevo') }}" class="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-slate-900 shadow-lg active:scale-95 transition-transform">+ Nuevo</a>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Buscador -->
