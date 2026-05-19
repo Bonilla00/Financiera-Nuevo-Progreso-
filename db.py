@@ -210,10 +210,13 @@ def proxima_fecha_pago(fecha_inicio, frecuencia, pagadas, cuotas):
 
 # ---------- usuarios / auth ----------
 def count_usuarios() -> int:
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM usuarios")
-        return int(cur.fetchone()[0])
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM usuarios")
+            return int(cur.fetchone()[0])
+    except Exception:
+        return 0
 
 
 def actualizar_username_usuario(uid: int, username: str) -> None:

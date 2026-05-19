@@ -224,10 +224,11 @@ def before_request():
     if endpoint in {"static", "logout"}:
         return None
 
-    if app.config.get("DB_SCHEMA_READY"):
-        pass
-    else:
-        db.ensure_schema_migrations()
+    if not app.config.get("DB_SCHEMA_READY"):
+        try:
+            db.ensure_schema_migrations()
+        except Exception as e:
+            print(f"--- ERROR DB SCHEMA: {e} ---")
         app.config["DB_SCHEMA_READY"] = True
 
     if endpoint in public_endpoints:
@@ -237,16 +238,21 @@ def before_request():
     if not uid:
         return None
 
-    if "rol" not in session or "is_admin" not in session or "username" not in session:
-        row = db.obtener_usuario_por_id(int(uid))
-        if not row or not row.get("activo", True):
-            session.clear()
-            flash("Tu sesión ya no está activa. Inicia sesión nuevamente.", "error")
-            return redirect(url_for("login"))
-        session["user_id"] = row.get("id")
-        session["username"] = row.get("username")
-        session["rol"] = row.get("rol") or "usuario"
-        session["is_admin"] = session["rol"] == "admin"
+    try:
+        if "rol" not in session or "is_admin" not in session or "username" not in session:
+            row = db.obtener_usuario_por_id(int(uid))
+            if not row or not row.get("activo", True):
+                session.clear()
+                flash("Tu sesión ya no está activa. Inicia sesión nuevamente.", "error")
+                return redirect(url_for("login"))
+            session["user_id"] = row.get("id")
+            session["username"] = row.get("username")
+            session["rol"] = row.get("rol") or "usuario"
+            session["is_admin"] = session["rol"] == "admin"
+    except Exception as e:
+        print(f"--- ERROR BEFORE REQUEST: {e} ---")
+        session.clear()
+        return redirect(url_for("login"))
 
     if endpoint.startswith("admin_") and not session.get("is_admin", False):
         abort(403)
@@ -355,8 +361,14 @@ def inject_globals():
 
 @app.route("/setup", methods=["GET", "POST"])
 def setup():
-    if db.count_usuarios() > 0:
+    try:
+        total = db.count_usuarios()
+    except Exception:
+        total = 0
+        
+    if total > 0:
         return redirect(url_for("login"))
+        
     if request.method == "POST":
         u = request.form.get("username", "").strip()
         p1 = request.form.get("password", "")
@@ -377,8 +389,14 @@ def setup():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if db.count_usuarios() == 0:
+    try:
+        total = db.count_usuarios()
+    except Exception:
+        total = 0
+    
+    if total == 0:
         return redirect(url_for("setup"))
+        
     if request.method == "POST":
         try:
             u = (request.form.get("username") or "").strip()
