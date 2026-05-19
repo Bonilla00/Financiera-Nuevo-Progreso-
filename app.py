@@ -724,6 +724,22 @@ def prestamos_editar(pid):
     return render_template("prestamo_editar.html", p=info, form_data=None)
 
 
+@app.route("/prestamos/<int:pid>/eliminar", methods=["POST"])
+@admin_required
+def prestamos_eliminar(pid):
+    uid, _, is_admin, _ = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+    cid = int(info[1])
+    if db.eliminar_prestamo(pid, uid, is_admin):
+        db.registrar_log(uid, f"Préstamo #{pid} eliminado para cliente {info[2]}")
+        flash("Préstamo eliminado con todos sus pagos.", "ok")
+    else:
+        flash("No se pudo eliminar el préstamo.", "error")
+    return redirect(url_for("clientes_perfil", cid=cid))
+
+
 @app.route("/prestamos/<int:pid>/cobrar")
 @require_role(['admin', 'cobrador'])
 def prestamos_cobrar(pid):

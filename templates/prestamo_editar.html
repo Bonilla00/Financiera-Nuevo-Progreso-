@@ -32,5 +32,12 @@
   <p class="text-xs text-slate-500">Cuotas ya pagadas: <strong class="text-white">{{ p[14] }}</strong> (no puedes bajar el número de cuotas por debajo de este valor).</p>
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar cambios</button>
 </form>
+
+<form method="post" action="{{ url_for('prestamos_eliminar', pid=p[0]) }}" onsubmit="return confirm('⚠️ ¿Eliminar este préstamo y TODOS sus pagos? Esta acción no se puede deshacer.');" class="mt-4">
+  <button type="submit" class="w-full py-3 rounded-xl border-2 border-red-500 text-red-500 font-bold hover:bg-red-500/10 transition-colors">
+     Eliminar crédito
+  </button>
+</form>
+
 <a href="{{ url_for('clientes_perfil', cid=p[1]) }}" class="block text-center mt-4 text-sm text-slate-400">← Volver al perfil</a>
 {% endblock %}

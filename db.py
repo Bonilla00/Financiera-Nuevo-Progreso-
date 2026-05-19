@@ -1240,6 +1240,26 @@ def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: boo
         return True
 
 
+def eliminar_prestamo(pid: int, user_id: int, is_admin: bool) -> bool:
+    """Elimina un préstamo y todos sus pagos asociados."""
+    extra, params = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT p.id FROM prestamos p
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE p.id = %s {extra}
+            """,
+            (pid,) + params,
+        )
+        if not cur.fetchone():
+            return False
+        cur.execute("DELETE FROM pagos WHERE prestamo_id = %s", (pid,))
+        cur.execute("DELETE FROM prestamos WHERE id = %s", (pid,))
+        return True
+
+
 def sum_montos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
     scope, sparams = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
