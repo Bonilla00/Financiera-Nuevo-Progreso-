@@ -4,40 +4,6 @@
 <h1 class="text-xl font-bold mb-4">Más / Configuración</h1>
 <p class="text-slate-400 text-sm mb-4">Usuario: <span class="text-white">{{ session.username }}</span></p>
 
-<div class="rounded-2xl border border-slate-700 bg-panel p-4 mb-6">
-  <h2 class="font-semibold text-accent text-sm mb-3">Apariencia</h2>
-  <div class="flex items-center justify-between">
-    <div>
-      <p class="text-white text-sm font-medium">Tema de la interfaz</p>
-      <p class="text-slate-500 text-xs">Modo oscuro / claro</p>
-    </div>
-    <button id="cfg-theme-toggle" type="button" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-panel2 border border-slate-600 text-sm font-medium hover:border-accent transition-colors">
-      <span id="cfg-theme-icon">{% if theme == 'dark' %}🌙{% else %}☀️{% endif %}</span>
-      <span id="cfg-theme-label">{% if theme == 'dark' %}Oscuro{% else %}Claro{% endif %}</span>
-    </button>
-  </div>
-</div>
-
-<script>
-(function () {
-  var btn = document.getElementById("cfg-theme-toggle");
-  var icon = document.getElementById("cfg-theme-icon");
-  var label = document.getElementById("cfg-theme-label");
-  if (!btn) return;
-  btn.addEventListener("click", function () {
-    var isLight = document.documentElement.classList.contains("light-mode");
-    var next = isLight ? "dark" : "light";
-    document.documentElement.classList.toggle("light-mode", next === "light");
-    icon.textContent = next === "light" ? "☀️" : "🌙";
-    label.textContent = next === "light" ? "Claro" : "Oscuro";
-    fetch("{{ url_for('toggle_theme') }}", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-  });
-})();
-</script>
-
 <div class="space-y-2 mb-6">
   <h2 class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza</h2>
   <a href="{{ url_for('cobro_hoy') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Ruta de cobro</a>

@@ -350,7 +350,6 @@ def inject_globals():
         "url_tel": url_tel,
         "url_whatsapp": url_whatsapp,
         "url_maps": url_maps,
-        "theme": session.get("theme", "dark"),
     }
 
 
@@ -1667,15 +1666,6 @@ def calendario():
         next_year=next_year,
         meses=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
     )
-
-
-@app.route("/toggle-theme", methods=["POST"])
-@login_required
-def toggle_theme():
-    """Cambia entre modo oscuro y claro."""
-    current = session.get("theme", "dark")
-    session["theme"] = "light" if current == "dark" else "dark"
-    return jsonify({"theme": session["theme"]})
 
 
 @app.route("/api/docs")
