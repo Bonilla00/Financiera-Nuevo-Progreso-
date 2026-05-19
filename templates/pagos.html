@@ -14,7 +14,7 @@
 <div class="space-y-6">
   {% for fecha, items in pagos_grupos %}
   <section>
-    <h2 class="text-sm font-bold text-accent border-b border-slate-700 pb-1 mb-2">{{ fecha }}</h2>
+    <h2 class="text-sm font-bold text-accent border-b border-slate-700 pb-1 mb-2">{{ fecha_proximo_pago_texto(fecha) or fecha }}</h2>
     <div class="space-y-2">
       {% for r in items %}
       <div class="list-row-interactive rounded-xl border border-slate-700 p-3 flex justify-between items-center gap-2">

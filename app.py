@@ -1,11 +1,14 @@
 import os
 import logging
+import time
+import json
 from datetime import date, datetime, timedelta
 from functools import wraps
 from io import BytesIO
 from itertools import groupby
 
 import psycopg2
+import requests
 from flask import (
     Flask,
     abort,
@@ -38,6 +41,177 @@ app.secret_key = os.environ.get("SECRET_KEY", "cambia-esto-en-produccion")
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Evolution API config
+EVOLUTION_API_URL = os.environ.get("EVOLUTION_API_URL", "http://localhost:8080")
+EVOLUTION_API_KEY = os.environ.get("EVOLUTION_API_KEY", "")
+
+
+def _evolution_headers():
+    return {"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"}
+
+
+def send_whatsapp_message(instance_name, to_number, message):
+    """Envía un mensaje de texto por Evolution API."""
+    if not EVOLUTION_API_KEY:
+        logger.warning("EVOLUTION_API_KEY no configurada")
+        return False
+    try:
+        resp = requests.post(
+            f"{EVOLUTION_API_URL}/message/sendText/{instance_name}",
+            json={"number": to_number, "text": message},
+            headers=_evolution_headers(),
+            timeout=10,
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        logger.error(f"Error enviando WhatsApp: {e}")
+        return False
+
+
+def process_whatsapp_message(user_id, instance_id, from_number, message):
+    """Máquina de estados para conversación WhatsApp."""
+    session = db.get_or_create_session(instance_id, from_number)
+    state = session.get("state", "idle")
+    context = session.get("context") or {}
+
+    msg = message.lower().strip()
+
+    if msg in ["hola", "inicio", "menu"]:
+        db.update_session_state(instance_id, from_number, "idle")
+        return (
+            "🏦 *Financiera Nuevo Progreso*\n\n"
+            "Elige una opción:\n"
+            "1️⃣ Consultar saldo\n"
+            "2️⃣ Registrar pago\n"
+            "3️⃣ Nuevo cliente\n"
+            "4️⃣ Nuevo préstamo\n"
+            "5️⃣ Ver vencimientos"
+        )
+
+    if state == "idle":
+        if msg == "1":
+            return _consultar_saldo(user_id, from_number)
+        elif msg == "2":
+            db.update_session_state(instance_id, from_number, "pago_monto")
+            return "💰 Ingresa el monto del pago:"
+        elif msg == "3":
+            db.update_session_state(instance_id, from_number, "cliente_nombre")
+            return "👤 Ingresa el nombre del cliente:"
+        elif msg == "4":
+            db.update_session_state(instance_id, from_number, "prestamo_cliente")
+            return "📋 Ingresa la identificación del cliente:"
+        elif msg == "5":
+            return _ver_vencimientos(user_id)
+        else:
+            return "Opción no válida. Escribe *menu* para ver opciones."
+
+    if state == "pago_monto":
+        try:
+            monto = float(msg)
+            context["pago_monto"] = monto
+            db.update_session_state(instance_id, from_number, "pago_confirmar", json.dumps(context))
+            return f"✅ Pago de ${monto:,.0f}. ¿Confirmar? (si/no)"
+        except ValueError:
+            return "Monto inválido. Ingresa un número."
+
+    if state == "pago_confirmar":
+        if msg == "si":
+            db.update_session_state(instance_id, from_number, "idle")
+            return "✅ Pago registrado exitosamente."
+        else:
+            db.update_session_state(instance_id, from_number, "idle")
+            return "Pago cancelado."
+
+    if state == "cliente_nombre":
+        context["cliente_nombre"] = msg
+        db.update_session_state(instance_id, from_number, "cliente_identificacion", json.dumps(context))
+        return "🆔 Ingresa la identificación:"
+
+    if state == "cliente_identificacion":
+        context["cliente_identificacion"] = msg
+        db.update_session_state(instance_id, from_number, "cliente_telefono", json.dumps(context))
+        return "📞 Ingresa el teléfono:"
+
+    if state == "cliente_telefono":
+        context["cliente_telefono"] = msg
+        cid = db.get_or_create_cliente(
+            context.get("cliente_nombre", ""),
+            context.get("cliente_identificacion", ""),
+            msg, "", "", user_id
+        )
+        db.update_session_state(instance_id, from_number, "idle")
+        return f"✅ Cliente creado. ID: {cid}"
+
+    if state == "prestamo_cliente":
+        context["prestamo_cliente_id"] = msg
+        db.update_session_state(instance_id, from_number, "prestamo_monto", json.dumps(context))
+        return "💰 Ingresa el monto del préstamo:"
+
+    if state == "prestamo_monto":
+        try:
+            context["prestamo_monto"] = float(msg)
+            db.update_session_state(instance_id, from_number, "prestamo_tasa", json.dumps(context))
+            return "📊 Ingresa la tasa de interés (%):"
+        except ValueError:
+            return "Monto inválido. Ingresa un número."
+
+    if state == "prestamo_tasa":
+        try:
+            context["prestamo_tasa"] = float(msg)
+            db.update_session_state(instance_id, from_number, "prestamo_cuotas", json.dumps(context))
+            return "🔢 Ingresa el número de cuotas:"
+        except ValueError:
+            return "Tasa inválida. Ingresa un número."
+
+    if state == "prestamo_cuotas":
+        try:
+            cuotas = int(msg)
+            monto = context.get("prestamo_monto", 0)
+            tasa = context.get("prestamo_tasa", 0)
+            interes = monto * (tasa / 100)
+            total = monto + interes
+            cuota = total / cuotas
+            db.update_session_state(instance_id, from_number, "idle")
+            return (
+                f"📋 *Resumen del préstamo*\n\n"
+                f"Monto: ${monto:,.0f}\n"
+                f"Interés: ${interes:,.0f}\n"
+                f"Total: ${total:,.0f}\n"
+                f"Cuota: ${cuota:,.0f} x {cuotas}\n\n"
+                f"¿Confirmar? (si/no)"
+            )
+        except ValueError:
+            return "Cuotas inválidas. Ingresa un número."
+
+    return None
+
+
+def _consultar_saldo(user_id, from_number):
+    """Consulta saldos de préstamos activos del cliente."""
+    clientes = db.listar_clientes(user_id, True)
+    for c in clientes:
+        if c[3] and c[3].replace(" ", "") == from_number.replace(" ", ""):
+            prestamos = db.listar_prestamos_por_cliente(c[0], user_id, True)
+            if not prestamos:
+                return "No tienes préstamos activos."
+            msg = f"📊 *Tus préstamos:*\n\n"
+            for p in prestamos:
+                saldo = p['total_pagar'] - db.sum_pagos_por_prestamo(p['id'], user_id, True)
+                msg += f"• #{p['id']} - {p['estado']} - Saldo: ${saldo:,.0f}\n"
+            return msg
+    return "No encontramos tu número registrado. Contacta a tu asesor."
+
+
+def _ver_vencimientos(user_id):
+    """Devuelve préstamos con vencimiento próximo."""
+    vencidos = db.get_vencimientos_hoy()
+    if not vencidos:
+        return "No hay vencimientos para hoy. ✅"
+    msg = "📅 *Vencimientos de hoy:*\n\n"
+    for v in vencidos:
+        msg += f"• {v['nombre']} - ${v['valor_cuota']:,.0f}\n"
+    return msg
 
 
 @app.before_request
@@ -1190,6 +1364,199 @@ def cobro_hoy():
                 tasa = float(r[8] or 0)
                 mora_total += valor_cuota * (tasa / 100) * dias
     return render_template("cobro_hoy.html", rows=rows, total=total, mora_total=mora_total, count=len(rows))
+
+
+# ---------- WhatsApp / Evolution API ----------
+@app.route("/api/whatsapp/webhook", methods=["POST"])
+def whatsapp_webhook():
+    """Recibe mensajes de n8n o directamente de Evolution API."""
+    data = request.get_json()
+    instance_name = data.get("instance") or data.get("instanceName")
+    from_number = data.get("from", "")
+    message_data = data.get("message", {})
+    message = message_data.get("body") or message_data.get("content") or data.get("message", "")
+
+    if not instance_name or not from_number or not message:
+        return jsonify({"error": "Datos incompletos"}), 400
+
+    inst = db.get_instance_by_name(instance_name)
+    if not inst:
+        return jsonify({"error": "Instancia no encontrada"}), 404
+
+    user_id = inst["user_id"]
+
+    db.save_whatsapp_message(
+        instance_id=inst["id"],
+        from_number=from_number,
+        to_number=inst.get("phone_number", ""),
+        content=message,
+        direction="inbound",
+    )
+
+    response = process_whatsapp_message(user_id, inst["id"], from_number, message)
+
+    if response:
+        send_whatsapp_message(instance_name, from_number, response)
+        db.save_whatsapp_message(
+            instance_id=inst["id"],
+            from_number=inst.get("phone_number", ""),
+            to_number=from_number,
+            content=response,
+            direction="outbound",
+        )
+
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/api/whatsapp/instance", methods=["POST"])
+@login_required
+def create_whatsapp_instance():
+    """Crear nueva instancia WhatsApp para el usuario."""
+    uid = session["user_id"]
+    existing = db.get_user_instance(uid)
+    if existing:
+        return jsonify({"error": "Ya tienes una instancia. Elimínala primero.", "instance": existing["instance_name"]}), 400
+
+    instance_name = f"user_{uid}_{int(time.time())}"
+
+    try:
+        resp = requests.post(
+            f"{EVOLUTION_API_URL}/instance/create",
+            json={"instanceName": instance_name, "qrcode": True},
+            headers=_evolution_headers(),
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            db.create_whatsapp_instance(uid, instance_name)
+            return jsonify({"instance": instance_name, "status": "pending_qr"}), 201
+        return jsonify({"error": f"Evolution API error: {resp.text}"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/whatsapp/instance/qr", methods=["GET"])
+@login_required
+def get_instance_qr():
+    """Obtener QR para conectar WhatsApp."""
+    uid = session["user_id"]
+    inst = db.get_user_instance(uid)
+    if not inst:
+        return jsonify({"error": "No hay instancia. Créala primero."}), 404
+
+    try:
+        resp = requests.get(
+            f"{EVOLUTION_API_URL}/instance/qr/{inst['instance_name']}",
+            headers=_evolution_headers(),
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            qr_data = resp.json()
+            if qr_data.get("base64"):
+                db.update_instance_status(inst["instance_name"], "qr_ready", qr_code=qr_data["base64"])
+            return jsonify(qr_data), 200
+        return jsonify({"error": "No se pudo obtener el QR"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/whatsapp/instance/status", methods=["GET"])
+@login_required
+def get_instance_status():
+    """Verificar estado de la instancia."""
+    uid = session["user_id"]
+    inst = db.get_user_instance(uid)
+    if not inst:
+        return jsonify({"status": "none"}), 200
+    return jsonify({
+        "instance": inst["instance_name"],
+        "status": inst["status"],
+        "phone": inst.get("phone_number"),
+        "qr_code": inst.get("qr_code"),
+    }), 200
+
+
+@app.route("/api/whatsapp/instance/delete", methods=["POST"])
+@login_required
+def delete_whatsapp_instance():
+    """Eliminar instancia WhatsApp del usuario."""
+    uid = session["user_id"]
+    inst = db.get_user_instance(uid)
+    if not inst:
+        return jsonify({"error": "No hay instancia"}), 404
+
+    try:
+        requests.delete(
+            f"{EVOLUTION_API_URL}/instance/delete/{inst['instance_name']}",
+            headers=_evolution_headers(),
+            timeout=10,
+        )
+    except Exception:
+        pass
+
+    with db.get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM whatsapp_instances WHERE user_id = %s", (uid,))
+
+    return jsonify({"status": "deleted"}), 200
+
+
+@app.route("/api/whatsapp/send", methods=["POST"])
+@login_required
+def send_whatsapp_message_api():
+    """Enviar mensaje manual desde la app."""
+    uid = session["user_id"]
+    data = request.get_json()
+    to_number = data.get("to", "").strip()
+    message = data.get("message", "").strip()
+
+    if not to_number or not message:
+        return jsonify({"error": "Número y mensaje requeridos"}), 400
+
+    inst = db.get_user_instance(uid)
+    if not inst or inst["status"] != "connected":
+        return jsonify({"error": "WhatsApp no conectado"}), 400
+
+    ok = send_whatsapp_message(inst["instance_name"], to_number, message)
+    if ok:
+        db.save_whatsapp_message(
+            instance_id=inst["id"],
+            from_number=inst.get("phone_number", ""),
+            to_number=to_number,
+            content=message,
+            direction="outbound",
+        )
+        return jsonify({"status": "sent"}), 200
+    return jsonify({"error": "No se pudo enviar"}), 500
+
+
+@app.route("/api/whatsapp/messages", methods=["GET"])
+@login_required
+def get_whatsapp_messages():
+    """Obtener mensajes recientes del usuario."""
+    uid = session["user_id"]
+    inst = db.get_user_instance(uid)
+    if not inst:
+        return jsonify([]), 200
+
+    with db.get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """SELECT id, from_number, to_number, content, direction, message_type, created_at
+               FROM whatsapp_messages
+               WHERE instance_id = %s
+               ORDER BY created_at DESC LIMIT 50""",
+            (inst["id"],),
+        )
+        messages = cur.fetchall()
+
+    return jsonify(messages), 200
+
+
+@app.route("/api/alertas/vencimientos", methods=["POST"])
+def alertas_vencimientos():
+    """Endpoint para n8n: devuelve préstamos vencidos para enviar alertas."""
+    vencidos = db.get_vencimientos_hoy()
+    return jsonify(vencidos), 200
 
 
 

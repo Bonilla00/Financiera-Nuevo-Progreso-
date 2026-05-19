@@ -52,7 +52,13 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE",
         "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, user_id INT, accion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
-        "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL"
+        "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL",
+        "CREATE TABLE IF NOT EXISTS whatsapp_instances (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE, phone_number VARCHAR(20), instance_name VARCHAR(50) UNIQUE, status VARCHAR(20) DEFAULT 'pending', qr_code TEXT, connected_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW())",
+        "CREATE TABLE IF NOT EXISTS whatsapp_messages (id SERIAL PRIMARY KEY, instance_id INTEGER NOT NULL REFERENCES whatsapp_instances(id) ON DELETE CASCADE, from_number VARCHAR(20) NOT NULL, to_number VARCHAR(20) NOT NULL, message_type VARCHAR(20) DEFAULT 'text', content TEXT, media_url TEXT, direction VARCHAR(10) CHECK (direction IN ('inbound', 'outbound')), created_at TIMESTAMPTZ DEFAULT NOW())",
+        "CREATE TABLE IF NOT EXISTS whatsapp_sessions (id SERIAL PRIMARY KEY, instance_id INTEGER NOT NULL REFERENCES whatsapp_instances(id) ON DELETE CASCADE, client_phone VARCHAR(20) NOT NULL, state VARCHAR(30) DEFAULT 'idle', context JSONB DEFAULT '{}', last_activity TIMESTAMPTZ DEFAULT NOW(), UNIQUE(instance_id, client_phone))",
+        "CREATE INDEX IF NOT EXISTS idx_wa_messages_instance ON whatsapp_messages(instance_id)",
+        "CREATE INDEX IF NOT EXISTS idx_wa_messages_from ON whatsapp_messages(from_number)",
+        "CREATE INDEX IF NOT EXISTS idx_wa_sessions_state ON whatsapp_sessions(state)",
     ]
     for s in stmts:
         try:
@@ -1462,3 +1468,108 @@ def restore_database_sql(sql: str) -> None:
         raise
     finally:
         conn.close()
+
+
+# ---------- WhatsApp / Evolution API ----------
+def get_instance_by_name(instance_name):
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM whatsapp_instances WHERE instance_name = %s", (instance_name,))
+        return cur.fetchone()
+
+
+def get_user_instance(user_id):
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM whatsapp_instances WHERE user_id = %s ORDER BY created_at DESC LIMIT 1", (user_id,))
+        return cur.fetchone()
+
+
+def create_whatsapp_instance(user_id, instance_name):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO whatsapp_instances (user_id, instance_name, status) VALUES (%s, %s, 'pending')",
+            (user_id, instance_name),
+        )
+
+
+def update_instance_status(instance_name, status, phone_number=None, qr_code=None):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        if status == "connected":
+            cur.execute(
+                "UPDATE whatsapp_instances SET status = %s, phone_number = %s, connected_at = NOW() WHERE instance_name = %s",
+                (status, phone_number, instance_name),
+            )
+        elif qr_code:
+            cur.execute(
+                "UPDATE whatsapp_instances SET status = %s, qr_code = %s WHERE instance_name = %s",
+                (status, qr_code, instance_name),
+            )
+        else:
+            cur.execute(
+                "UPDATE whatsapp_instances SET status = %s WHERE instance_name = %s",
+                (status, instance_name),
+            )
+
+
+def save_whatsapp_message(instance_id, from_number, to_number, content, direction, message_type="text", media_url=None):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO whatsapp_messages
+               (instance_id, from_number, to_number, content, direction, message_type, media_url)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (instance_id, from_number, to_number, content, direction, message_type, media_url),
+        )
+
+
+def get_or_create_session(instance_id, client_phone):
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """INSERT INTO whatsapp_sessions (instance_id, client_phone, state, context)
+               VALUES (%s, %s, 'idle', '{}')
+               ON CONFLICT (instance_id, client_phone)
+               DO UPDATE SET last_activity = NOW()
+               RETURNING *""",
+            (instance_id, client_phone),
+        )
+        return cur.fetchone()
+
+
+def update_session_state(instance_id, client_phone, state, context=None):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """UPDATE whatsapp_sessions
+               SET state = %s, context = %s::jsonb, last_activity = NOW()
+               WHERE instance_id = %s AND client_phone = %s""",
+            (state, context, instance_id, client_phone),
+        )
+
+
+def get_session(instance_id, client_phone):
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT * FROM whatsapp_sessions WHERE instance_id = %s AND client_phone = %s",
+            (instance_id, client_phone),
+        )
+        return cur.fetchone()
+
+
+def get_vencimientos_hoy():
+    """Devuelve préstamos con próximo pago hoy para alertas automáticas."""
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT p.id, c.nombre, c.telefono, p.valor_cuota, p.proximo_pago
+            FROM prestamos p
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago::date = CURRENT_DATE
+            ORDER BY c.nombre
+        """)
+        return cur.fetchall()

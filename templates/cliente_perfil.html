@@ -117,7 +117,7 @@ if (document.getElementById('input-foto')) {
         </div>
         <div>
           <p class="text-slate-500 font-bold uppercase text-[9px]">Próximo pago</p>
-          <p class="text-white font-bold">{{ pr.proximo_pago or 'Finalizado' }}</p>
+          <p class="text-white font-bold">{{ fecha_proximo_pago_texto(pr.proximo_pago) or 'Finalizado' }}</p>
         </div>
         <div>
           <p class="text-slate-500 font-bold uppercase text-[9px]">Saldo Pendiente</p>

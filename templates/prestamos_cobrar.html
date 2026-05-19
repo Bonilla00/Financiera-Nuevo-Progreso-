@@ -6,7 +6,7 @@
 
 <div class="bg-panel rounded-2xl border border-slate-700 p-4 mb-4 space-y-2">
   {% if proximo_pago %}
-  <p class="text-xs text-slate-400">Próximo pago programado: <span class="text-white">{{ proximo_pago }}</span></p>
+  <p class="text-xs text-slate-400">Próximo pago programado: <span class="text-white">{{ fecha_proximo_pago_texto(proximo_pago) or '—' }}</span></p>
   {% endif %}
   <p class="text-sm text-white">
     Cuota: <span class="text-accent font-bold">{{ fmt_money(valor_cuota) }}</span>

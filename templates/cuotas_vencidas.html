@@ -13,7 +13,7 @@
       {% if r[5] %} · <a href="{{ url_whatsapp(r[5]) }}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:underline">{{ r[5] }}</a>{% endif %}
     </p>
     <p class="text-sm text-accent font-semibold mt-1">Cuota: {{ fmt_money(r[2]) }}</p>
-    <p class="text-xs text-slate-500">Vencía: {{ r[3] or '—' }}</p>
+    <p class="text-xs text-slate-500">Vencía: {{ fecha_proximo_pago_texto(r[3]) or '—' }}</p>
     <div class="flex gap-2 mt-3">
       <a href="{{ url_for('prestamos_cobrar', pid=r[0]) }}" class="js-action-busy flex-1 text-center py-2 rounded-xl bg-accent text-slate-900 text-sm font-bold">Cobrar</a>
       {% if wa_h %}

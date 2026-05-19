@@ -60,7 +60,7 @@
             <p class="text-[10px] text-slate-500">{{ fmt_money(p.monto) }} · {{ p.estado }}</p>
           </div>
           <span class="text-[10px] font-bold {% if p.en_mora %}text-rose-500{% else %}text-slate-600{% endif %}">
-            {{ p.proximo_pago or 'Finalizado' }}
+            {{ fecha_proximo_pago_texto(p.proximo_pago) or 'Finalizado' }}
           </span>
         </div>
         {% else %}

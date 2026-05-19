@@ -61,7 +61,7 @@
         <div class="text-right">
           <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Próx. Pago</p>
           <p class="text-sm font-bold {% if p.en_mora %}text-red-400{% else %}text-white{% endif %}">
-            {{ p.proximo_pago or 'Finalizado' }}
+            {{ fecha_proximo_pago_texto(p.proximo_pago) or 'Finalizado' }}
           </p>
           <p class="text-xs font-bold text-accent mt-1">{{ fmt_money(p.valor_cuota) }}</p>
         </div>
