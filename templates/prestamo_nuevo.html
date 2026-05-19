@@ -14,16 +14,16 @@
   </div>
   <p id="cliente-seleccionado" class="text-xs text-accent hidden"></p>
 
-  <input type="date" name="fecha" value="{{ today_str() }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <select name="frecuencia" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input type="date" name="fecha" value="{{ today_str() }}" id="campo-fecha" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <select name="frecuencia" id="campo-frecuencia" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
     <option value="diaria">Diaria</option>
     <option value="semanal">Semanal</option>
     <option value="quincenal">Quincenal</option>
     <option value="mensual" selected>Mensual</option>
   </select>
-  <input name="cuotas" type="number" min="1" value="1" placeholder="Cuotas" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="monto" type="number" step="0.01" min="0" placeholder="Monto" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="tasa" type="number" step="0.01" min="0" placeholder="Tasa % sobre monto" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="cuotas" type="number" min="1" value="1" placeholder="Cuotas" id="campo-cuotas" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="monto" type="number" step="0.01" min="0" placeholder="Monto" required id="campo-monto" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <input name="tasa" type="number" step="0.01" min="0" placeholder="Tasa % sobre monto" required id="campo-tasa" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
     <input type="checkbox" name="mora_activa" value="on" class="rounded border-slate-600">
     <span>Habilitar interés por mora</span>
@@ -31,28 +31,24 @@
   <input name="tasa_mora_diaria" type="number" min="0" step="0.01" placeholder="% mora diario (sobre la cuota)" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <p class="text-xs text-slate-500">Al cobrar con retraso, se suma mora = cuota × % × días de atraso.</p>
 
-  <button type="button" id="btn-calcular" class="w-full py-3 rounded-xl font-bold border-2 border-accent text-accent hover:bg-accent/10 transition-colors">
-    Calcular préstamo
-  </button>
-
-  <div id="resultado-calculo" class="hidden rounded-2xl border-2 border-accent bg-panel2 p-4 space-y-2">
+  <div id="resultado-calculo" class="rounded-2xl border border-slate-700 bg-panel2 p-4 space-y-2 transition-all">
     <h3 class="text-sm font-bold text-accent uppercase tracking-wide">Resumen del préstamo</h3>
     <div class="grid grid-cols-2 gap-2 text-sm">
       <div>
         <p class="text-slate-500 text-[10px] uppercase font-bold">Interés total</p>
-        <p id="calc-interes" class="text-white font-semibold"></p>
+        <p id="calc-interes" class="text-white font-semibold">—</p>
       </div>
       <div>
         <p class="text-slate-500 text-[10px] uppercase font-bold">Total a pagar</p>
-        <p id="calc-total" class="text-accent font-bold"></p>
+        <p id="calc-total" class="text-accent font-bold">—</p>
       </div>
       <div>
         <p class="text-slate-500 text-[10px] uppercase font-bold">Valor por cuota</p>
-        <p id="calc-cuota" class="text-white font-semibold"></p>
+        <p id="calc-cuota" class="text-white font-semibold">—</p>
       </div>
       <div>
         <p class="text-slate-500 text-[10px] uppercase font-bold">Vencimiento est.</p>
-        <p id="calc-vencimiento" class="text-white font-semibold"></p>
+        <p id="calc-vencimiento" class="text-white font-semibold">—</p>
       </div>
     </div>
   </div>
@@ -120,42 +116,53 @@
     }
   });
 
-  var btnCalc = document.getElementById('btn-calcular');
-  var resCalc = document.getElementById('resultado-calculo');
-  if (btnCalc) {
-    btnCalc.addEventListener('click', function() {
-      var monto = parseFloat(document.querySelector('input[name="monto"]').value);
-      var tasa = parseFloat(document.querySelector('input[name="tasa"]').value);
-      var cuotas = parseInt(document.querySelector('input[name="cuotas"]').value, 10);
-      var fecha = document.querySelector('input[name="fecha"]').value;
-      var frecuencia = document.querySelector('select[name="frecuencia"]').value;
-
-      if (!Number.isFinite(monto) || monto <= 0 || !Number.isFinite(tasa) || tasa < 0 || !Number.isFinite(cuotas) || cuotas < 1) {
-        alert('Completa monto, tasa y cuotas con valores válidos.');
-        return;
-      }
-
-      var interes = monto * (tasa / 100);
-      var total = monto + interes;
-      var valorCuota = total / cuotas;
-
-      var diasPorFrec = { diaria: 1, semanal: 7, quincenal: 15, mensual: 30 };
-      var dias = diasPorFrec[frecuencia] || 30;
-      var vencDate = new Date(fecha + 'T00:00:00');
-      vencDate.setDate(vencDate.getDate() + dias * cuotas);
-      var vencStr = vencDate.toISOString().slice(0, 10);
-
-      var fmt = function(n) {
-        return '$' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(n);
-      };
-
-      document.getElementById('calc-interes').textContent = fmt(interes);
-      document.getElementById('calc-total').textContent = fmt(total);
-      document.getElementById('calc-cuota').textContent = fmt(valorCuota);
-      document.getElementById('calc-vencimiento').textContent = vencStr;
-      resCalc.classList.remove('hidden');
-    });
+  function fmt(n) {
+    return '$' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(n);
   }
+
+  function calcular() {
+    var monto = parseFloat(document.getElementById('campo-monto').value);
+    var tasa = parseFloat(document.getElementById('campo-tasa').value);
+    var cuotas = parseInt(document.getElementById('campo-cuotas').value, 10);
+    var fecha = document.getElementById('campo-fecha').value;
+    var frecuencia = document.getElementById('campo-frecuencia').value;
+
+    var elInteres = document.getElementById('calc-interes');
+    var elTotal = document.getElementById('calc-total');
+    var elCuota = document.getElementById('calc-cuota');
+    var elVenc = document.getElementById('calc-vencimiento');
+
+    if (!Number.isFinite(monto) || monto <= 0 || !Number.isFinite(tasa) || tasa < 0 || !Number.isFinite(cuotas) || cuotas < 1 || !fecha) {
+      elInteres.textContent = '—';
+      elTotal.textContent = '—';
+      elCuota.textContent = '—';
+      elVenc.textContent = '—';
+      return;
+    }
+
+    var interes = monto * (tasa / 100);
+    var total = monto + interes;
+    var valorCuota = total / cuotas;
+
+    var diasPorFrec = { diaria: 1, semanal: 7, quincenal: 15, mensual: 30 };
+    var dias = diasPorFrec[frecuencia] || 30;
+    var vencDate = new Date(fecha + 'T00:00:00');
+    vencDate.setDate(vencDate.getDate() + dias * cuotas);
+    var vencStr = vencDate.toISOString().slice(0, 10);
+
+    elInteres.textContent = fmt(interes);
+    elTotal.textContent = fmt(total);
+    elCuota.textContent = fmt(valorCuota);
+    elVenc.textContent = vencStr;
+  }
+
+  var campos = ['campo-monto', 'campo-tasa', 'campo-cuotas', 'campo-fecha', 'campo-frecuencia'];
+  campos.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', calcular);
+  });
+
+  calcular();
 })();
 </script>
 {% endblock %}
