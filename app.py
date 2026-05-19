@@ -466,6 +466,45 @@ def admin_usuario_detalle(uid):
     )
 
 
+@app.route("/admin/usuarios/<int:uid>/backup")
+@admin_required
+def admin_backup_user(uid):
+    """Descarga backup JSON de un usuario."""
+    data = db.export_user_data(uid)
+    buf = BytesIO(json.dumps(data, indent=2, default=str).encode("utf-8"))
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"backup_usuario_{uid}_{today_str()}.json",
+        mimetype="application/json",
+    )
+
+
+@app.route("/admin/usuarios/<int:uid>/restore", methods=["POST"])
+@admin_required
+def admin_restore_user(uid):
+    """Restaura datos de un usuario desde un archivo JSON."""
+    f = request.files.get("backup_file")
+    if not f:
+        flash("Selecciona un archivo de backup.", "error")
+        return redirect(url_for("admin_usuarios_list"))
+    
+    try:
+        data = json.loads(f.read())
+        if data.get("user_id") != uid:
+            flash("El backup no corresponde a este usuario.", "error")
+            return redirect(url_for("admin_usuarios_list"))
+        
+        db.restore_user_data(uid, data)
+        db.registrar_log(session["user_id"], f"Restauración de usuario #{uid}")
+        flash(f"Usuario #{uid} restaurado correctamente.", "ok")
+    except Exception as e:
+        flash(f"Error al restaurar: {e}", "error")
+    
+    return redirect(url_for("admin_usuarios_list"))
+
+
 @app.route("/cambiar_password", methods=["GET", "POST"])
 def cambiar_password():
     if 'user_id' not in session:

@@ -1606,3 +1606,88 @@ def cleanup_old_attempts():
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute("DELETE FROM login_attempts WHERE failed_at < NOW() - INTERVAL '24 hours'")
+
+
+# ---------- Backups por Usuario ----------
+def export_user_data(user_id):
+    """Exporta clientes, préstamos y pagos de un usuario a JSON."""
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cur.execute("SELECT * FROM clientes WHERE owner_user_id = %s ORDER BY id", (user_id,))
+        clientes = [dict(r) for r in cur.fetchall()]
+        
+        # Obtener IDs de clientes para filtrar préstamos
+        cliente_ids = [c['id'] for c in clientes]
+        prestamos = []
+        pagos = []
+        
+        if cliente_ids:
+            cur.execute("SELECT * FROM prestamos WHERE cliente_id = ANY(%s) ORDER BY id", (cliente_ids,))
+            prestamos = [dict(r) for r in cur.fetchall()]
+            
+            prestamo_ids = [p['id'] for p in prestamos]
+            if prestamo_ids:
+                cur.execute("SELECT * FROM pagos WHERE prestamo_id = ANY(%s) ORDER BY id", (prestamo_ids,))
+                pagos = [dict(r) for r in cur.fetchall()]
+        
+        return {
+            "version": "1.0",
+            "user_id": user_id,
+            "clientes": clientes,
+            "prestamos": prestamos,
+            "pagos": pagos,
+        }
+
+
+def restore_user_data(user_id, data):
+    """Restaura datos de un usuario desde JSON. Elimina datos existentes primero."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        try:
+            # 1. Eliminar pagos existentes
+            cur.execute("""
+                DELETE FROM pagos WHERE prestamo_id IN (
+                    SELECT id FROM prestamos WHERE cliente_id IN (
+                        SELECT id FROM clientes WHERE owner_user_id = %s
+                    )
+                )
+            """, (user_id,))
+            
+            # 2. Eliminar préstamos existentes
+            cur.execute("""
+                DELETE FROM prestamos WHERE cliente_id IN (
+                    SELECT id FROM clientes WHERE owner_user_id = %s
+                )
+            """, (user_id,))
+            
+            # 3. Eliminar clientes existentes
+            cur.execute("DELETE FROM clientes WHERE owner_user_id = %s", (user_id,))
+            
+            # 4. Insertar clientes
+            for c in data.get("clientes", []):
+                cols = [k for k in c.keys() if k != 'id']
+                vals = [c[k] for k in cols]
+                placeholders = ", ".join(["%s"] * len(cols))
+                col_names = ", ".join(cols)
+                cur.execute(f"INSERT INTO clientes ({col_names}) VALUES ({placeholders})", vals)
+            
+            # 5. Insertar préstamos
+            for p in data.get("prestamos", []):
+                cols = [k for k in p.keys() if k != 'id']
+                vals = [p[k] for k in cols]
+                placeholders = ", ".join(["%s"] * len(cols))
+                col_names = ", ".join(cols)
+                cur.execute(f"INSERT INTO prestamos ({col_names}) VALUES ({placeholders})", vals)
+            
+            # 6. Insertar pagos
+            for pg in data.get("pagos", []):
+                cols = [k for k in pg.keys() if k != 'id']
+                vals = [pg[k] for k in cols]
+                placeholders = ", ".join(["%s"] * len(cols))
+                col_names = ", ".join(cols)
+                cur.execute(f"INSERT INTO pagos ({col_names}) VALUES ({placeholders})", vals)
+                
+        except Exception as e:
+            conn.rollback()
+            raise e

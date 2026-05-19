@@ -30,6 +30,21 @@
           </span>
         </div>
         <div class="flex gap-2">
+            <a href="{{ url_for('admin_usuario_detalle', uid=u.id) }}" class="text-slate-400 hover:text-white transition-colors" title="Ver detalle">
+              <span class="text-lg">👁</span>
+            </a>
+            <a href="{{ url_for('admin_backup_user', uid=u.id) }}" class="text-emerald-400 hover:text-emerald-300 transition-colors" title="Backup">
+              <span class="text-lg">💾</span>
+            </a>
+            <form action="{{ url_for('admin_restore_user', uid=u.id) }}" method="post" enctype="multipart/form-data" class="flex" title="Restaurar">
+              <label class="text-amber-400 hover:text-amber-300 transition-colors cursor-pointer flex items-center">
+                <span class="text-lg">♻</span>
+                <input type="file" name="backup_file" class="hidden" accept=".json" onchange="this.form.submit()">
+              </label>
+            </form>
+        </div>
+      </div>
+        <div class="flex gap-2">
             <a href="{{ url_for('admin_usuario_detalle', uid=u.id) }}" class="text-slate-400 hover:text-white transition-colors">
               <span class="text-lg">👁</span>
             </a>
