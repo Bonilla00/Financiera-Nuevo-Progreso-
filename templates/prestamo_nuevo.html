@@ -2,13 +2,18 @@
 {% block title %}Nuevo préstamo{% endblock %}
 {% block content %}
 <h1 class="text-xl font-bold mb-4">Nuevo préstamo</h1>
-<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…">
-  <label class="block text-sm text-slate-400">Cliente</label>
-  <select name="cliente_id" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-    {% for c in clientes %}
-    <option value="{{ c[0] }}">{{ c[1] }} — {{ c[2] }}</option>
-    {% endfor %}
-  </select>
+<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…" id="form-prestamo">
+  <input type="hidden" name="cliente_id" id="cliente_id" required>
+
+  <label class="block text-sm text-slate-400">Buscar cliente</label>
+  <div class="relative">
+    <input type="text" id="buscador-cliente"
+           class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent"
+           placeholder="Nombre, cédula o teléfono…" autocomplete="off">
+    <div id="resultados-cliente" class="hidden absolute z-50 mt-1 w-full bg-panel2 border border-slate-600 rounded-xl max-h-48 overflow-y-auto shadow-xl"></div>
+  </div>
+  <p id="cliente-seleccionado" class="text-xs text-accent hidden"></p>
+
   <input type="date" name="fecha" value="{{ today_str() }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <select name="frecuencia" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
     <option value="diaria">Diaria</option>
@@ -27,4 +32,66 @@
   <p class="text-xs text-slate-500">Al cobrar con retraso, se suma mora = cuota × % × días de atraso.</p>
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
 </form>
+
+<script>
+(function() {
+  var input = document.getElementById('buscador-cliente');
+  var resultados = document.getElementById('resultados-cliente');
+  var hiddenId = document.getElementById('cliente_id');
+  var label = document.getElementById('cliente-seleccionado');
+  var form = document.getElementById('form-prestamo');
+  var timeout = null;
+
+  input.addEventListener('input', function() {
+    clearTimeout(timeout);
+    var q = input.value.trim();
+    label.classList.add('hidden');
+    if (q.length < 2) {
+      resultados.classList.add('hidden');
+      resultados.innerHTML = '';
+      hiddenId.value = '';
+      return;
+    }
+    timeout = setTimeout(function() {
+      fetch('/api/buscar_clientes?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.length) {
+            resultados.innerHTML = '<div class="px-3 py-2 text-xs text-slate-500">Sin resultados</div>';
+            resultados.classList.remove('hidden');
+            return;
+          }
+          resultados.innerHTML = data.map(function(c) {
+            return '<div class="px-3 py-2 text-sm cursor-pointer hover:bg-slate-700 border-b border-slate-700 last:border-0 cliente-item" data-id="' + c.id + '" data-nombre="' + c.nombre + '">' + c.nombre + ' — ' + c.identificacion + '</div>';
+          }).join('');
+          resultados.classList.remove('hidden');
+        });
+    }, 250);
+  });
+
+  resultados.addEventListener('click', function(e) {
+    var item = e.target.closest('.cliente-item');
+    if (!item) return;
+    hiddenId.value = item.dataset.id;
+    input.value = item.dataset.nombre;
+    label.textContent = 'Cliente seleccionado: ' + item.dataset.nombre;
+    label.classList.remove('hidden');
+    resultados.classList.add('hidden');
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#buscador-cliente') && !e.target.closest('#resultados-cliente')) {
+      resultados.classList.add('hidden');
+    }
+  });
+
+  form.addEventListener('submit', function(e) {
+    if (!hiddenId.value) {
+      e.preventDefault();
+      alert('Selecciona un cliente de la lista.');
+      input.focus();
+    }
+  });
+})();
+</script>
 {% endblock %}
