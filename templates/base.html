@@ -221,6 +221,61 @@
         min-height: 4.5rem;
       }
     }
+    /* Modo claro */
+    html.light-mode {
+      --appbg: #F1F5F9;
+      --panel: #FFFFFF;
+      --panel2: #E2E8F0;
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #64748B;
+      --border: #CBD5E1;
+      --input-bg: #F8FAFC;
+      --input-text: #0F172A;
+      --card-hover: #F1F5F9;
+      --overlay-bg: rgba(241, 245, 249, 0.7);
+    }
+    html.light-mode body {
+      background-color: var(--appbg);
+      color: var(--text-primary);
+    }
+    html.light-mode .bg-appbg { background-color: var(--appbg) !important; }
+    html.light-mode .bg-panel { background-color: var(--panel) !important; }
+    html.light-mode .bg-panel2 { background-color: var(--panel2) !important; }
+    html.light-mode .text-white { color: var(--text-primary) !important; }
+    html.light-mode .text-slate-400, html.light-mode .text-slate-500 { color: var(--text-muted) !important; }
+    html.light-mode .text-slate-300 { color: var(--text-secondary) !important; }
+    html.light-mode .border-slate-600, html.light-mode .border-slate-700 { border-color: var(--border) !important; }
+    html.light-mode .input-mobile {
+      background: var(--input-bg);
+      color: var(--input-text);
+      border-color: var(--border);
+    }
+    html.light-mode .list-row-interactive {
+      background-color: var(--panel);
+    }
+    html.light-mode .list-row-interactive:hover,
+    html.light-mode .list-row-interactive:active {
+      background-color: var(--card-hover);
+    }
+    html.light-mode .card-nav-overlay {
+      background: var(--overlay-bg);
+    }
+    html.light-mode .app-panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,245,249,0.98));
+      border-color: var(--border);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    html.light-mode .btn-secondary {
+      background: rgba(0,0,0,0.04);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+    html.light-mode #btn-theme-toggle {
+      background: var(--panel2);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -243,7 +298,12 @@
       <div class="text-white">FINANCIERA NUEVO</div>
       <div class="text-[#22C55E]">PROGRESO</div>
     </div>
-    <button id="btn-open-install" type="button" class="btn-secondary text-xs uppercase tracking-wide hidden">Instalar</button>
+    <div class="flex items-center gap-2">
+      <button id="btn-theme-toggle" type="button" class="p-2 rounded-lg bg-panel2 border border-slate-600 text-slate-300 hover:text-accent transition-colors" title="Cambiar tema">
+        <span id="theme-icon">{% if theme == 'dark' %}🌙{% else %}☀️{% endif %}</span>
+      </button>
+      <button id="btn-open-install" type="button" class="btn-secondary text-xs uppercase tracking-wide hidden">Instalar</button>
+    </div>
   </header>
   {% endif %}
 
@@ -597,6 +657,30 @@
           if (resultWrap) resultWrap.classList.remove("hidden");
         });
       }
+    })();
+  </script>
+  <script>
+    (function () {
+      var btn = document.getElementById("btn-theme-toggle");
+      var icon = document.getElementById("theme-icon");
+      if (!btn || !icon) return;
+
+      function applyTheme(theme) {
+        document.documentElement.classList.toggle("light-mode", theme === "light");
+        icon.textContent = theme === "light" ? "☀️" : "🌙";
+      }
+
+      applyTheme("{{ theme }}");
+
+      btn.addEventListener("click", function () {
+        var current = document.documentElement.classList.contains("light-mode") ? "light" : "dark";
+        var next = current === "light" ? "dark" : "light";
+        applyTheme(next);
+        fetch("{{ url_for('toggle_theme') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+      });
     })();
   </script>
 </body>
