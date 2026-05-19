@@ -4,7 +4,6 @@
 <div class="flex flex-col gap-2 mb-4">
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-bold">Historial de pagos</h1>
-    <a href="{{ url_for('exportar_pagos_csv') }}" class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-lg active:scale-95 transition-transform">📥 CSV</a>
   </div>
   {% if filtro_prestamo_id %}
   <div class="flex items-center justify-between gap-2 text-sm">

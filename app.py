@@ -1705,52 +1705,5 @@ def api_docs():
     return render_template("api_docs.html", endpoints=endpoints)
 
 
-# ---------- Exportar CSV ----------
-import csv
-
-@app.route("/exportar/clientes.csv")
-@login_required
-def exportar_clientes_csv():
-    """Exporta clientes a CSV seguro."""
-    uid, _, is_admin, _ = ctx_user()
-    clientes = db.listar_clientes(uid, is_admin)
-    buf = BytesIO()
-    writer = csv.writer(buf)
-    writer.writerow(["ID","Nombre","Identificación","Teléfono","Barrio","Dirección"])
-    for c in clientes:
-        writer.writerow([c[0], c[1], c[2], c[3] or "", c[4] or "", c[5] or ""])
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="clientes.csv", mimetype="text/csv")
-
-
-@app.route("/exportar/prestamos.csv")
-@login_required
-def exportar_prestamos_csv():
-    """Exporta préstamos a CSV seguro."""
-    uid, _, is_admin, _ = ctx_user()
-    prestamos = db.listar_prestamos("", (), uid, is_admin)
-    buf = BytesIO()
-    writer = csv.writer(buf)
-    writer.writerow(["ID","Cliente","Monto","Tasa","Cuotas","Valor Cuota","Estado","Próximo Pago","Frecuencia"])
-    for p in prestamos:
-        writer.writerow([p["id"], p["nombre"], p["monto"], p["tasa"], p["cuotas"], p["valor_cuota"], p["estado"], p["proximo_pago"] or "", p["frecuencia"]])
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="prestamos.csv", mimetype="text/csv")
-
-
-@app.route("/exportar/pagos.csv")
-@login_required
-def exportar_pagos_csv():
-    """Exporta pagos a CSV seguro."""
-    uid, _, is_admin, _ = ctx_user()
-    pagos = db.listar_pagos(None, uid, is_admin)
-    buf = BytesIO()
-    writer = csv.writer(buf)
-    writer.writerow(["ID Pago","Cliente","Préstamo","Fecha","Valor","Cuota","Saldo Restante","Interés Mora","Nota"])
-    for p in pagos:
-        writer.writerow([p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[11], p[12]])
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="pagos.csv", mimetype="text/csv")
-
 
 
