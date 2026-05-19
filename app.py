@@ -38,6 +38,8 @@ from utils_web import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambia-esto-en-produccion")
 
+PER_PAGE = 20
+
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -516,8 +518,20 @@ def clientes_list():
 
         uid, _, is_admin, _ = ctx_user()
         filtro = request.args.get("estado", "todo")
+        page = request.args.get("page", 1, type=int)
         rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
-        return render_template("clientes.html", clientes=rows, filtro=filtro)
+        total = len(rows)
+        start = (page - 1) * PER_PAGE
+        end = start + PER_PAGE
+        paginated = rows[start:end]
+        return render_template(
+            "clientes.html",
+            clientes=paginated,
+            filtro=filtro,
+            page=page,
+            total_pages=(total + PER_PAGE - 1) // PER_PAGE,
+            total=total,
+        )
     except Exception as e:
         logger.exception("Error en ruta /clientes")
         flash("Error interno del servidor.", "error")
@@ -764,6 +778,7 @@ def prestamos_list():
 
     uid, _, is_admin, _ = ctx_user()
     filtro = request.args.get("estado", "activos")
+    page = request.args.get("page", 1, type=int)
 
     where = ""
     params = ()
@@ -774,12 +789,22 @@ def prestamos_list():
         elif filtro == "pagados":
             where, params = "p.estado = %s", ("PAGADO",)
         elif filtro == "mora":
-            # Usamos la misma lógica segura del backend para filtrar
             where = "p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE"
             params = ()
 
         rows = db.listar_prestamos(where, params, uid, is_admin)
-        return render_template("prestamos.html", prestamos=rows, filtro=filtro)
+        total = len(rows)
+        start = (page - 1) * PER_PAGE
+        end = start + PER_PAGE
+        paginated = rows[start:end]
+        return render_template(
+            "prestamos.html",
+            prestamos=paginated,
+            filtro=filtro,
+            page=page,
+            total_pages=(total + PER_PAGE - 1) // PER_PAGE,
+            total=total,
+        )
 
     except Exception as e:
         # Logging del error para debug
@@ -1088,11 +1113,16 @@ def pagos_list():
 
     uid, _, is_admin, _ = ctx_user()
     prestamo_filtro = request.args.get("prestamo_id", default=None, type=int)
+    page = request.args.get("page", 1, type=int)
     try:
         rows = db.listar_pagos(prestamo_filtro, uid, is_admin)
     except Exception as e:
         flash(f"No se pudo cargar el historial de pagos: {e}", "error")
         rows = []
+    total = len(rows)
+    start = (page - 1) * PER_PAGE
+    end = start + PER_PAGE
+    paginated_rows = rows[start:end]
     pagos = [
         {
             "id": r[0],
@@ -1105,13 +1135,16 @@ def pagos_list():
             "interes_mora": float(r[11] or 0),
             "nota": str(r[12] or "").strip(),
         }
-        for r in rows
+        for r in paginated_rows
     ]
     grupos = [(fecha, list(items)) for fecha, items in groupby(pagos, key=lambda r: r["fecha"])]
     return render_template(
         "pagos.html",
         pagos_grupos=grupos,
         filtro_prestamo_id=prestamo_filtro,
+        page=page,
+        total_pages=(total + PER_PAGE - 1) // PER_PAGE,
+        total=total,
     )
 
 

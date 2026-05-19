@@ -77,5 +77,20 @@
     </div>
     {% endif %}
   </div>
+
+  {% if total_pages > 1 %}
+  <div class="flex items-center justify-between mt-4 px-2">
+    <p class="text-xs text-slate-500">{{ total }} registros</p>
+    <div class="flex gap-1">
+      {% if page > 1 %}
+      <a href="?page={{ page - 1 }}{% if filtro != 'activos' %}&estado={{ filtro }}{% endif %}" class="px-3 py-1.5 rounded-lg bg-panel2 border border-slate-600 text-slate-300 text-xs">← Anterior</a>
+      {% endif %}
+      <span class="px-3 py-1.5 text-xs text-slate-400">{{ page }} / {{ total_pages }}</span>
+      {% if page < total_pages %}
+      <a href="?page={{ page + 1 }}{% if filtro != 'activos' %}&estado={{ filtro }}{% endif %}" class="px-3 py-1.5 rounded-lg bg-panel2 border border-slate-600 text-slate-300 text-xs">Siguiente →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
