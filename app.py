@@ -1658,55 +1658,6 @@ def recordatorios():
     )
 
 
-@app.route("/calendario")
-@login_required
-def calendario():
-    """Vista calendario de cobros del mes."""
-    from calendar import monthrange
-    uid, _, is_admin, _ = ctx_user()
-    hoy = date.today()
-    year = request.args.get("year", hoy.year, type=int)
-    month = request.args.get("month", hoy.month, type=int)
-    if month < 1:
-        month = 12
-        year -= 1
-    elif month > 12:
-        month = 1
-        year += 1
-    primer_dia, dias_mes = monthrange(year, month)
-    cobros = {}
-    rows = db.listar_cobro_hoy(uid, is_admin)
-    for r in rows:
-        if r[6]:
-            try:
-                d = datetime.strptime(str(r[6])[:10], "%Y-%m-%d").date()
-                if d.year == year and d.month == month:
-                    day = d.day
-                    if day not in cobros:
-                        cobros[day] = []
-                    cobros[day].append({"nombre": r[1], "monto": r[5], "pid": r[0]})
-            except ValueError:
-                pass
-    prev_month = month - 1 if month > 1 else 12
-    prev_year = year if month > 1 else year - 1
-    next_month = month + 1 if month < 12 else 1
-    next_year = year if month < 12 else year + 1
-    return render_template(
-        "calendario.html",
-        year=year,
-        month=month,
-        primer_dia=primer_dia,
-        dias_mes=dias_mes,
-        cobros=cobros,
-        hoy=hoy,
-        prev_month=prev_month,
-        prev_year=prev_year,
-        next_month=next_month,
-        next_year=next_year,
-        meses=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
-    )
-
-
 @app.route("/api/docs")
 @login_required
 def api_docs():
