@@ -39,9 +39,7 @@ python -m venv .venv
 pip install -r requirements.txt
 python main.py
 ```
-> Al iniciar por primera vez, si no existen usuarios, la app creará automáticamente un usuario:
-> - **Usuario:** `admin`
-> - **Clave:** `admin123`
+
 
 ## Copias de Seguridad
 El sistema utiliza volcados SQL estándar:
