@@ -725,7 +725,7 @@ def prestamos_editar(pid):
 
 
 @app.route("/prestamos/<int:pid>/eliminar", methods=["POST"])
-@require_role(['admin'])
+@login_required
 def prestamos_eliminar(pid):
     uid, _, is_admin, _ = ctx_user()
     info = db.obtener_prestamo(pid, uid, is_admin)
