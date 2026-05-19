@@ -1601,6 +1601,24 @@ def alertas_vencimientos():
     return jsonify(vencidos), 200
 
 
+@app.route("/recordatorios")
+@login_required
+def recordatorios():
+    """Página de recordatorios de cobro."""
+    uid, _, is_admin, _ = ctx_user()
+    hoy = date.today()
+    manana = hoy + timedelta(days=1)
+    vencidos = db.listar_cuotas_vencidas(uid, is_admin)
+    por_vencer = db.listar_cuotas_vencer(uid, is_admin)
+    return render_template(
+        "recordatorios.html",
+        vencidos=vencidos,
+        por_vencer=por_vencer,
+        hoy=hoy.strftime("%Y-%m-%d"),
+        manana=manana.strftime("%Y-%m-%d"),
+    )
+
+
 # ---------- Exportar CSV ----------
 @app.route("/exportar/clientes.csv")
 @login_required
