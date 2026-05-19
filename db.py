@@ -59,6 +59,9 @@ def ensure_schema_migrations() -> None:
         "CREATE INDEX IF NOT EXISTS idx_wa_messages_instance ON whatsapp_messages(instance_id)",
         "CREATE INDEX IF NOT EXISTS idx_wa_messages_from ON whatsapp_messages(from_number)",
         "CREATE INDEX IF NOT EXISTS idx_wa_sessions_state ON whatsapp_sessions(state)",
+        "CREATE TABLE IF NOT EXISTS login_attempts (id SERIAL PRIMARY KEY, ip_address VARCHAR(45) NOT NULL, username VARCHAR(80), failed_at TIMESTAMPTZ DEFAULT NOW())",
+        "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address)",
+        "CREATE INDEX IF NOT EXISTS idx_login_attempts_time ON login_attempts(failed_at)",
     ]
     for s in stmts:
         try:
@@ -1573,3 +1576,33 @@ def get_vencimientos_hoy():
             ORDER BY c.nombre
         """)
         return cur.fetchall()
+
+
+# ---------- Rate Limiting ----------
+def record_login_attempt(ip_address, username=None):
+    """Registra un intento fallido de login."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO login_attempts (ip_address, username) VALUES (%s, %s)",
+            (ip_address, username),
+        )
+
+
+def get_failed_attempts(ip_address, minutes=15):
+    """Obtiene cantidad de intentos fallidos recientes desde una IP."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT COUNT(*) FROM login_attempts
+               WHERE ip_address = %s AND failed_at > NOW() - INTERVAL '%s minutes'""",
+            (ip_address, minutes),
+        )
+        return int(cur.fetchone()[0])
+
+
+def cleanup_old_attempts():
+    """Limpia intentos antiguos (más de 24 horas)."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM login_attempts WHERE failed_at < NOW() - INTERVAL '24 hours'")

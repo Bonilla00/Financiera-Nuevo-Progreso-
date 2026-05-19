@@ -383,18 +383,28 @@ def login():
         try:
             u = (request.form.get("username") or "").strip()
             p = (request.form.get("password") or "")
+            ip = request.remote_addr or "127.0.0.1"
 
             if not u or not p:
                 flash("Por favor, ingresa usuario y contraseña.", "error")
                 return render_template("login.html")
 
+            db.cleanup_old_attempts()
+            failed = db.get_failed_attempts(ip)
+            if failed >= 5:
+                flash("Demasiados intentos fallidos. Espera 15 minutos antes de intentar de nuevo.", "error")
+                return render_template("login.html")
+
             row = db.obtener_usuario_por_username(u)
 
             if not row:
+                db.record_login_attempt(ip, u)
                 flash("Usuario o clave incorrectos.", "error")
             elif not row.get('activo', True):
+                db.record_login_attempt(ip, u)
                 flash("Cuenta desactivada. Contacta al administrador.", "error")
             elif not check_password_hash(row.get('password_hash', ''), p):
+                db.record_login_attempt(ip, u)
                 flash("Usuario o clave incorrectos.", "error")
             else:
                 session.clear()
@@ -405,7 +415,6 @@ def login():
 
                 db.registrar_log(session["user_id"], "Inicio de sesión")
 
-                # BLOQUEO DE SEGURIDAD: Cambio de clave obligatorio
                 if row.get('debe_cambiar_password'):
                     flash("Debes cambiar tu contraseña inicial por seguridad.", "error")
                     return redirect(url_for("cambiar_password"))
