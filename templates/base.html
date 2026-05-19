@@ -298,12 +298,7 @@
       <div class="text-white">FINANCIERA NUEVO</div>
       <div class="text-[#22C55E]">PROGRESO</div>
     </div>
-    <div class="flex items-center gap-2">
-      <button id="btn-theme-toggle" type="button" class="p-2 rounded-lg bg-panel2 border border-slate-600 text-slate-300 hover:text-accent transition-colors" title="Cambiar tema">
-        <span id="theme-icon">{% if theme == 'dark' %}🌙{% else %}☀️{% endif %}</span>
-      </button>
-      <button id="btn-open-install" type="button" class="btn-secondary text-xs uppercase tracking-wide hidden">Instalar</button>
-    </div>
+    <button id="btn-open-install" type="button" class="btn-secondary text-xs uppercase tracking-wide hidden">Instalar</button>
   </header>
   {% endif %}
 
@@ -657,30 +652,6 @@
           if (resultWrap) resultWrap.classList.remove("hidden");
         });
       }
-    })();
-  </script>
-  <script>
-    (function () {
-      var btn = document.getElementById("btn-theme-toggle");
-      var icon = document.getElementById("theme-icon");
-      if (!btn || !icon) return;
-
-      function applyTheme(theme) {
-        document.documentElement.classList.toggle("light-mode", theme === "light");
-        icon.textContent = theme === "light" ? "☀️" : "🌙";
-      }
-
-      applyTheme("{{ theme }}");
-
-      btn.addEventListener("click", function () {
-        var current = document.documentElement.classList.contains("light-mode") ? "light" : "dark";
-        var next = current === "light" ? "dark" : "light";
-        applyTheme(next);
-        fetch("{{ url_for('toggle_theme') }}", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-      });
     })();
   </script>
 </body>
