@@ -363,10 +363,12 @@ def inject_globals():
 def setup():
     try:
         total = db.count_usuarios()
+        db_error = False
     except Exception:
         total = 0
+        db_error = True
         
-    if total > 0:
+    if not db_error and total > 0:
         return redirect(url_for("login"))
         
     if request.method == "POST":
@@ -391,10 +393,12 @@ def setup():
 def login():
     try:
         total = db.count_usuarios()
+        db_error = False
     except Exception:
         total = 0
+        db_error = True
     
-    if total == 0:
+    if not db_error and total == 0:
         return redirect(url_for("setup"))
         
     if request.method == "POST":
