@@ -119,15 +119,14 @@
     #fab-simulador {
       bottom: calc(4rem + var(--nav-safe-bottom) + 0.5rem);
       right: max(0.75rem, env(safe-area-inset-right, 0px));
-      box-shadow: 0 4px 14px rgba(34, 211, 238, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 4px 20px rgba(34, 211, 238, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
     }
-    /* Modal simulador: centrado (overlay + scale) */
+    /* Modal simulador: slide-up en móvil, scale en desktop */
     #sim-modal-backdrop {
-      background: rgba(0, 0, 0, 0.7);
-      transition: opacity 200ms ease;
+      transition: opacity 250ms ease;
     }
     #sim-modal-panel {
-      transition: opacity 200ms ease, transform 200ms ease;
+      transition: opacity 250ms ease, transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
       transform-origin: center center;
     }
     #sim-modal-root:not(.sim-modal-open) #sim-modal-backdrop {
@@ -136,7 +135,7 @@
     }
     #sim-modal-root:not(.sim-modal-open) #sim-modal-panel {
       opacity: 0;
-      transform: scale(0.9);
+      transform: translateY(100%);
       pointer-events: none;
     }
     #sim-modal-root.sim-modal-open #sim-modal-backdrop {
@@ -145,8 +144,16 @@
     }
     #sim-modal-root.sim-modal-open #sim-modal-panel {
       opacity: 1;
-      transform: scale(1);
+      transform: translateY(0);
       pointer-events: auto;
+    }
+    @media (min-width: 640px) {
+      #sim-modal-root:not(.sim-modal-open) #sim-modal-panel {
+        transform: scale(0.95) translateY(20px);
+      }
+      #sim-modal-root.sim-modal-open #sim-modal-panel {
+        transform: scale(1) translateY(0);
+      }
     }
     #sim-modal-root.sim-modal-open {
       pointer-events: auto;
@@ -254,37 +261,66 @@
   </main>
 
   {% if session.user_id %}
-  <button type="button" id="fab-simulador" class="fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#22D3EE] text-slate-900 text-2xl font-bold shadow-lg active:scale-95 transition-transform" aria-label="Abrir simulador de crédito" title="Simulador de crédito">
+  <button type="button" id="fab-simulador" class="fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 text-white text-2xl font-bold shadow-lg shadow-cyan-500/30 active:scale-95 transition-transform" aria-label="Abrir simulador de crédito" title="Simulador de crédito">
     🧮
   </button>
 
-  <div id="sim-modal-root" class="fixed inset-0 z-[60] pointer-events-none flex items-center justify-center p-4" aria-hidden="true">
-    <div id="sim-modal-backdrop" class="absolute inset-0 z-0" tabindex="-1" aria-hidden="true"></div>
-    <div id="sim-modal-panel" class="relative z-10 flex w-[90%] max-w-[480px] flex-col overflow-hidden rounded-2xl border border-[#22D3EE] bg-[#0F172A] shadow-2xl shadow-cyan-900/30 max-h-[min(90vh,640px)]" role="dialog" aria-modal="true" aria-labelledby="sim-modal-title">
-        <div class="flex items-center justify-between gap-2 border-b border-cyan-500/30 px-4 py-3 shrink-0">
-          <h2 id="sim-modal-title" class="text-lg font-bold text-white">Simulador de crédito</h2>
-          <button type="button" id="sim-modal-close" class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-2xl leading-none" aria-label="Cerrar">&times;</button>
+  <div id="sim-modal-root" class="fixed inset-0 z-[60] pointer-events-none flex items-end sm:items-center justify-center" aria-hidden="true">
+    <div id="sim-modal-backdrop" class="absolute inset-0 z-0 bg-black/70 backdrop-blur-sm" tabindex="-1" aria-hidden="true"></div>
+    <div id="sim-modal-panel" class="relative z-10 flex w-full sm:w-[90%] sm:max-w-[480px] flex-col overflow-hidden rounded-t-3xl sm:rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 shadow-2xl max-h-[85vh] sm:max-h-[min(90vh,640px)]" role="dialog" aria-modal="true" aria-labelledby="sim-modal-title">
+        <div class="flex items-center justify-between gap-2 px-5 py-4 shrink-0 border-b border-slate-700">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center text-xl">🧮</div>
+            <div>
+              <h2 id="sim-modal-title" class="text-base font-bold text-white">Simulador de crédito</h2>
+              <p class="text-[10px] text-slate-400">Calcula tu préstamo al instante</p>
+            </div>
+          </div>
+          <button type="button" id="sim-modal-close" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 text-xl leading-none transition-colors" aria-label="Cerrar">&times;</button>
         </div>
-        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3 text-[0.9375rem]">
-          <label class="block text-slate-400 text-sm">Monto a prestar</label>
-          <input type="number" id="sim-monto" min="0" step="0.01" placeholder="0" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white" inputmode="decimal" />
-          <label class="block text-slate-400 text-sm">Tasa de interés (%)</label>
-          <input type="number" id="sim-tasa" min="0" step="0.01" placeholder="0" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white" inputmode="decimal" />
-          <label class="block text-slate-400 text-sm">Número de cuotas</label>
-          <input type="number" id="sim-cuotas" min="1" step="1" placeholder="1" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white" inputmode="numeric" />
-          <label class="block text-slate-400 text-sm">Frecuencia</label>
-          <select id="sim-frecuencia" class="w-full rounded-xl bg-[#111827] border border-cyan-600/50 px-3 py-2.5 text-white">
-            <option value="diaria">Diaria</option>
-            <option value="semanal">Semanal</option>
-            <option value="quincenal">Quincenal</option>
-            <option value="mensual" selected>Mensual</option>
-          </select>
-          <button type="button" id="sim-calcular" class="w-full py-3 rounded-xl bg-[#22D3EE] text-slate-900 font-bold text-[1rem]">Calcular</button>
-          <p id="sim-error" class="hidden text-sm text-rose-400 text-center" role="alert"></p>
-          <div id="sim-result-wrap" class="hidden rounded-xl border border-cyan-500/40 bg-[#111827] p-4 space-y-2">
-            <p class="text-slate-400 text-sm">Interés: <span id="sim-out-interes" class="text-[#22D3EE] font-semibold text-[1rem]"></span></p>
-            <p class="text-slate-400 text-sm">Total a pagar: <span id="sim-out-total" class="text-[#22D3EE] font-semibold text-[1rem]"></span></p>
-            <p class="text-slate-400 text-sm">Valor por cuota: <span id="sim-out-cuota" class="text-[#22D3EE] font-semibold text-[1rem]"></span></p>
+        <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="col-span-2">
+              <label class="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1.5">💰 Monto a prestar</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                <input type="number" id="sim-monto" min="0" step="1000" placeholder="0" class="w-full rounded-xl bg-slate-800 border border-slate-600 pl-7 pr-3 py-3 text-white text-lg font-semibold focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 outline-none transition-colors" inputmode="numeric" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1.5">📊 Tasa (%)</label>
+              <input type="number" id="sim-tasa" min="0" step="0.5" placeholder="0" class="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white text-lg font-semibold focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 outline-none transition-colors" inputmode="decimal" />
+            </div>
+            <div>
+              <label class="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1.5">🔢 Cuotas</label>
+              <input type="number" id="sim-cuotas" min="1" step="1" placeholder="1" class="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white text-lg font-semibold focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 outline-none transition-colors" inputmode="numeric" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1.5">📅 Frecuencia</label>
+            <div class="grid grid-cols-4 gap-2">
+              <button type="button" class="sim-freq-btn py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all" data-value="diaria">Diaria</button>
+              <button type="button" class="sim-freq-btn py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all" data-value="semanal">Semanal</button>
+              <button type="button" class="sim-freq-btn py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all" data-value="quincenal">Quincenal</button>
+              <button type="button" class="sim-freq-btn py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500 text-xs font-semibold text-cyan-400" data-value="mensual" selected>Mensual</button>
+            </div>
+          </div>
+          <p id="sim-error" class="hidden text-sm text-rose-400 text-center bg-rose-500/10 rounded-xl py-2" role="alert"></p>
+          <div id="sim-result-wrap" class="hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 to-transparent p-4 space-y-3">
+            <div class="grid grid-cols-3 gap-3 text-center">
+              <div class="bg-slate-800/50 rounded-xl p-3">
+                <p class="text-[10px] text-slate-400 uppercase tracking-wider">Interés</p>
+                <p id="sim-out-interes" class="text-sm font-bold text-cyan-400 mt-1"></p>
+              </div>
+              <div class="bg-slate-800/50 rounded-xl p-3">
+                <p class="text-[10px] text-slate-400 uppercase tracking-wider">Total</p>
+                <p id="sim-out-total" class="text-sm font-bold text-cyan-400 mt-1"></p>
+              </div>
+              <div class="bg-cyan-500/20 rounded-xl p-3 border border-cyan-500/30">
+                <p class="text-[10px] text-cyan-300 uppercase tracking-wider">Cuota</p>
+                <p id="sim-out-cuota" class="text-sm font-bold text-white mt-1"></p>
+              </div>
+            </div>
           </div>
         </div>
     </div>
@@ -521,9 +557,10 @@
 
       var backdrop = document.getElementById("sim-modal-backdrop");
       var closeBtn = document.getElementById("sim-modal-close");
-      var calcBtn = document.getElementById("sim-calcular");
       var resultWrap = document.getElementById("sim-result-wrap");
       var simError = document.getElementById("sim-error");
+      var freqBtns = document.querySelectorAll(".sim-freq-btn");
+      var selectedFreq = "mensual";
 
       function openModal() {
         root.classList.add("sim-modal-open");
@@ -548,49 +585,61 @@
         if (e.key === "Escape" && root.classList.contains("sim-modal-open")) closeModal();
       });
 
+      freqBtns.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          freqBtns.forEach(function (b) {
+            b.className = "sim-freq-btn py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all";
+          });
+          btn.className = "sim-freq-btn py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500 text-xs font-semibold text-cyan-400";
+          selectedFreq = btn.getAttribute("data-value");
+          calculate();
+        });
+      });
+
       function fmtMoney(n) {
-        return (
-          "$" +
-          new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(Math.round(n))
-        );
+        return "$" + new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(Math.round(n));
       }
 
-      if (calcBtn) {
-        calcBtn.addEventListener("click", function () {
-          var m = parseFloat(document.getElementById("sim-monto").value);
-          var t = parseFloat(document.getElementById("sim-tasa").value);
-          var c = parseInt(document.getElementById("sim-cuotas").value, 10);
-          if (simError) {
-            simError.classList.add("hidden");
-            simError.textContent = "";
-          }
-          if (
-            !Number.isFinite(m) ||
-            m < 0 ||
-            !Number.isFinite(t) ||
-            t < 0 ||
-            !Number.isFinite(c) ||
-            c < 1
-          ) {
-            if (resultWrap) resultWrap.classList.add("hidden");
+      function calculate() {
+        var m = parseFloat(document.getElementById("sim-monto").value);
+        var t = parseFloat(document.getElementById("sim-tasa").value);
+        var c = parseInt(document.getElementById("sim-cuotas").value, 10);
+        
+        if (simError) {
+          simError.classList.add("hidden");
+          simError.textContent = "";
+        }
+        
+        if (!Number.isFinite(m) || m <= 0 || !Number.isFinite(t) || t < 0 || !Number.isFinite(c) || c < 1) {
+          if (resultWrap) resultWrap.classList.add("hidden");
+          if (m > 0 && (!Number.isFinite(t) || t < 0 || !Number.isFinite(c) || c < 1)) {
             if (simError) {
-              simError.textContent = "Ingresa monto, tasa y número de cuotas válidos.";
+              simError.textContent = "Ingresa tasa y cuotas válidas.";
               simError.classList.remove("hidden");
             }
-            return;
           }
-          var interes = m * (t / 100);
-          var total = m + interes;
-          var cuota = total / c;
-          var elI = document.getElementById("sim-out-interes");
-          var elT = document.getElementById("sim-out-total");
-          var elC = document.getElementById("sim-out-cuota");
-          if (elI) elI.textContent = fmtMoney(interes);
-          if (elT) elT.textContent = fmtMoney(total);
-          if (elC) elC.textContent = fmtMoney(cuota);
-          if (resultWrap) resultWrap.classList.remove("hidden");
-        });
+          return;
+        }
+        
+        var interes = m * (t / 100);
+        var total = m + interes;
+        var cuota = total / c;
+        
+        var elI = document.getElementById("sim-out-interes");
+        var elT = document.getElementById("sim-out-total");
+        var elC = document.getElementById("sim-out-cuota");
+        if (elI) elI.textContent = fmtMoney(interes);
+        if (elT) elT.textContent = fmtMoney(total);
+        if (elC) elC.textContent = fmtMoney(cuota);
+        if (resultWrap) resultWrap.classList.remove("hidden");
       }
+
+      ["sim-monto", "sim-tasa", "sim-cuotas"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.addEventListener("input", calculate);
+        }
+      });
     })();
   </script>
 </body>
