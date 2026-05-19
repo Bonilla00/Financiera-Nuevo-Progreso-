@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}API Docs{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold text-white mb-1">Documentación API</h1>
+<p class="text-slate-500 text-xs mb-4">Endpoints internos de Financiera Nuevo Progreso</p>
+
+<div class="space-y-3">
+  {% for ep in endpoints %}
+  <div class="rounded-xl border border-slate-700 bg-panel p-3">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if ep.method == 'GET' %}bg-emerald-900/50 text-emerald-300{% elif ep.method == 'POST' %}bg-blue-900/50 text-blue-300{% else %}bg-slate-700 text-slate-300{% endif %}">{{ ep.method }}</span>
+      <code class="text-xs text-accent font-mono">{{ ep.path }}</code>
+    </div>
+    <p class="text-xs text-slate-400 mb-2">{{ ep.desc }}</p>
+    <div class="flex gap-4 text-[10px] text-slate-500">
+      <span>Params: <code class="text-slate-400">{{ ep.params }}</code></span>
+      <span>Auth: <span class="{% if ep.auth == 'Sí' %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ ep.auth }}</span></span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-6 rounded-xl border border-slate-700 bg-panel p-4">
+  <h2 class="text-sm font-bold text-white mb-2">Exportaciones</h2>
+  <div class="space-y-2 text-xs text-slate-400">
+    <div><code class="text-accent">GET /clientes/export.csv</code> · Exportar clientes a CSV</div>
+    <div><code class="text-accent">GET /prestamos/export.csv</code> · Exportar préstamos a CSV</div>
+    <div><code class="text-accent">GET /pagos/export.csv</code> · Exportar pagos a CSV</div>
+  </div>
+</div>
+
+<div class="mt-6 rounded-xl border border-slate-700 bg-panel p-4">
+  <h2 class="text-sm font-bold text-white mb-2">Reportes</h2>
+  <div class="space-y-2 text-xs text-slate-400">
+    <div><code class="text-accent">GET /reportes</code> · Dashboard con gráficos</div>
+    <div><code class="text-accent">GET /reportes.pdf</code> · Exportar reporte a PDF</div>
+    <div><code class="text-accent">GET /recordatorios</code> · Préstamos vencidos y por vencer</div>
+    <div><code class="text-accent">GET /calendario</code> · Vista calendario de cobros</div>
+  </div>
+</div>
+{% endblock %}

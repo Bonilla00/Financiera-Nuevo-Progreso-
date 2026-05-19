@@ -1678,6 +1678,24 @@ def toggle_theme():
     return jsonify({"theme": session["theme"]})
 
 
+@app.route("/api/docs")
+@login_required
+def api_docs():
+    """Documentación de la API interna."""
+    endpoints = [
+        {"method": "GET", "path": "/api/buscar_clientes", "desc": "Buscar clientes por nombre (autocomplete)", "params": "q=<término>", "auth": "Sí"},
+        {"method": "POST", "path": "/api/alertas/vencimientos", "desc": "Obtener préstamos vencidos para alertas", "params": "Ninguno", "auth": "No (webhook)"},
+        {"method": "POST", "path": "/api/whatsapp/send", "desc": "Enviar mensaje WhatsApp", "params": "phone, message", "auth": "Sí"},
+        {"method": "GET", "path": "/api/whatsapp/messages", "desc": "Listar mensajes WhatsApp", "params": "page, per_page", "auth": "Sí"},
+        {"method": "POST", "path": "/api/whatsapp/webhook", "desc": "Webhook para recibir mensajes", "params": "JSON body", "auth": "No (webhook)"},
+        {"method": "POST", "path": "/api/whatsapp/instance", "desc": "Crear instancia WhatsApp", "params": "instance_name", "auth": "Sí"},
+        {"method": "GET", "path": "/api/whatsapp/instance/qr", "desc": "Obtener QR de instancia", "params": "instance_name", "auth": "Sí"},
+        {"method": "GET", "path": "/api/whatsapp/instance/status", "desc": "Estado de instancia", "params": "instance_name", "auth": "Sí"},
+        {"method": "POST", "path": "/api/whatsapp/instance/delete", "desc": "Eliminar instancia", "params": "instance_name", "auth": "Sí"},
+    ]
+    return render_template("api_docs.html", endpoints=endpoints)
+
+
 # ---------- Exportar CSV ----------
 @app.route("/exportar/clientes.csv")
 @login_required
