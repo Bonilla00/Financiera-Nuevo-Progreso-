@@ -318,7 +318,7 @@
   </div>
 
   <nav class="app-bottom-nav fixed bottom-0 inset-x-0 z-40 flex min-h-[4rem] justify-around items-center border-t border-slate-700 bg-panel pb-[var(--nav-safe-bottom)]">
-    <a href="{{ url_for('index') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'index' %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('inicio') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'inicio' %}text-accent{% else %}text-slate-400{% endif %}">
       <span class="text-lg leading-none">⌂</span>Inicio
     </a>
     <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-1 text-xs {% if 'clientes' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
