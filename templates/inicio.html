@@ -1,80 +1,193 @@
 {% extends "base.html" %}
 {% block title %}Inicio{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+{% endblock %}
 {% block content %}
+<h1 class="text-xl font-bold text-white mb-1">Inicio</h1>
+<p class="text-slate-500 text-xs mb-3">{{ periodo_etiqueta }} · {{ f_ini }}{% if f_ini != f_fin %} → {{ f_fin }}{% endif %}</p>
 
-<div class="flex items-center justify-between mb-4">
-  <h1 class="text-xl font-bold text-white">Dashboard</h1>
-  <p class="text-xs text-slate-500">{{ stats.periodo_etiqueta }} · {{ stats.f_ini }}{% if stats.f_ini != stats.f_fin %} → {{ stats.f_fin }}{% endif %}</p>
+<div class="flex flex-wrap gap-2 mb-4">
+  <a href="{{ url_for('inicio', periodo='hoy') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='hoy' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Hoy</a>
+  <a href="{{ url_for('inicio', periodo='ayer') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='ayer' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Ayer</a>
+  <a href="{{ url_for('inicio', periodo='7d') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo in ('7d','7','semana') %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Últimos 7 días</a>
+  <a href="{{ url_for('inicio', periodo='mes') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo in ('mes','mes_actual') %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Este mes</a>
+  <a href="{{ url_for('inicio', periodo='todo') }}" class="px-3 py-1.5 rounded-full text-xs font-semibold {% if periodo=='todo' %}bg-accent text-slate-900{% else %}bg-panel2 text-slate-300 border border-slate-600{% endif %}">Todo</a>
 </div>
 
-<div class="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide">
-  <a href="{{ url_for('inicio', periodo='hoy') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo == 'hoy' %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">Hoy</a>
-  <a href="{{ url_for('inicio', periodo='7d') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo in ('7d','7dias') %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">7 días</a>
-  <a href="{{ url_for('inicio', periodo='mes') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo == 'mes' %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">Este mes</a>
-  <a href="{{ url_for('inicio', periodo='todo') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo == 'todo' %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">Todo</a>
+<div class="grid grid-cols-2 gap-2 mb-4">
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">Total prestado</p>
+    <p class="text-lg font-bold text-accent leading-tight">{{ fmt_money(total_prestado) }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">Capital cobrado</p>
+    <p class="text-lg font-bold text-white leading-tight">{{ fmt_money(capital_cobrado) }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">Interés cobrado</p>
+    <p class="text-lg font-bold text-emerald-400 leading-tight">{{ fmt_money(interes_cobrado) }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">Mora cobrada</p>
+    <p class="text-lg font-bold text-amber-400 leading-tight">{{ fmt_money(mora_cobrada) }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">Ganancia neta</p>
+    <p class="text-lg font-bold text-cyan-300 leading-tight">{{ fmt_money(ganancia_neta) }}</p>
+    <p class="text-[10px] text-slate-500 mt-0.5">Int. prést. + mora</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">Total cobrado</p>
+    <p class="text-lg font-bold text-white leading-tight">{{ fmt_money(total_cobrado) }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">Préstamos activos</p>
+    <p class="text-lg font-bold text-accent leading-tight">{{ activos }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-3">
+    <p class="text-slate-500 text-[10px] uppercase font-semibold">En mora</p>
+    <p class="text-lg font-bold text-rose-400 leading-tight">{{ en_mora }}</p>
+  </div>
 </div>
 
-<div class="grid grid-cols-2 gap-3 mb-6">
-  <div class="bg-panel rounded-xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Total Prestado</p>
-    <p class="text-xl font-bold text-accent mt-1">{{ fmt_money(stats.total_prestado) }}</p>
+<div class="grid grid-cols-1 gap-3 mb-4">
+  <div class="bg-[#111827] rounded-xl border border-slate-700 p-3">
+    <p class="text-xs font-semibold text-slate-400 mb-2">Comparativo del período</p>
+    <div class="relative w-full" style="min-height: 220px;">
+      <canvas id="chartBarras" aria-label="Gráfico de montos del período"></canvas>
+    </div>
   </div>
-  <div class="bg-panel rounded-xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Total Cobrado</p>
-    <p class="text-xl font-bold text-white mt-1">{{ fmt_money(stats.total_cobrado) }}</p>
+  <div class="bg-[#111827] rounded-xl border border-slate-700 p-3">
+    <p class="text-xs font-semibold text-slate-400 mb-2">Distribución de ingresos</p>
+    <div class="relative w-full flex justify-center" style="min-height: 200px; max-width: 280px; margin: 0 auto;">
+      <canvas id="chartDona" aria-label="Gráfico de distribución"></canvas>
+    </div>
   </div>
-  <div class="bg-panel rounded-xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ganancia Neta</p>
-    <p class="text-xl font-bold text-emerald-400 mt-1">{{ fmt_money(stats.ganancia_neta) }}</p>
-    <p class="text-[9px] text-slate-500 mt-1">Interés + Mora</p>
-  </div>
-  <div class="bg-panel rounded-xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Préstamos Activos</p>
-    <p class="text-xl font-bold text-cyan-400 mt-1">{{ stats.activos }}</p>
-  </div>
-  <div class="bg-panel rounded-xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase tracking-wider">En Mora</p>
-    <p class="text-xl font-bold text-rose-400 mt-1">{{ stats.en_mora }}</p>
-  </div>
-  <div class="bg-panel rounded-xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Pagados</p>
-    <p class="text-xl font-bold text-slate-300 mt-1">{{ stats.pagados }}</p>
+  <div class="bg-[#111827] rounded-xl border border-slate-700 p-3">
+    <p class="text-xs font-semibold text-slate-400 mb-2">Estado de cartera</p>
+    <div class="relative w-full flex justify-center" style="min-height: 180px; max-width: 280px; margin: 0 auto;">
+      <canvas id="chartCartera" aria-label="Gráfico de cartera"></canvas>
+    </div>
   </div>
 </div>
 
-<div class="bg-panel rounded-xl border border-slate-700 p-4 mb-4">
-  <h2 class="text-sm font-bold text-white mb-3">Distribución de Cartera</h2>
-  <canvas id="chart-cartera" height="200"></canvas>
+<div class="mb-2 flex items-center justify-between gap-2">
+  <h2 class="text-sm font-bold text-accent">Pagos del período</h2>
+  <span class="text-xs text-slate-500">{{ pagos_detalle|length }} registro(s)</span>
+</div>
+<div class="overflow-x-auto rounded-xl border border-slate-700 bg-panel">
+  <table class="w-full text-left text-sm min-w-[320px]">
+    <thead>
+      <tr class="border-b border-slate-600 text-slate-400 text-xs">
+        <th class="px-3 py-2 font-semibold">Fecha</th>
+        <th class="px-3 py-2 font-semibold">Cliente</th>
+        <th class="px-3 py-2 font-semibold text-right">Valor</th>
+        <th class="px-3 py-2 font-semibold text-center">Cuota</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pagos_detalle %}
+      <tr class="border-b border-slate-800 last:border-0">
+        <td class="px-3 py-2 text-slate-300 whitespace-nowrap">{{ p[0][:10] if p[0] else '—' }}</td>
+        <td class="px-3 py-2 text-white max-w-[140px] truncate">{{ p[1] }}</td>
+        <td class="px-3 py-2 text-accent font-semibold text-right whitespace-nowrap">{{ fmt_money(p[2]) }}</td>
+        <td class="px-3 py-2 text-center text-slate-400">{{ p[3] }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" class="px-3 py-6 text-center text-slate-500 text-sm">No hay pagos en este período.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 
-<a href="{{ url_for('clientes_list') }}" class="block text-center py-3 rounded-xl bg-accent text-slate-900 font-bold shadow-lg active:scale-95 transition-transform">
-  Ver lista de clientes →
-</a>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-(function() {
-  const activos = {{ stats.activos }};
-  const enMora = {{ stats.en_mora }};
-  const pagados = {{ stats.pagados }};
+  document.addEventListener("DOMContentLoaded", function () {
+    var cd = {{ chart_data | tojson }};
+    var activos = {{ activos }};
+    var enMora = {{ en_mora }};
+    var pagados = activos > 0 ? Math.max(0, activos - enMora) : 0;
+    var fmt = function(v) {
+      return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(v);
+    };
 
-  new Chart(document.getElementById('chart-cartera'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Activos', 'En Mora', 'Pagados'],
-      datasets: [{
-        data: [activos, enMora, pagados],
-        backgroundColor: ['#22D3EE', '#F43F5E', '#10B981'],
-        borderWidth: 0,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'bottom', labels: { color: '#94A3B8', font: { size: 11 } } }
-      }
-    }
+    if (typeof Chart === "undefined") return;
+
+    Chart.defaults.color = "#94a3b8";
+    Chart.defaults.font.family = "'Segoe UI', sans-serif";
+
+    var tooltipCfg = {
+      callbacks: { label: function(ctx) { return fmt(ctx.raw); } }
+    };
+
+    new Chart(document.getElementById("chartBarras"), {
+      type: "bar",
+      data: {
+        labels: cd.labels,
+        datasets: [{
+          data: cd.values,
+          backgroundColor: ["#22D3EE","#6366F1","#34D399","#FBBF24","#A78BFA","#F472B6"],
+          borderRadius: 6,
+          barThickness: 22,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: tooltipCfg },
+        scales: {
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" }, beginAtZero: true },
+          y: { ticks: { color: "#e2e8f0", font: { size: 11 } }, grid: { display: false } },
+        },
+      },
+    });
+
+    new Chart(document.getElementById("chartDona"), {
+      type: "doughnut",
+      data: {
+        labels: ["Capital","Interés","Mora"],
+        datasets: [{
+          data: [{{ capital_cobrado }}, {{ interes_cobrado }}, {{ mora_cobrada }}],
+          backgroundColor: ["#6366F1","#34D399","#FBBF24"],
+          borderWidth: 0,
+          hoverOffset: 8,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "65%",
+        plugins: {
+          legend: { position: "bottom", labels: { padding: 12, usePointStyle: true, pointStyleWidth: 10 } },
+          tooltip: tooltipCfg,
+        },
+      },
+    });
+
+    new Chart(document.getElementById("chartCartera"), {
+      type: "doughnut",
+      data: {
+        labels: ["Al día","En mora"],
+        datasets: [{
+          data: [pagados, enMora],
+          backgroundColor: ["#34D399","#F43F5E"],
+          borderWidth: 0,
+          hoverOffset: 8,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "65%",
+        plugins: {
+          legend: { position: "bottom", labels: { padding: 12, usePointStyle: true, pointStyleWidth: 10 } },
+          tooltip: { callbacks: { label: function(ctx) { return ctx.label + ": " + ctx.raw; } } },
+        },
+      },
+    });
   });
-})();
 </script>
 {% endblock %}
