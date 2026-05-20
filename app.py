@@ -561,10 +561,10 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    """Redirección inteligente según rol al entrar a la home."""
-    if session.get('rol') == 'admin':
-        return redirect(url_for('admin_usuarios'))
-    return redirect(url_for('clientes_list'))
+    """Dashboard de inicio con resumen financiero."""
+    uid, _, is_admin, _ = ctx_user()
+    stats = db.obtener_stats_dashboard(uid, is_admin)
+    return render_template("inicio.html", stats=stats)
 
 
 @app.route("/api/buscar_clientes")
