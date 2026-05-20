@@ -558,6 +558,12 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/")
+@login_required
+def raiz():
+    """Redirige la raíz al dashboard de inicio."""
+    return redirect(url_for("inicio"))
+
 @app.route("/inicio")
 @login_required
 def inicio():
