@@ -562,9 +562,14 @@ def logout():
 @login_required
 def index():
     """Dashboard de inicio con resumen financiero."""
-    uid, _, is_admin, _ = ctx_user()
-    stats = db.obtener_stats_dashboard(uid, is_admin)
-    return render_template("inicio.html", stats=stats)
+    try:
+        uid, _, is_admin, _ = ctx_user()
+        stats = db.obtener_stats_dashboard(uid, is_admin)
+        return render_template("inicio.html", stats=stats)
+    except Exception as e:
+        print(f"--- ERROR EN INICIO: {e} ---")
+        flash("Error al cargar el dashboard. Intenta de nuevo.", "error")
+        return redirect(url_for("clientes_list"))
 
 
 @app.route("/api/buscar_clientes")
