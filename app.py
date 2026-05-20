@@ -317,7 +317,7 @@ def require_role(roles):
                 return redirect(url_for('login', next=request.path))
             if session.get('rol') not in roles and not session.get('is_admin'):
                 flash("No tienes permiso para acceder a esta sección.", "error")
-                return redirect(url_for('index'))
+                return redirect(url_for('inicio'))
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -441,7 +441,7 @@ def login():
                     flash("Debes cambiar tu contraseña inicial por seguridad.", "error")
                     return redirect(url_for("cambiar_password"))
 
-                nxt = request.args.get("next") or url_for("index")
+                nxt = request.args.get("next") or url_for("inicio")
                 return redirect(nxt)
         except Exception as e:
             print(f"--- ERROR CRÍTICO EN LOGIN: {e} ---")
@@ -545,7 +545,7 @@ def cambiar_password():
             # Usamos la nueva función que limpia el flag
             db.completar_cambio_password(session['user_id'], h)
             flash("Contraseña actualizada correctamente.", "ok")
-            return redirect(url_for("index"))
+            return redirect(url_for("inicio"))
 
     return render_template("cambiar_password.html")
 
@@ -558,7 +558,7 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/")
+@app.route("/inicio")
 @login_required
 def inicio():
     """Dashboard principal."""
@@ -608,7 +608,7 @@ def clientes_list():
     except Exception as e:
         logger.exception("Error en ruta /clientes")
         flash("Error interno del servidor.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("inicio"))
 
 
 @app.route("/clientes/nuevo", methods=["GET", "POST"])
@@ -883,7 +883,7 @@ def prestamos_list():
         # Logging del error para debug
         print(f"Error en /prestamos: {e}")
         flash("Ocurrió un error al cargar la lista de préstamos.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("inicio"))
 
 
 @app.route("/prestamos/nuevo", methods=["GET", "POST"])
