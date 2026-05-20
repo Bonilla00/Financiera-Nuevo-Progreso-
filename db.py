@@ -659,13 +659,9 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # Filtro de usuario
-        if is_admin:
-            user_filter = ""
-            params = []
-        else:
-            user_filter = " AND c.owner_user_id = %s"
-            params = [user_id]
+        # Filtro: siempre solo datos del usuario logueado
+        user_filter = " AND c.owner_user_id = %s"
+        params = [user_id]
 
         # 1. Préstamos activos totales
         cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'ACTIVO'{user_filter}", params)
