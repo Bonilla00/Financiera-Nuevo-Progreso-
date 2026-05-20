@@ -570,6 +570,7 @@ def inicio():
     """Dashboard principal con gráficas y métricas."""
     uid, _, is_admin, _ = ctx_user()
     periodo = request.args.get("periodo", "hoy")
+    hoy = date.today().strftime("%Y-%m-%d")
     try:
         stats = db.obtener_stats_dashboard(uid, is_admin, periodo)
     except Exception as e:
@@ -579,7 +580,7 @@ def inicio():
             "mora_cobrada": 0, "ganancia_neta": 0, "total_cobrado": 0,
             "activos": 0, "en_mora": 0, "pagados": 0, "periodo": periodo,
         }
-    return render_template("inicio.html", stats=stats)
+    return render_template("inicio.html", stats=stats, hoy=hoy)
 
 
 @app.route("/api/buscar_clientes")
