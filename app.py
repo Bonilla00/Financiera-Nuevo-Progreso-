@@ -565,7 +565,8 @@ def inicio():
     uid, _, is_admin, _ = ctx_user()
     try:
         stats = db.obtener_stats_dashboard(uid, is_admin)
-    except Exception:
+    except Exception as e:
+        print(f"--- ERROR EN INICIO: {e} ---")
         stats = {"estados": {}, "total_prestado": 0, "total_cobrado": 0}
     return render_template("inicio.html", stats=stats)
 
