@@ -1,28 +1,131 @@
 {% extends "base.html" %}
 {% block title %}Inicio{% endblock %}
 {% block content %}
-<h1 class="text-xl font-bold text-white mb-4">Resumen Financiero</h1>
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-xl font-bold text-white">Dashboard</h1>
+  <p class="text-xs text-slate-500">{{ today_str }}</p>
+</div>
+
+<div class="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide">
+  <a href="{{ url_for('inicio', periodo='hoy') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo == 'hoy' %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">Hoy</a>
+  <a href="{{ url_for('inicio', periodo='ayer') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo == 'ayer' %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">Ayer</a>
+  <a href="{{ url_for('inicio', periodo='7dias') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo == '7dias' %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">Últimos 7 días</a>
+  <a href="{{ url_for('inicio', periodo='mes') }}" class="whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors {% if stats.periodo == 'mes' %}bg-accent text-slate-900{% else %}bg-panel2 border border-slate-700 text-slate-400{% endif %}">Este mes</a>
+</div>
 
 <div class="grid grid-cols-2 gap-3 mb-6">
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase">Préstamos Activos</p>
-    <p class="text-2xl font-bold text-accent mt-1">{{ stats.estados.get('ACTIVO', 0) }}</p>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Total Prestado</p>
+    <p class="text-xl font-bold text-accent mt-1">{{ fmt_money(stats.total_prestado) }}</p>
   </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase">En Mora</p>
-    <p class="text-2xl font-bold text-rose-400 mt-1">{{ stats.estados.get('MORA', 0) }}</p>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Capital Cobrado</p>
+    <p class="text-xl font-bold text-white mt-1">{{ fmt_money(stats.capital_cobrado) }}</p>
   </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase">Total Cobrado</p>
-    <p class="text-lg font-bold text-emerald-400 mt-1">{{ fmt_money(stats.total_cobrado) }}</p>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Interés Cobrado</p>
+    <p class="text-xl font-bold text-emerald-400 mt-1">{{ fmt_money(stats.interes_cobrado) }}</p>
   </div>
-  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
-    <p class="text-[10px] text-slate-400 uppercase">Dinero en Cartera</p>
-    <p class="text-lg font-bold text-amber-400 mt-1">{{ fmt_money(stats.total_prestado - stats.total_cobrado) }}</p>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Mora Cobrada</p>
+    <p class="text-xl font-bold text-amber-400 mt-1">{{ fmt_money(stats.mora_cobrada) }}</p>
   </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ganancia Neta</p>
+    <p class="text-xl font-bold text-cyan-400 mt-1">{{ fmt_money(stats.ganancia_neta) }}</p>
+    <p class="text-[9px] text-slate-500 mt-1">Int. prést. + mora</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Total Cobrado</p>
+    <p class="text-xl font-bold text-white mt-1">{{ fmt_money(stats.total_cobrado) }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Préstamos Activos</p>
+    <p class="text-xl font-bold text-accent mt-1">{{ stats.activos }}</p>
+  </div>
+  <div class="bg-panel rounded-xl border border-slate-700 p-4">
+    <p class="text-[10px] text-slate-400 uppercase tracking-wider">En Mora</p>
+    <p class="text-xl font-bold text-rose-400 mt-1">{{ stats.en_mora }}</p>
+  </div>
+</div>
+
+<div class="bg-panel rounded-xl border border-slate-700 p-4 mb-4">
+  <h2 class="text-sm font-bold text-white mb-3">Distribución de Cartera</h2>
+  <canvas id="chart-cartera" height="200"></canvas>
+</div>
+
+<div class="bg-panel rounded-xl border border-slate-700 p-4 mb-4">
+  <h2 class="text-sm font-bold text-white mb-3">Cobros vs Préstamos</h2>
+  <canvas id="chart-flujo" height="200"></canvas>
 </div>
 
 <a href="{{ url_for('clientes_list') }}" class="block text-center py-3 rounded-xl bg-accent text-slate-900 font-bold shadow-lg active:scale-95 transition-transform">
   Ver lista de clientes →
 </a>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function() {
+  const activos = {{ stats.activos }};
+  const enMora = {{ stats.en_mora }};
+  const pagados = {{ stats.pagados }};
+  const totalCobrado = {{ stats.total_cobrado }};
+  const totalPrestado = {{ stats.total_prestado }};
+  const ganancia = {{ stats.ganancia_neta }};
+
+  new Chart(document.getElementById('chart-cartera'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Activos', 'En Mora', 'Pagados'],
+      datasets: [{
+        data: [activos, enMora, pagados],
+        backgroundColor: ['#22D3EE', '#F43F5E', '#10B981'],
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#94A3B8', font: { size: 11 } } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('chart-flujo'), {
+    type: 'bar',
+    data: {
+      labels: ['Prestado', 'Cobrado', 'Ganancia'],
+      datasets: [{
+        data: [totalPrestado, totalCobrado, ganancia],
+        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B'],
+        borderRadius: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return '$' + ctx.parsed.y.toLocaleString('es-CO');
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: { color: '#64748B', callback: v => '$' + (v/1000) + 'k' },
+          grid: { color: '#1E293B' }
+        },
+        x: {
+          ticks: { color: '#94A3B8' },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+})();
+</script>
 {% endblock %}

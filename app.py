@@ -561,13 +561,18 @@ def logout():
 @app.route("/inicio")
 @login_required
 def inicio():
-    """Dashboard principal."""
+    """Dashboard principal con gráficas y métricas."""
     uid, _, is_admin, _ = ctx_user()
+    periodo = request.args.get("periodo", "hoy")
     try:
-        stats = db.obtener_stats_dashboard(uid, is_admin)
+        stats = db.obtener_stats_dashboard(uid, is_admin, periodo)
     except Exception as e:
         print(f"--- ERROR EN INICIO: {e} ---")
-        stats = {"estados": {}, "total_prestado": 0, "total_cobrado": 0}
+        stats = {
+            "total_prestado": 0, "capital_cobrado": 0, "interes_cobrado": 0,
+            "mora_cobrada": 0, "ganancia_neta": 0, "total_cobrado": 0,
+            "activos": 0, "en_mora": 0, "pagados": 0, "periodo": periodo,
+        }
     return render_template("inicio.html", stats=stats)
 
 
