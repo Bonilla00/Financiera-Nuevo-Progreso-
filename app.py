@@ -569,9 +569,9 @@ def raiz():
 @app.route("/inicio")
 @login_required
 def inicio():
-    """Dashboard principal - clon de /reportes."""
+    """Dashboard principal - idéntico a /reportes."""
     uid, _, is_admin, _ = ctx_user()
-    periodo = request.args.get("periodo", "hoy")
+    periodo = request.args.get("periodo", "mes")
     f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
     hoy = date.today().strftime("%Y-%m-%d")
     try:
@@ -602,6 +602,7 @@ def inicio():
             ],
         }
         context = {
+            "route_name": "inicio",
             "periodo": periodo,
             "periodo_etiqueta": periodo_etiqueta,
             "f_ini": f_ini,
@@ -621,6 +622,7 @@ def inicio():
     except Exception as e:
         print(f"--- ERROR EN INICIO: {e} ---")
         context = {
+            "route_name": "inicio",
             "periodo": periodo,
             "periodo_etiqueta": periodo_etiqueta,
             "f_ini": f_ini,
@@ -637,7 +639,7 @@ def inicio():
             "chart_data": {"labels": [], "values": []},
             "hoy": hoy,
         }
-    return render_template("inicio.html", **context)
+    return render_template("reportes.html", **context)
 
 
 @app.route("/api/buscar_clientes")
@@ -1162,7 +1164,7 @@ def prestamos_pago(pid):
 @login_required
 def reportes():
     uid, _, is_admin, _ = ctx_user()
-    periodo = request.args.get("periodo", "hoy")
+    periodo = request.args.get("periodo", "mes")
     f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
     total_prestado = db.total_prestado_en_rango(f_ini, f_fin, uid, is_admin)
     total_cobrado = db.total_cobrado_en_rango(f_ini, f_fin, uid, is_admin)
@@ -1192,6 +1194,7 @@ def reportes():
     }
     return render_template(
         "reportes.html",
+        route_name="reportes",
         periodo=periodo,
         periodo_etiqueta=periodo_etiqueta,
         f_ini=f_ini,
