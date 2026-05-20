@@ -637,10 +637,12 @@ def listar_prestamos(
 
 def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
     """Obtiene estadísticas del dashboard con filtro de periodo."""
-    scope, sparams = _filtro_owner("c", user_id, is_admin)
-    
     hoy = date.today()
-    if periodo == "ayer":
+    
+    if periodo == "todo":
+        fecha_ini = "2000-01-01"
+        fecha_fin = "2099-12-31"
+    elif periodo == "ayer":
         d = hoy - timedelta(days=1)
         fecha_ini = fecha_fin = d.isoformat()
     elif periodo == "7dias":
@@ -655,92 +657,77 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # Total prestado en periodo
-        try:
-            cur.execute(f"""
-                SELECT COALESCE(SUM(monto), 0) FROM prestamos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.fecha BETWEEN %s AND %s {scope}
-            """, (fecha_ini, fecha_fin) + sparams)
-            total_prestado = cur.fetchone()['coalesce'] or 0
-        except Exception:
-            total_prestado = 0
+        # Filtro de usuario
+        if is_admin:
+            user_filter = ""
+            params = []
+        else:
+            user_filter = " AND c.owner_user_id = %s"
+            params = [user_id]
 
-        # Capital cobrado en periodo
-        try:
-            cur.execute(f"""
-                SELECT COALESCE(SUM(pg.valor), 0) FROM pagos pg
-                JOIN prestamos p ON pg.prestamo_id = p.id
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE pg.fecha BETWEEN %s AND %s {scope}
-            """, (fecha_ini, fecha_fin) + sparams)
-            capital_cobrado = cur.fetchone()['coalesce'] or 0
-        except Exception:
-            capital_cobrado = 0
+        # 1. Préstamos activos totales
+        cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'ACTIVO'{user_filter}", params)
+        activos = cur.fetchone()['cnt'] or 0
 
-        # Interés cobrado (estimado como valor - cuota si no hay columna interes)
-        try:
-            cur.execute(f"""
-                SELECT COALESCE(SUM(pg.valor - pg.cuota), 0) FROM pagos pg
-                JOIN prestamos p ON pg.prestamo_id = p.id
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE pg.fecha BETWEEN %s AND %s {scope}
-            """, (fecha_ini, fecha_fin) + sparams)
-            interes_cobrado = cur.fetchone()['coalesce'] or 0
-        except Exception:
+        # 2. Préstamos en mora
+        cur.execute(f"""
+            SELECT COUNT(*) as cnt FROM prestamos p 
+            JOIN clientes c ON p.cliente_id = c.id 
+            WHERE p.estado = 'ACTIVO' 
+              AND p.proximo_pago IS NOT NULL 
+              AND p.proximo_pago <> ''
+              AND p.proximo_pago::date < CURRENT_DATE{user_filter}
+        """, params)
+        en_mora = cur.fetchone()['cnt'] or 0
+
+        # 3. Préstamos pagados
+        cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'PAGADO'{user_filter}", params)
+        pagados = cur.fetchone()['cnt'] or 0
+
+        # 4. Total prestado en periodo
+        cur.execute(f"""
+            SELECT COALESCE(SUM(p.monto), 0) as total FROM prestamos p 
+            JOIN clientes c ON p.cliente_id = c.id 
+            WHERE p.fecha BETWEEN %s AND %s{user_filter}
+        """, [fecha_ini, fecha_fin] + params)
+        total_prestado = cur.fetchone()['total'] or 0
+
+        # 5. Total cobrado en periodo (suma de valor de pagos)
+        cur.execute(f"""
+            SELECT COALESCE(SUM(pg.valor), 0) as total FROM pagos pg 
+            JOIN prestamos p ON pg.prestamo_id = p.id 
+            JOIN clientes c ON p.cliente_id = c.id 
+            WHERE pg.fecha BETWEEN %s AND %s{user_filter}
+        """, [fecha_ini, fecha_fin] + params)
+        total_cobrado = cur.fetchone()['total'] or 0
+
+        # 6. Capital cobrado (aproximado como suma de cuotas pagadas)
+        cur.execute(f"""
+            SELECT COALESCE(SUM(pg.cuota), 0) as total FROM pagos pg 
+            JOIN prestamos p ON pg.prestamo_id = p.id 
+            JOIN clientes c ON p.cliente_id = c.id 
+            WHERE pg.fecha BETWEEN %s AND %s{user_filter}
+        """, [fecha_ini, fecha_fin] + params)
+        capital_cobrado = cur.fetchone()['total'] or 0
+
+        # 7. Interés cobrado (valor - cuota)
+        interes_cobrado = total_cobrado - capital_cobrado
+        if interes_cobrado < 0:
             interes_cobrado = 0
 
-        # Mora cobrada en periodo
+        # 8. Mora cobrada (columna interes_mora)
         try:
             cur.execute(f"""
-                SELECT COALESCE(SUM(pg.interes_mora), 0) FROM pagos pg
-                JOIN prestamos p ON pg.prestamo_id = p.id
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE pg.fecha BETWEEN %s AND %s {scope}
-            """, (fecha_ini, fecha_fin) + sparams)
-            mora_cobrada = cur.fetchone()['coalesce'] or 0
+                SELECT COALESCE(SUM(pg.interes_mora), 0) as total FROM pagos pg 
+                JOIN prestamos p ON pg.prestamo_id = p.id 
+                JOIN clientes c ON p.cliente_id = c.id 
+                WHERE pg.fecha BETWEEN %s AND %s{user_filter}
+            """, [fecha_ini, fecha_fin] + params)
+            mora_cobrada = cur.fetchone()['total'] or 0
         except Exception:
             mora_cobrada = 0
 
-        # Total cobrado (capital + interes + mora)
-        total_cobrado = capital_cobrado + interes_cobrado + mora_cobrada
         ganancia_neta = interes_cobrado + mora_cobrada
-
-        # Préstamos activos totales
-        try:
-            cur.execute(f"""
-                SELECT COUNT(*) FROM prestamos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.estado = 'ACTIVO' {scope}
-            """, sparams)
-            activos = cur.fetchone()['count']
-        except Exception:
-            activos = 0
-
-        # Préstamos en mora
-        try:
-            cur.execute(f"""
-                SELECT COUNT(*) FROM prestamos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.estado = 'ACTIVO'
-                  AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> ''
-                  AND p.proximo_pago::date < CURRENT_DATE
-                  {scope}
-            """, sparams)
-            en_mora = cur.fetchone()['count']
-        except Exception:
-            en_mora = 0
-
-        # Préstamos pagados
-        try:
-            cur.execute(f"""
-                SELECT COUNT(*) FROM prestamos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.estado = 'PAGADO' {scope}
-            """, sparams)
-            pagados = cur.fetchone()['count']
-        except Exception:
-            pagados = 0
 
         return {
             "total_prestado": total_prestado,
