@@ -636,7 +636,9 @@ def listar_prestamos(
 
 
 def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
-    """Obtiene estadísticas del dashboard con filtro de periodo."""
+    """Obtiene estadísticas del dashboard con filtro de periodo.
+    Usa las mismas funciones que /reportes para garantizar consistencia.
+    """
     hoy = date.today()
     
     if periodo == "todo":
@@ -656,6 +658,17 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
 
     print(f"--- DEBUG DASHBOARD: user_id={user_id}, is_admin={is_admin}, periodo={periodo}, fechas={fecha_ini} a {fecha_fin} ---")
 
+    # Métricas financieras (mismas funciones que /reportes)
+    total_prestado = sum_montos_por_rango(fecha_ini, fecha_fin, user_id, is_admin)
+    total_cobrado = sum_pagos_por_rango(fecha_ini, fecha_fin, user_id, is_admin)
+    mora_cobrada = total_mora_cobrada_en_rango(fecha_ini, fecha_fin, user_id, is_admin)
+    capital_cobrado, interes_cobrado = desglose_capital_interes_cobrado_en_rango(
+        fecha_ini, fecha_fin, user_id, is_admin
+    )
+    ganancia_neta = interes_cobrado + mora_cobrada
+
+    print(f"--- DEBUG DASHBOARD RESULT: total_prestado={total_prestado}, total_cobrado={total_cobrado}, capital={capital_cobrado}, interes={interes_cobrado}, mora={mora_cobrada}, ganancia={ganancia_neta} ---")
+
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -666,7 +679,6 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
         # 1. Préstamos activos totales
         cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'ACTIVO'{user_filter}", params)
         activos = cur.fetchone()['cnt'] or 0
-        print(f"--- DEBUG: activos={activos} ---")
 
         # 2. Préstamos en mora
         cur.execute(f"""
@@ -678,61 +690,10 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
               AND p.proximo_pago::date < CURRENT_DATE{user_filter}
         """, params)
         en_mora = cur.fetchone()['cnt'] or 0
-        print(f"--- DEBUG: en_mora={en_mora} ---")
 
         # 3. Préstamos pagados
         cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'PAGADO'{user_filter}", params)
         pagados = cur.fetchone()['cnt'] or 0
-        print(f"--- DEBUG: pagados={pagados} ---")
-
-        # 4. Total prestado en periodo
-        cur.execute(f"""
-            SELECT COALESCE(SUM(p.monto), 0) as total FROM prestamos p 
-            JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.fecha BETWEEN %s AND %s{user_filter}
-        """, [fecha_ini, fecha_fin] + params)
-        total_prestado = cur.fetchone()['total'] or 0
-        print(f"--- DEBUG: total_prestado={total_prestado} ---")
-
-        # 5. Total cobrado en periodo (suma de valor de pagos)
-        cur.execute(f"""
-            SELECT COALESCE(SUM(pg.valor), 0) as total FROM pagos pg 
-            JOIN prestamos p ON pg.prestamo_id = p.id 
-            JOIN clientes c ON p.cliente_id = c.id 
-            WHERE pg.fecha BETWEEN %s AND %s{user_filter}
-        """, [fecha_ini, fecha_fin] + params)
-        total_cobrado = cur.fetchone()['total'] or 0
-        print(f"--- DEBUG: total_cobrado={total_cobrado} ---")
-
-        # 6. Capital cobrado (aproximado como suma de cuotas pagadas)
-        cur.execute(f"""
-            SELECT COALESCE(SUM(pg.cuota), 0) as total FROM pagos pg 
-            JOIN prestamos p ON pg.prestamo_id = p.id 
-            JOIN clientes c ON p.cliente_id = c.id 
-            WHERE pg.fecha BETWEEN %s AND %s{user_filter}
-        """, [fecha_ini, fecha_fin] + params)
-        capital_cobrado = cur.fetchone()['total'] or 0
-        print(f"--- DEBUG: capital_cobrado={capital_cobrado} ---")
-
-        # 7. Interés cobrado (valor - cuota)
-        interes_cobrado = total_cobrado - capital_cobrado
-        if interes_cobrado < 0:
-            interes_cobrado = 0
-
-        # 8. Mora cobrada (columna interes_mora)
-        try:
-            cur.execute(f"""
-                SELECT COALESCE(SUM(pg.interes_mora), 0) as total FROM pagos pg 
-                JOIN prestamos p ON pg.prestamo_id = p.id 
-                JOIN clientes c ON p.cliente_id = c.id 
-                WHERE pg.fecha BETWEEN %s AND %s{user_filter}
-            """, [fecha_ini, fecha_fin] + params)
-            mora_cobrada = cur.fetchone()['total'] or 0
-        except Exception as e:
-            print(f"--- DEBUG ERROR mora: {e} ---")
-            mora_cobrada = 0
-
-        ganancia_neta = interes_cobrado + mora_cobrada
 
         return {
             "total_prestado": total_prestado,
