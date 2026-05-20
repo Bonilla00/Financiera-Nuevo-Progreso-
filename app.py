@@ -572,15 +572,57 @@ def inicio():
     """Dashboard principal con gráficas y métricas."""
     uid, _, is_admin, _ = ctx_user()
     periodo = request.args.get("periodo", "hoy")
+    f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
     hoy = date.today().strftime("%Y-%m-%d")
     try:
-        stats = db.obtener_stats_dashboard(uid, is_admin, periodo)
+        total_prestado = db.sum_montos_por_rango(f_ini, f_fin, uid, is_admin)
+        total_cobrado = db.sum_pagos_por_rango(f_ini, f_fin, uid, is_admin)
+        mora_cobrada = db.total_mora_cobrada_en_rango(f_ini, f_fin, uid, is_admin)
+        capital_cobrado, interes_cobrado = db.desglose_capital_interes_cobrado_en_rango(
+            f_ini, f_fin, uid, is_admin
+        )
+        ganancia_neta = interes_cobrado + mora_cobrada
+
+        with db.get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            user_filter = " AND c.owner_user_id = %s"
+            params = [uid]
+            cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'ACTIVO'{user_filter}", params)
+            activos = cur.fetchone()['cnt'] or 0
+            cur.execute(f"""
+                SELECT COUNT(*) as cnt FROM prestamos p 
+                JOIN clientes c ON p.cliente_id = c.id 
+                WHERE p.estado = 'ACTIVO' 
+                  AND p.proximo_pago IS NOT NULL 
+                  AND p.proximo_pago <> ''
+                  AND p.proximo_pago::date < CURRENT_DATE{user_filter}
+            """, params)
+            en_mora = cur.fetchone()['cnt'] or 0
+            cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'PAGADO'{user_filter}", params)
+            pagados = cur.fetchone()['cnt'] or 0
+
+        stats = {
+            "total_prestado": total_prestado,
+            "capital_cobrado": capital_cobrado,
+            "interes_cobrado": interes_cobrado,
+            "mora_cobrada": mora_cobrada,
+            "ganancia_neta": ganancia_neta,
+            "total_cobrado": total_cobrado,
+            "activos": activos,
+            "en_mora": en_mora,
+            "pagados": pagados,
+            "periodo": periodo,
+            "f_ini": f_ini,
+            "f_fin": f_fin,
+            "periodo_etiqueta": periodo_etiqueta,
+        }
     except Exception as e:
         print(f"--- ERROR EN INICIO: {e} ---")
         stats = {
             "total_prestado": 0, "capital_cobrado": 0, "interes_cobrado": 0,
             "mora_cobrada": 0, "ganancia_neta": 0, "total_cobrado": 0,
             "activos": 0, "en_mora": 0, "pagados": 0, "periodo": periodo,
+            "f_ini": f_ini, "f_fin": f_fin, "periodo_etiqueta": periodo_etiqueta,
         }
     return render_template("inicio.html", stats=stats, hoy=hoy)
 
