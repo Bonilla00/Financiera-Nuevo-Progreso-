@@ -1346,13 +1346,17 @@ def sum_montos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT COALESCE(SUM(p.monto), 0) FROM prestamos p
+            SELECT COALESCE(SUM(p.monto), 0), COUNT(p.id) FROM prestamos p
             JOIN clientes c ON c.id = p.cliente_id
             WHERE p.fecha BETWEEN %s AND %s {scope}
             """,
             (f_ini, f_fin) + sparams,
         )
-        return float(cur.fetchone()[0] or 0)
+        row = cur.fetchone()
+        total = float(row[0] or 0)
+        count = row[1] or 0
+        print(f"--- DEBUG SUM_MONTOS: rango={f_ini} a {f_fin}, prestamos={count}, total={total} ---")
+        return total
 
 
 def sum_pagos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
@@ -1361,14 +1365,18 @@ def sum_pagos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT COALESCE(SUM(pagos.valor), 0) FROM pagos
+            SELECT COALESCE(SUM(pagos.valor), 0), COUNT(pagos.id) FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
             WHERE pagos.fecha BETWEEN %s AND %s {scope}
             """,
             (f_ini, f_fin) + sparams,
         )
-        return float(cur.fetchone()[0] or 0)
+        row = cur.fetchone()
+        total = float(row[0] or 0)
+        count = row[1] or 0
+        print(f"--- DEBUG SUM_PAGOS: rango={f_ini} a {f_fin}, pagos={count}, total={total} ---")
+        return total
 
 
 def total_prestado_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: bool) -> float:
@@ -1387,14 +1395,18 @@ def total_mora_cobrada_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: 
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT COALESCE(SUM(COALESCE(pagos.interes_mora, 0)), 0) FROM pagos
+            SELECT COALESCE(SUM(COALESCE(pagos.interes_mora, 0)), 0), COUNT(pagos.id) FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
             WHERE pagos.fecha BETWEEN %s AND %s {scope}
             """,
             (f_ini, f_fin) + sparams,
         )
-        return float(cur.fetchone()[0] or 0)
+        row = cur.fetchone()
+        total = float(row[0] or 0)
+        count = row[1] or 0
+        print(f"--- DEBUG SUM_MORA: rango={f_ini} a {f_fin}, pagos_con_mora={count}, total_mora={total} ---")
+        return total
 
 
 def desglose_capital_interes_cobrado_en_rango(
@@ -1416,7 +1428,10 @@ def desglose_capital_interes_cobrado_en_rango(
             COALESCE(SUM(
                 (COALESCE(pagos.valor, 0) - COALESCE(pagos.interes_mora, 0)) *
                 (p.interes_total / NULLIF(p.total_pagar, 0))
-            ), 0)
+            ), 0),
+            COUNT(pagos.id),
+            COALESCE(SUM(pagos.valor), 0),
+            COALESCE(SUM(pagos.interes_mora), 0)
             FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
@@ -1425,7 +1440,13 @@ def desglose_capital_interes_cobrado_en_rango(
             (f_ini, f_fin) + sparams,
         )
         row = cur.fetchone()
-        return float(row[0] or 0), float(row[1] or 0)
+        capital = float(row[0] or 0)
+        interes = float(row[1] or 0)
+        count = row[2] or 0
+        total_valor = float(row[3] or 0)
+        total_mora = float(row[4] or 0)
+        print(f"--- DEBUG DESGLOSE: rango={f_ini} a {f_fin}, pagos={count}, total_valor={total_valor}, total_mora={total_mora}, capital_calc={capital}, interes_calc={interes} ---")
+        return capital, interes
 
 
 def pagos_detalle_en_rango(

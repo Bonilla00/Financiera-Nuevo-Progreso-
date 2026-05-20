@@ -274,6 +274,8 @@ def _rango_periodo_dashboard(periodo: str) -> tuple[str, str, str]:
     if p in ("mes", "mes_actual"):
         ini = hoy.replace(day=1)
         return ini.isoformat(), hoy.isoformat(), "Este mes"
+    if p == "todo":
+        return "2000-01-01", "2099-12-31", "Todo el historial"
     s = hoy.isoformat()
     return s, s, "Hoy"
 
