@@ -1,64 +1,65 @@
 {% extends "base.html" %}
 {% block title %}Ruta de Cobro - {{ hoy }}{% endblock %}
 {% block content %}
-<div class="max-w-4xl mx-auto">
-  <div class="flex items-center justify-between mb-6">
+<div class="space-y-4 max-w-2xl mx-auto">
+  <div class="flex items-center justify-between">
     <div>
       <h1 class="text-xl font-bold text-white">Ruta de Cobro</h1>
       <p class="text-slate-400 text-sm">{{ hoy }} · {{ count }} clientes · {{ fmt_money(total) }} total</p>
     </div>
     <div class="flex gap-2">
-      <a href="{{ url_for('cobro_hoy') }}" class="px-4 py-2 rounded-xl bg-panel2 border border-slate-600 text-slate-300 text-sm font-bold hover:bg-slate-700">← Volver</a>
-      <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-accent text-slate-900 text-sm font-bold hover:bg-cyan-300">🖨️ Imprimir / PDF</button>
+      <a href="{{ url_for('cobro_hoy') }}" class="px-3 py-2 rounded-xl bg-panel2 border border-slate-600 text-slate-300 text-xs font-bold">← Volver</a>
+      <button onclick="window.print()" class="px-3 py-2 rounded-xl bg-accent text-slate-900 text-xs font-bold">🖨️ Imprimir</button>
     </div>
   </div>
 
-  <div class="bg-panel rounded-2xl border border-slate-700 overflow-hidden">
-    <table class="w-full text-left text-sm">
-      <thead class="bg-panel2 text-slate-400 uppercase text-xs tracking-wider">
-        <tr>
-          <th class="px-4 py-3 font-semibold w-10 text-center">✓</th>
-          <th class="px-4 py-3 font-semibold">Cliente</th>
-          <th class="px-4 py-3 font-semibold">Dirección / Barrio</th>
-          <th class="px-4 py-3 font-semibold">Teléfono</th>
-          <th class="px-4 py-3 font-semibold text-right">Valor</th>
-          <th class="px-4 py-3 font-semibold text-center">Estado</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-800">
-        {% for r in rows %}
-        {% set dias_mora = r[12] or 0 %}
-        <tr class="hover:bg-slate-800/50 transition-colors">
-          <td class="px-4 py-3 text-center text-slate-500">
-            <div class="w-4 h-4 rounded border border-slate-600 mx-auto"></div>
-          </td>
-          <td class="px-4 py-3 font-bold text-white">{{ r[1] }}</td>
-          <td class="px-4 py-3 text-slate-300">
-            {% if r[3] %}<a href="{{ url_maps(r[3], r[2]) }}" target="_blank" class="text-cyan-400 hover:underline">{{ r[3] }}</a>{% endif %}
-            {% if r[3] and r[2] %} · {% endif %}
-            {% if r[2] %}<span class="text-slate-500">{{ r[2] }}</span>{% endif %}
-          </td>
-          <td class="px-4 py-3 text-emerald-400 font-mono">{{ r[4] or '-' }}</td>
-          <td class="px-4 py-3 text-right font-bold text-accent">{{ fmt_money(r[5]) }}</td>
-          <td class="px-4 py-3 text-center">
-            {% if dias_mora > 0 %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-900/50 text-rose-300 border border-rose-800">
-                Atrasado ({{ dias_mora }}d)
-              </span>
-            {% else %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-900/50 text-emerald-300 border border-emerald-800">
-                Al día
-              </span>
-            {% endif %}
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="6" class="px-4 py-8 text-center text-slate-500">No hay clientes en la ruta de hoy.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="space-y-3">
+    {% for r in rows %}
+    {% set dias_mora = r[12] or 0 %}
+    <div class="bg-panel rounded-xl border border-slate-700 p-4 break-inside-avoid">
+      <div class="flex justify-between items-start mb-3">
+        <div>
+          <h3 class="text-lg font-bold text-white uppercase">{{ r[1] }}</h3>
+          <p class="text-xs text-slate-500">ID: {{ r[0] }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xl font-bold text-accent">{{ fmt_money(r[5]) }}</p>
+          {% if dias_mora > 0 %}
+            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-rose-900/50 text-rose-300 border border-rose-800 mt-1">
+              Atrasado {{ dias_mora }} días
+            </span>
+          {% else %}
+            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900/50 text-emerald-300 border border-emerald-800 mt-1">
+              Vence Hoy
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 text-sm">
+        <div class="flex items-center gap-2 text-slate-300">
+          <span class="text-slate-500 w-4">📍</span>
+          <a href="{{ url_maps(r[3], r[2]) }}" target="_blank" class="text-cyan-400 hover:underline">
+            {{ r[3] or 'Sin dirección' }}{% if r[3] and r[2] %}, {% endif %}{{ r[2] or '' }}
+          </a>
+        </div>
+        <div class="flex items-center gap-2 text-slate-300">
+          <span class="text-slate-500 w-4">📞</span>
+          <a href="{{ url_tel(r[4]) }}" class="text-emerald-400 hover:underline">{{ r[4] or 'Sin teléfono' }}</a>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-800 flex items-center gap-3">
+        <div class="w-5 h-5 rounded border-2 border-slate-500"></div>
+        <span class="text-xs text-slate-500 uppercase tracking-wide">Marcar como visitado</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="text-center py-10 text-slate-500">
+      <p class="text-xl mb-2">🎉</p>
+      <p>No hay clientes pendientes para hoy.</p>
+    </div>
+    {% endfor %}
   </div>
 </div>
 
@@ -66,16 +67,18 @@
   @media print {
     body { background: white !important; color: black !important; }
     .app-bottom-nav, button, a[href*="volver"] { display: none !important; }
-    .bg-panel, .bg-panel2 { background: white !important; border-color: #ddd !important; }
-    .text-white, .text-slate-300, .text-slate-400 { color: black !important; }
-    .text-accent { color: #000 !important; }
-    .text-emerald-400 { color: #059669 !important; }
+    .bg-panel { background: white !important; border: 1px solid #ddd !important; box-shadow: none !important; }
+    .text-white, .text-slate-300, .text-slate-400, .text-slate-500 { color: black !important; }
+    .text-accent { color: #000 !important; font-weight: bold; }
+    .text-cyan-400 { color: #0056b3 !important; }
+    .text-emerald-400 { color: #000 !important; }
     .text-rose-300 { color: #dc2626 !important; }
-    .border-slate-700, .border-slate-800, .divide-slate-800 { border-color: #ddd !important; }
-    thead { background: #f3f4f6 !important; }
-    th { color: #374151 !important; }
-    a { color: #2563eb !important; text-decoration: underline; }
-    .hover\\:bg-slate-800\\/50:hover { background: transparent !important; }
+    .border-slate-700, .border-slate-800 { border-color: #ccc !important; }
+    .bg-rose-900\/50, .bg-emerald-900\/50 { background: transparent !important; border: 1px solid #999 !important; }
+    .bg-rose-900\/50 { color: #dc2626 !important; }
+    .bg-emerald-900\/50 { color: #000 !important; }
+    a { text-decoration: underline; color: #000 !important; }
+    .break-inside-avoid { page-break-inside: avoid; }
   }
 </style>
 {% endblock %}
