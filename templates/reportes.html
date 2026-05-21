@@ -78,10 +78,7 @@
 
 <div class="mb-2 flex items-center justify-between gap-2">
   <h2 class="text-sm font-bold text-accent">Pagos del período</h2>
-  <div class="flex gap-2">
-    <a href="?export=csv&periodo={{ periodo }}" class="text-xs font-semibold text-accent px-2 py-1 rounded-lg border border-cyan-600/50">📥 Excel</a>
-    <span class="text-xs text-slate-500">{{ pagos_detalle|length }} registro(s)</span>
-  </div>
+  <span class="text-xs text-slate-500">{{ pagos_detalle|length }} registro(s)</span>
 </div>
 <div class="overflow-x-auto rounded-xl border border-slate-700 bg-panel">
   <table class="w-full text-left text-sm min-w-[320px]">

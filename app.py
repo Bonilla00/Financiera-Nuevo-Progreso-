@@ -1300,24 +1300,6 @@ def reportes():
     activos = db.contar_prestamos_activos(uid, is_admin)
     en_mora = db.contar_prestamos_en_mora(uid, is_admin)
     pagos_detalle = db.pagos_detalle_en_rango(f_ini, f_fin, uid, is_admin)
-    
-    # Exportar pagos a CSV
-    if request.args.get("export") == "csv":
-        import csv
-        from io import StringIO
-        si = StringIO()
-        writer = csv.writer(si)
-        writer.writerow(["Fecha", "Cliente", "Valor", "Cuota"])
-        for p in pagos_detalle:
-            writer.writerow([p[0], p[1], p[2], p[3]])
-        output = si.getvalue()
-        return send_file(
-            BytesIO(output.encode("utf-8")),
-            mimetype="text/csv",
-            as_attachment=True,
-            download_name=f"pagos_{periodo}_{today_str()}.csv",
-        )
-        
     chart_data = {
         "labels": [
             "Ganancia neta",
@@ -1693,6 +1675,27 @@ def descargar_recibo(pid, pago_id):
 @login_required
 def cobro_hoy():
     uid, _, is_admin, _ = ctx_user()
+    
+    # Exportar ruta de cobro a CSV
+    if request.args.get("export") == "csv":
+        import csv
+        from io import StringIO
+        rows = db.listar_cobro_hoy(uid, is_admin)
+        si = StringIO()
+        writer = csv.writer(si)
+        writer.writerow(["Nombre", "Barrio", "Dirección", "Teléfono", "Valor Cuota", "Días Mora", "Google Maps"])
+        for r in rows:
+            dias = r[12] or 0
+            maps_url = f"https://www.google.com/maps/search/?api=1&query={r[3] or ''},{r[2] or ''}"
+            writer.writerow([r[1], r[2], r[3], r[4], r[5], dias, maps_url])
+        output = si.getvalue()
+        return send_file(
+            BytesIO(output.encode("utf-8")),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=f"ruta_cobro_{today_str()}.csv",
+        )
+        
     rows = db.listar_cobro_hoy(uid, is_admin)
     total = sum(float(r[5] or 0) for r in rows)
     mora_total = 0

@@ -2,7 +2,10 @@
 {% block title %}Cobro del día{% endblock %}
 {% block content %}
 <h1 class="text-xl font-bold mb-1">Ruta de cobro</h1>
-<p class="text-slate-400 text-sm mb-3">{{ count }} por cobrar · {{ fmt_money(total) }} total{% if mora_total > 0 %} · {{ fmt_money(mora_total) }} mora{% endif %}</p>
+<div class="flex items-center justify-between mb-3">
+  <p class="text-slate-400 text-sm">{{ count }} por cobrar · {{ fmt_money(total) }} total{% if mora_total > 0 %} · {{ fmt_money(mora_total) }} mora{% endif %}</p>
+  <a href="?export=csv" class="rounded-xl bg-panel2 border border-slate-600 px-3 py-1.5 text-xs text-slate-300 font-bold">📥 Descargar Ruta</a>
+</div>
 
 <div class="space-y-3" id="lista-cobro">
   {% for r in rows %}
