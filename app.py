@@ -874,17 +874,24 @@ def clientes_perfil(cid):
             abort(403)
         if request.form.get("accion") != "guardar_datos":
             abort(400)
-        db.actualizar_cliente(
-            cid,
-            request.form.get("nombre", "").strip(),
-            request.form.get("identificacion", "").strip(),
-            request.form.get("telefono", "").strip(),
-            request.form.get("barrio", "").strip(),
-            request.form.get("direccion", "").strip(),
-            uid,
-            is_admin,
-        )
-        flash("Información personal actualizada.", "ok")
+        try:
+            db.actualizar_cliente(
+                cid,
+                request.form.get("nombre", "").strip(),
+                request.form.get("identificacion", "").strip(),
+                request.form.get("telefono", "").strip(),
+                request.form.get("barrio", "").strip(),
+                request.form.get("direccion", "").strip(),
+                uid,
+                is_admin,
+            )
+            flash("Información personal actualizada.", "ok")
+        except Exception as e:
+            logger.error(f"Error actualizando cliente {cid}: {e}")
+            if "unique" in str(e).lower() or "duplicado" in str(e).lower():
+                flash("Ya existe otro cliente con esa identificación.", "error")
+            else:
+                flash("Error al guardar los cambios. Inténtalo de nuevo.", "error")
         return redirect(url_for("clientes_perfil", cid=cid))
 
     prestamos_rows = db.listar_prestamos_por_cliente(cid, uid, is_admin)
@@ -926,17 +933,24 @@ def clientes_editar(cid):
     row = db.obtener_cliente(cid, uid, is_admin)
     if not row:
         abort(404)
-    db.actualizar_cliente(
-        cid,
-        request.form.get("nombre", "").strip(),
-        request.form.get("identificacion", "").strip(),
-        request.form.get("telefono", "").strip(),
-        request.form.get("barrio", "").strip(),
-        request.form.get("direccion", "").strip(),
-        uid,
-        is_admin,
-    )
-    flash("Cliente actualizado.", "ok")
+    try:
+        db.actualizar_cliente(
+            cid,
+            request.form.get("nombre", "").strip(),
+            request.form.get("identificacion", "").strip(),
+            request.form.get("telefono", "").strip(),
+            request.form.get("barrio", "").strip(),
+            request.form.get("direccion", "").strip(),
+            uid,
+            is_admin,
+        )
+        flash("Cliente actualizado.", "ok")
+    except Exception as e:
+        logger.error(f"Error editando cliente {cid}: {e}")
+        if "unique" in str(e).lower() or "duplicado" in str(e).lower():
+            flash("Ya existe otro cliente con esa identificación.", "error")
+        else:
+            flash("Error al guardar los cambios. Inténtalo de nuevo.", "error")
     return redirect(url_for("clientes_perfil", cid=cid))
 
 
