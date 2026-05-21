@@ -761,6 +761,24 @@ def clientes_list():
         start = (page - 1) * PER_PAGE
         end = start + PER_PAGE
         paginated = rows[start:end]
+        
+        # Exportar a CSV
+        if request.args.get("export") == "csv":
+            import csv
+            from io import StringIO
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow(["Nombre", "Identificación", "Teléfono", "Barrio", "Dirección"])
+            for r in rows:
+                writer.writerow([r[1], r[2], r[3], r[4], r[5]])
+            output = si.getvalue()
+            return send_file(
+                BytesIO(output.encode("utf-8")),
+                mimetype="text/csv",
+                as_attachment=True,
+                download_name=f"clientes_{today_str()}.csv",
+            )
+            
         return render_template(
             "clientes.html",
             clientes=paginated,
@@ -1282,6 +1300,24 @@ def reportes():
     activos = db.contar_prestamos_activos(uid, is_admin)
     en_mora = db.contar_prestamos_en_mora(uid, is_admin)
     pagos_detalle = db.pagos_detalle_en_rango(f_ini, f_fin, uid, is_admin)
+    
+    # Exportar pagos a CSV
+    if request.args.get("export") == "csv":
+        import csv
+        from io import StringIO
+        si = StringIO()
+        writer = csv.writer(si)
+        writer.writerow(["Fecha", "Cliente", "Valor", "Cuota"])
+        for p in pagos_detalle:
+            writer.writerow([p[0], p[1], p[2], p[3]])
+        output = si.getvalue()
+        return send_file(
+            BytesIO(output.encode("utf-8")),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=f"pagos_{periodo}_{today_str()}.csv",
+        )
+        
     chart_data = {
         "labels": [
             "Ganancia neta",

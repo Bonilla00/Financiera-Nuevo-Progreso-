@@ -740,7 +740,7 @@ def listar_cuotas_vencer(user_id: int, is_admin: bool) -> list[tuple]:
 
 
 def listar_cobro_hoy(user_id: int, is_admin: bool) -> list[tuple]:
-    """Préstamos con próximo_pago hoy o vencido, ordenados por barrio."""
+    """Préstamos con próximo_pago hoy o vencido, ordenados por urgencia y luego por barrio."""
     scope, sparams = _filtro_owner("c", user_id, is_admin)
     q = f"""
         SELECT p.id, c.nombre, c.barrio, c.direccion, c.telefono,
@@ -753,7 +753,11 @@ def listar_cobro_hoy(user_id: int, is_admin: bool) -> list[tuple]:
           AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
           AND (p.proximo_pago::date) <= CURRENT_DATE
           {scope}
-        ORDER BY c.barrio ASC NULLS LAST, c.nombre ASC
+        ORDER BY 
+            CASE WHEN GREATEST(0, (CURRENT_DATE - (p.proximo_pago::date)))::int > 0 THEN 0 ELSE 1 END,
+            dias_mora DESC,
+            c.barrio ASC NULLS LAST, 
+            c.nombre ASC
     """
     with get_conn() as conn:
         cur = conn.cursor()
