@@ -4,7 +4,7 @@
 <h1 class="text-xl font-bold mb-1">Ruta de cobro</h1>
 <div class="flex items-center justify-between mb-3">
   <p class="text-slate-400 text-sm">{{ count }} por cobrar · {{ fmt_money(total) }} total{% if mora_total > 0 %} · {{ fmt_money(mora_total) }} mora{% endif %}</p>
-  <a href="?export=csv" class="rounded-xl bg-panel2 border border-slate-600 px-3 py-1.5 text-xs text-slate-300 font-bold">📥 Descargar Ruta</a>
+  <a href="{{ url_for('cobro_hoy_print') }}" class="rounded-xl bg-panel2 border border-slate-600 px-3 py-1.5 text-xs text-slate-300 font-bold">🖨️ Imprimir</a>
 </div>
 
 <div class="space-y-3" id="lista-cobro">

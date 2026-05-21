@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruta de Cobro - {{ hoy }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 20px; color: #000; }
+        h1 { font-size: 24px; margin-bottom: 5px; }
+        p { font-size: 14px; color: #555; margin-top: 0; }
+        .btn-bar { margin-bottom: 20px; display: flex; gap: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f0f0f0; border-radius: 5px; }
+        button.primary { background: #007bff; color: white; border: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+        th { background-color: #f2f2f2; }
+        .mora { color: red; font-weight: bold; }
+        .checkbox-col { width: 30px; text-align: center; }
+        
+        @media print {
+            .btn-bar { display: none; }
+            body { padding: 0; }
+            h1 { font-size: 18px; }
+            th, td { font-size: 12px; padding: 4px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="btn-bar">
+        <button onclick="window.history.back()">️ Volver</button>
+        <button class="primary" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+    </div>
+
+    <h1>Ruta de Cobro - {{ hoy }}</h1>
+    <p>Total clientes: {{ count }} | Total a cobrar: ${{ "{:,.0f}".format(total) }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="checkbox-col">✓</th>
+                <th>Cliente</th>
+                <th>Dirección / Barrio</th>
+                <th>Teléfono</th>
+                <th>Valor</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            {% set dias_mora = r[12] or 0 %}
+            <tr>
+                <td class="checkbox-col"></td>
+                <td><strong>{{ r[1] }}</strong></td>
+                <td>{{ r[3] or '' }}{% if r[3] and r[2] %}, {% endif %}{{ r[2] or '' }}</td>
+                <td>{{ r[4] or '-' }}</td>
+                <td>${{ "{:,.0f}".format(r[5] or 0) }}</td>
+                <td class="{% if dias_mora > 0 %}mora{% endif %}">
+                    {% if dias_mora > 0 %}
+                        Atrasado ({{ dias_mora }} días)
+                    {% else %}
+                        Al día
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
