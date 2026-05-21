@@ -47,7 +47,7 @@
       <div class="flex justify-between items-start">
         <div class="space-y-1">
           <p class="text-sm font-bold text-white uppercase">{{ p.nombre }}</p>
-          <p class="text-xs text-slate-400">ID #{{ p.id }} · {{ fmt_money(p.monto) }}</p>
+          <p class="text-xs text-slate-400">{{ fmt_money(p.monto) }}</p>
           <div class="flex items-center gap-2 mt-2">
             <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold uppercase tracking-wider">
               {{ p.frecuencia }}

@@ -100,7 +100,6 @@ if (document.getElementById('input-foto')) {
     <div class="rounded-xl border {% if pr.en_mora %}border-red-500/50 bg-red-900/10{% else %}border-slate-600 bg-panel2/50{% endif %} p-3">
       <div class="flex justify-between items-start gap-2 mb-2">
         <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest {% if pr.estado == 'PAGADO' %}bg-emerald-900/60 text-emerald-200{% else %}bg-amber-900/50 text-amber-200{% endif %}">{{ pr.estado }}</span>
-        <span class="text-xs text-slate-500">ID #{{ pr.id }}</span>
       </div>
 
       {% if pr.en_mora %}
