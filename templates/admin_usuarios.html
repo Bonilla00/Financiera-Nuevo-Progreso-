@@ -12,6 +12,7 @@
     <div class="bg-panel rounded-3xl border border-slate-800 p-6 shadow-xl">
         <h2 class="text-xs font-bold text-accent uppercase tracking-widest mb-4">Crear Nuevo Acceso</h2>
         <form method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="username" placeholder="Usuario" required class="bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-white outline-none focus:ring-2 focus:ring-accent transition-all">
             <input type="password" name="password" placeholder="Contraseña" required class="bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-white outline-none focus:ring-2 focus:ring-accent transition-all">
             <select name="rol" class="bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-white outline-none">
@@ -46,6 +47,7 @@
                 <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                     <!-- Form Password Rápido -->
                     <form action="{{ url_for('admin_usuario_pass_update', uid=u.id) }}" method="POST" class="flex gap-1">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="password" name="new_password" placeholder="Nueva clave" required class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white w-32 focus:border-emerald-500 transition-all outline-none">
                         <button type="submit" class="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white p-2 rounded-xl border border-emerald-600/30 transition-all" title="Reset Password">🔑</button>
                     </form>
@@ -55,6 +57,7 @@
                         <a href="{{ url_for('admin_usuario_editar', uid=u.id) }}" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-xl border border-blue-600/30 text-[10px] font-bold uppercase transition-all">Editar</a>
 
                         <form action="{{ url_for('admin_usuario_toggle', uid=u.id) }}" method="POST">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white px-3 py-1.5 rounded-xl border border-amber-600/30 text-[10px] font-bold uppercase transition-all">
                                 {{ 'Apagar' if u.activo else 'Encender' }}
                             </button>
@@ -62,6 +65,7 @@
 
                         {% if u.id != session.user_id %}
                         <form action="{{ url_for('admin_usuario_eliminar', uid=u.id) }}" method="POST" onsubmit="return confirm('¿Eliminar permanentemente?')">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="bg-rose-600/20 text-rose-500 hover:bg-rose-600 hover:text-white px-3 py-1.5 rounded-xl border border-rose-600/30 text-[10px] font-bold uppercase transition-all">Eliminar</button>
                         </form>
                         {% endif %}

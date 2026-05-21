@@ -69,7 +69,7 @@ def ensure_schema_migrations() -> None:
                 cur = conn.cursor()
                 cur.execute(s)
         except Exception as e:
-            print(f"Info migración: {e}")
+            logger.info(f"Info migración: {e}")
 
     ensure_auditoria_table()
     crear_admin_inicial()
@@ -655,19 +655,6 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
         fecha_fin = hoy.isoformat()
     else:
         fecha_ini = fecha_fin = hoy.isoformat()
-
-    print(f"--- DEBUG DASHBOARD: user_id={user_id}, is_admin={is_admin}, periodo={periodo}, fechas={fecha_ini} a {fecha_fin} ---")
-
-    # Métricas financieras (mismas funciones que /reportes)
-    total_prestado = sum_montos_por_rango(fecha_ini, fecha_fin, user_id, is_admin)
-    total_cobrado = sum_pagos_por_rango(fecha_ini, fecha_fin, user_id, is_admin)
-    mora_cobrada = total_mora_cobrada_en_rango(fecha_ini, fecha_fin, user_id, is_admin)
-    capital_cobrado, interes_cobrado = desglose_capital_interes_cobrado_en_rango(
-        fecha_ini, fecha_fin, user_id, is_admin
-    )
-    ganancia_neta = interes_cobrado + mora_cobrada
-
-    print(f"--- DEBUG DASHBOARD RESULT: total_prestado={total_prestado}, total_cobrado={total_cobrado}, capital={capital_cobrado}, interes={interes_cobrado}, mora={mora_cobrada}, ganancia={ganancia_neta} ---")
 
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -1316,7 +1303,6 @@ def sum_montos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
         row = cur.fetchone()
         total = float(row[0] or 0)
         count = row[1] or 0
-        print(f"--- DEBUG SUM_MONTOS: rango={f_ini} a {f_fin}, prestamos={count}, total={total} ---")
         return total
 
 
@@ -1336,7 +1322,6 @@ def sum_pagos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
         row = cur.fetchone()
         total = float(row[0] or 0)
         count = row[1] or 0
-        print(f"--- DEBUG SUM_PAGOS: rango={f_ini} a {f_fin}, pagos={count}, total={total} ---")
         return total
 
 
@@ -1366,7 +1351,6 @@ def total_mora_cobrada_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: 
         row = cur.fetchone()
         total = float(row[0] or 0)
         count = row[1] or 0
-        print(f"--- DEBUG SUM_MORA: rango={f_ini} a {f_fin}, pagos_con_mora={count}, total_mora={total} ---")
         return total
 
 
@@ -1403,10 +1387,6 @@ def desglose_capital_interes_cobrado_en_rango(
         row = cur.fetchone()
         capital = float(row[0] or 0)
         interes = float(row[1] or 0)
-        count = row[2] or 0
-        total_valor = float(row[3] or 0)
-        total_mora = float(row[4] or 0)
-        print(f"--- DEBUG DESGLOSE: rango={f_ini} a {f_fin}, pagos={count}, total_valor={total_valor}, total_mora={total_mora}, capital_calc={capital}, interes_calc={interes} ---")
         return capital, interes
 
 

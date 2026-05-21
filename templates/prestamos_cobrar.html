@@ -22,6 +22,7 @@
 </div>
 
 <form method="post" action="{{ url_for('prestamos_pago', pid=pid) }}" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando pago…">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label class="block text-sm text-slate-400">Fecha del pago</label>
   <input type="date" name="fecha" value="{{ fecha }}" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <label class="block text-sm text-slate-400">Valor recibido</label>

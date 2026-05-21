@@ -37,6 +37,7 @@
               <span class="text-lg">💾</span>
             </a>
             <form action="{{ url_for('admin_restore_user', uid=u.id) }}" method="post" enctype="multipart/form-data" class="flex" title="Restaurar">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <label class="text-amber-400 hover:text-amber-300 transition-colors cursor-pointer flex items-center">
                 <span class="text-lg">♻</span>
                 <input type="file" name="backup_file" class="hidden" accept=".json" onchange="this.form.submit()">

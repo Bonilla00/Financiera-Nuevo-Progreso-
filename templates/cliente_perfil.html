@@ -52,6 +52,7 @@ if (document.getElementById('input-foto')) {
 <section class="mb-6 bg-panel rounded-2xl border border-slate-700 p-4">
   <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Información personal</h2>
   <form method="post" class="space-y-3" data-loading-submit data-loading-label="Procesando…">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="accion" value="guardar_datos">
     <div class="space-y-1">
       <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Nombre Completo</label>
@@ -169,6 +170,7 @@ if (document.getElementById('input-foto')) {
 {% if is_admin %}
 <div class="mt-8 mb-4">
   <form action="{{ url_for('clientes_eliminar', cid=cliente[0]) }}" method="POST" onsubmit="return confirm('¿Eliminar cliente y TODO su historial? Esta acción no se puede deshacer.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="w-full py-3 rounded-xl border border-red-500/30 text-red-500 text-xs font-bold uppercase tracking-widest hover:bg-red-500/10 transition-colors">
       Eliminar Cliente Permanentemente
     </button>

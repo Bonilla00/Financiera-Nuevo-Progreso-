@@ -2,6 +2,8 @@ import os
 import logging
 import time
 import json
+import secrets
+import re
 from datetime import date, datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -9,6 +11,7 @@ from itertools import groupby
 
 import psycopg2
 import requests
+import bleach
 from flask import (
     Flask,
     abort,
@@ -21,6 +24,9 @@ from flask import (
     url_for,
     jsonify,
 )
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
@@ -36,7 +42,85 @@ from utils_web import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "cambia-esto-en-produccion")
+
+# Security: Validate SECRET_KEY
+_secret_key = os.environ.get("SECRET_KEY")
+if not _secret_key or _secret_key in ("cambia-esto-en-produccion", "secret", "flask-secret-key"):
+    # Generate a secure random key for development
+    _secret_key = secrets.token_hex(32)
+    logging.warning("SECRET_KEY no configurado o inseguro. Usando clave aleatoria. Configura SECRET_KEY en producción.")
+app.secret_key = _secret_key
+
+# Session security configuration
+app.config.update(
+    SESSION_COOKIE_SECURE=True,  # Only send cookies over HTTPS
+    SESSION_COOKIE_HTTPONLY=True,  # Prevent JavaScript access
+    SESSION_COOKIE_SAMESITE="Lax",  # CSRF protection
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),  # Session timeout
+    WTF_CSRF_ENABLED=True,
+    WTF_CSRF_TIME_LIMIT=3600,  # CSRF token expires in 1 hour
+)
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
+
+# Security headers
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    
+    # HSTS for production (only if HTTPS)
+    if request.is_secure or os.environ.get("FORCE_HSTS"):
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    
+    # Content Security Policy
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    
+    # Remove server header
+    response.headers.pop("Server", None)
+    
+    return response
+
+def validate_password_strength(password):
+    """Validate password meets security requirements."""
+    if len(password) < 8:
+        return False, "La contraseña debe tener al menos 8 caracteres."
+    if not re.search(r"[A-Z]", password):
+        return False, "La contraseña debe contener al menos una letra mayúscula."
+    if not re.search(r"[a-z]", password):
+        return False, "La contraseña debe contener al menos una letra minúscula."
+    if not re.search(r"\d", password):
+        return False, "La contraseña debe contener al menos un número."
+    return True, ""
+
+
+def sanitize_input(value, allowed_tags=None):
+    """Sanitize user input to prevent XSS."""
+    if allowed_tags:
+        return bleach.clean(value, tags=allowed_tags, strip=True)
+    return bleach.clean(value, tags=[], strip=True)
+
 
 PER_PAGE = 20
 
@@ -228,7 +312,7 @@ def before_request():
         try:
             db.ensure_schema_migrations()
         except Exception as e:
-            print(f"--- ERROR DB SCHEMA: {e} ---")
+            logger.error(f"Error DB schema: {e}")
         app.config["DB_SCHEMA_READY"] = True
 
     if endpoint in public_endpoints:
@@ -250,7 +334,7 @@ def before_request():
             session["rol"] = row.get("rol") or "usuario"
             session["is_admin"] = session["rol"] == "admin"
     except Exception as e:
-        print(f"--- ERROR BEFORE REQUEST: {e} ---")
+        logger.error(f"Error before request: {e}")
         session.clear()
         return redirect(url_for("login"))
 
@@ -374,24 +458,29 @@ def setup():
         return redirect(url_for("login"))
         
     if request.method == "POST":
-        u = request.form.get("username", "").strip()
+        u = sanitize_input(request.form.get("username", "").strip())
         p1 = request.form.get("password", "")
         p2 = request.form.get("password2", "")
         if len(u) < 3:
             flash("El usuario debe tener al menos 3 caracteres.", "error")
-        elif len(p1) < 6:
-            flash("La clave debe tener al menos 6 caracteres.", "error")
-        elif p1 != p2:
-            flash("Las claves no coinciden.", "error")
+        elif len(p1) < 8:
+            flash("La clave debe tener al menos 8 caracteres.", "error")
         else:
-            h = generate_password_hash(p1)
-            db.crear_usuario(u, h, rol="admin")
-            flash("Administrador creado. Inicia sesión.", "ok")
-            return redirect(url_for("login"))
+            valid, msg = validate_password_strength(p1)
+            if not valid:
+                flash(msg, "error")
+            elif p1 != p2:
+                flash("Las claves no coinciden.", "error")
+            else:
+                h = generate_password_hash(p1)
+                db.crear_usuario(u, h, rol="admin")
+                flash("Administrador creado. Inicia sesión.", "ok")
+                return redirect(url_for("login"))
     return render_template("setup.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per 15 minutes")
 def login():
     try:
         total = db.count_usuarios()
@@ -405,7 +494,7 @@ def login():
         
     if request.method == "POST":
         try:
-            u = (request.form.get("username") or "").strip()
+            u = bleach.clean((request.form.get("username") or "").strip())
             p = (request.form.get("password") or "")
             ip = request.remote_addr or "127.0.0.1"
 
@@ -436,6 +525,7 @@ def login():
                 session["username"] = row.get('username')
                 session["rol"] = row.get('rol')
                 session["is_admin"] = (row.get('rol') == "admin")
+                session.permanent = True
 
                 db.registrar_log(session["user_id"], "Inicio de sesión")
 
@@ -446,7 +536,7 @@ def login():
                 nxt = request.args.get("next") or url_for("inicio")
                 return redirect(nxt)
         except Exception as e:
-            print(f"--- ERROR CRÍTICO EN LOGIN: {e} ---")
+            logger.error(f"Error en login: {e}")
             flash("Error interno del servidor. Inténtalo de nuevo.", "error")
             return render_template("login.html")
 
@@ -540,15 +630,17 @@ def cambiar_password():
 
         if len(p1) < 8:
             flash("La contraseña debe tener al menos 8 caracteres.", "error")
-        elif p1 != p2:
-            flash("Las contraseñas no coinciden.", "error")
         else:
-            h = generate_password_hash(p1)
-            # Usamos la nueva función que limpia el flag
-            db.completar_cambio_password(session['user_id'], h)
-            flash("Contraseña actualizada correctamente.", "ok")
-            return redirect(url_for("inicio"))
-
+            valid, msg = validate_password_strength(p1)
+            if not valid:
+                flash(msg, "error")
+            elif p1 != p2:
+                flash("Las contraseñas no coinciden.", "error")
+            else:
+                h = generate_password_hash(p1)
+                db.completar_cambio_password(session['user_id'], h)
+                flash("Contraseña actualizada correctamente.", "ok")
+                return redirect(url_for("inicio"))
     return render_template("cambiar_password.html")
 
 
@@ -620,7 +712,7 @@ def inicio():
             "hoy": hoy,
         }
     except Exception as e:
-        print(f"--- ERROR EN INICIO: {e} ---")
+        logger.error(f"Error en inicio: {e}")
         context = {
             "route_name": "inicio",
             "periodo": periodo,
@@ -953,7 +1045,7 @@ def prestamos_list():
 
     except Exception as e:
         # Logging del error para debug
-        print(f"Error en /prestamos: {e}")
+        logger.error(f"Error en /prestamos: {e}")
         flash("Ocurrió un error al cargar la lista de préstamos.", "error")
         return redirect(url_for("inicio"))
 
@@ -1338,14 +1430,18 @@ def configuracion():
             row = db.obtener_usuario_por_id(uid)
             if not row or not check_password_hash(row['password_hash'], actual):
                 flash("La clave actual no es correcta.", "error")
-            elif len(n1) < 6:
-                flash("La nueva clave debe tener al menos 6 caracteres.", "error")
-            elif n1 != n2:
-                flash("Las claves nuevas no coinciden.", "error")
+            elif len(n1) < 8:
+                flash("La nueva clave debe tener al menos 8 caracteres.", "error")
             else:
-                db.actualizar_password_usuario(uid, generate_password_hash(n1))
-                flash("Clave actualizada.", "ok")
-                return redirect(url_for("configuracion"))
+                valid, msg = validate_password_strength(n1)
+                if not valid:
+                    flash(msg, "error")
+                elif n1 != n2:
+                    flash("Las claves nuevas no coinciden.", "error")
+                else:
+                    db.actualizar_password_usuario(uid, generate_password_hash(n1))
+                    flash("Clave actualizada.", "ok")
+                    return redirect(url_for("configuracion"))
     row = db.obtener_usuario_por_id(uid)
     return render_template("configuracion.html", username_actual=username)
 
@@ -1355,16 +1451,24 @@ def configuracion():
 def admin_usuarios():
     if request.method == "POST":
         # Lógica para Crear Usuario
-        u = request.form.get("username", "").strip()
+        u = sanitize_input(request.form.get("username", "").strip())
         p = request.form.get("password", "")
         r = request.form.get("rol", "cobrador")
 
-        if db.obtener_usuario_por_username(u):
-            flash("El nombre de usuario ya existe.", "error")
+        if len(u) < 3:
+            flash("El usuario debe tener al menos 3 caracteres.", "error")
+        elif len(p) < 8:
+            flash("La contraseña debe tener al menos 8 caracteres.", "error")
         else:
-            h = generate_password_hash(p)
-            db.crear_usuario(u, h, rol=r)
-            flash(f"Usuario {u} creado correctamente.", "ok")
+            valid, msg = validate_password_strength(p)
+            if not valid:
+                flash(msg, "error")
+            elif db.obtener_usuario_por_username(u):
+                flash("El nombre de usuario ya existe.", "error")
+            else:
+                h = generate_password_hash(p)
+                db.crear_usuario(u, h, rol=r)
+                flash(f"Usuario {u} creado correctamente.", "ok")
         return redirect(url_for('admin_usuarios'))
 
     usuarios = db.listar_usuarios_admin()
