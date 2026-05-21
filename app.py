@@ -82,11 +82,11 @@ def add_security_headers(response):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     
-    # HSTS for production (only if HTTPS)
-    if request.is_secure or os.environ.get("FORCE_HSTS"):
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # HSTS - Always enabled in production (Railway uses HTTPS)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     
     # Content Security Policy
+    # Note: unsafe-inline and unsafe-eval are required for Tailwind CDN to work
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com; "
