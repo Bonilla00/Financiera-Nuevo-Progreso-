@@ -228,6 +228,14 @@
         min-height: 4.5rem;
       }
     }
+    /* Global Page Transition Animation */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #page-content {
+      animation: fadeInUp 0.4s ease-out;
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
