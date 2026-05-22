@@ -326,19 +326,19 @@
   </div>
 
   <nav class="app-bottom-nav fixed bottom-0 inset-x-0 z-40 flex min-h-[4rem] justify-around items-center border-t border-slate-700 bg-panel pb-[var(--nav-safe-bottom)]">
-    <a href="{{ url_for('inicio') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'inicio' %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('inicio') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if request.endpoint == 'inicio' %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-lg leading-none">⌂</span>Inicio
     </a>
-    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-1 text-xs {% if 'clientes' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if 'clientes' in (request.endpoint or '') %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-lg leading-none">👤</span>Clientes
     </a>
-    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center py-1 text-xs {% if 'prestamos' in (request.endpoint or '') %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if 'prestamos' in (request.endpoint or '') %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-lg leading-none">📋</span>Préstamos
     </a>
-    <a href="{{ url_for('cobro_hoy') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint == 'cobro_hoy' %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('cobro_hoy') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if request.endpoint == 'cobro_hoy' %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-lg leading-none">🗓</span>Cobro
     </a>
-    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-1 text-xs {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','api_docs') %}text-accent{% else %}text-slate-400{% endif %}">
+    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','api_docs') %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-lg leading-none">⚙️</span>Más
     </a>
   </nav>
