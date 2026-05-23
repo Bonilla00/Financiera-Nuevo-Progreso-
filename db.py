@@ -5,6 +5,7 @@ Los clientes pertenecen a un usuario (owner_user_id); el rol admin ve todo.
 from __future__ import annotations
 
 import os
+import logging
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -12,6 +13,8 @@ from typing import Optional
 import psycopg2
 import psycopg2.extras
 from werkzeug.security import generate_password_hash
+
+logger = logging.getLogger(__name__)
 
 
 def _dsn() -> str:
