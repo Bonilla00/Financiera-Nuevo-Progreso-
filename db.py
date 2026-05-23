@@ -646,7 +646,7 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
     Usa las mismas funciones que /reportes para garantizar consistencia.
     """
     hoy = date.today()
-    
+
     if periodo == "todo":
         fecha_ini = "2000-01-01"
         fecha_fin = "2099-12-31"
@@ -675,12 +675,12 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
 
         # 2. Préstamos en mora
         cur.execute(f"""
-            SELECT COUNT(*) as cnt FROM prestamos p 
-            JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.estado = 'ACTIVO' 
-              AND p.proximo_pago IS NOT NULL 
-              AND p.proximo_pago <> ''
-              AND p.proximo_pago::date < CURRENT_DATE{user_filter}
+        SELECT COUNT(*) as cnt FROM prestamos p
+        JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.estado = 'ACTIVO'
+        AND p.proximo_pago IS NOT NULL
+        AND p.proximo_pago <> ''
+        AND p.proximo_pago::date < CURRENT_DATE{user_filter}
         """, params)
         en_mora = cur.fetchone()['cnt'] or 0
 
@@ -688,18 +688,25 @@ def obtener_stats_dashboard(user_id: int, is_admin: bool, periodo: str = "hoy"):
         cur.execute(f"SELECT COUNT(*) as cnt FROM prestamos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado = 'PAGADO'{user_filter}", params)
         pagados = cur.fetchone()['cnt'] or 0
 
-        return {
-            "total_prestado": total_prestado,
-            "capital_cobrado": capital_cobrado,
-            "interes_cobrado": interes_cobrado,
-            "mora_cobrada": mora_cobrada,
-            "ganancia_neta": ganancia_neta,
-            "total_cobrado": total_cobrado,
-            "activos": activos,
-            "en_mora": en_mora,
-            "pagados": pagados,
-            "periodo": periodo,
-        }
+    # Calcular métricas financieras usando las funciones existentes
+    total_prestado = total_prestado_en_rango(fecha_ini, fecha_fin, user_id, is_admin)
+    total_cobrado = total_cobrado_en_rango(fecha_ini, fecha_fin, user_id, is_admin)
+    mora_cobrada = total_mora_cobrada_en_rango(fecha_ini, fecha_fin, user_id, is_admin)
+    capital_cobrado, interes_cobrado = desglose_capital_interes_cobrado_en_rango(fecha_ini, fecha_fin, user_id, is_admin)
+    ganancia_neta = interes_cobrado + mora_cobrada
+
+    return {
+        "total_prestado": total_prestado,
+        "capital_cobrado": capital_cobrado,
+        "interes_cobrado": interes_cobrado,
+        "mora_cobrada": mora_cobrada,
+        "ganancia_neta": ganancia_neta,
+        "total_cobrado": total_cobrado,
+        "activos": activos,
+        "en_mora": en_mora,
+        "pagados": pagados,
+        "periodo": periodo,
+    }
 
 
 def listar_cuotas_vencidas(user_id: int, is_admin: bool) -> list[tuple]:
