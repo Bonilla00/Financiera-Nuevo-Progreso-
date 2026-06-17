@@ -1111,6 +1111,181 @@ def actualizar_nota_prestamo(pid: int, nota: str, user_id: int, is_admin: bool) 
         return cur.rowcount > 0
 
 
+# ---------- renovaciones ----------
+def puede_renovar_prestamo(pid: int, user_id: int, is_admin: bool) -> tuple[bool, str, dict | None]:
+    """
+    Verifica si un préstamo puede ser renovado.
+    Retorna: (puede_renovar, mensaje, info_prestamo)
+    Solo permite renovar si falta exactamente 1 cuota por pagar.
+    """
+    info = obtener_prestamo(pid, user_id, is_admin)
+    if not info:
+        return False, "Préstamo no encontrado.", None
+    
+    if str(info[13]).upper() != "ACTIVO":
+        return False, "Solo se pueden renovar préstamos activos.", None
+    
+    pagadas = int(info[14] or 0)
+    cuotas = int(info[6])
+    
+    if pagadas + 1 != cuotas:
+        return False, f"Solo se puede renovar cuando falta 1 cuota por pagar. Lleva {pagadas} de {cuotas}.", None
+    
+    return True, "", {
+        "id": pid,
+        "cliente_id": info[1],
+        "cliente_nombre": info[2],
+        "monto": float(info[7]),
+        "tasa": float(info[8]),
+        "cuotas": cuotas,
+        "valor_cuota": float(info[11]),
+        "pagadas": pagadas,
+        "saldo_pendiente": float(info[10]) - (pagadas * float(info[11])),
+    }
+
+
+def renovar_prestamo(
+    pid_anterior: int,
+    nuevo_monto: float,
+    nueva_tasa: float,
+    nuevas_cuotas: int,
+    nueva_frecuencia: str,
+    nuevo_vencimiento: str,
+    descontar_ultima_cuota: bool,
+    user_id: int,
+    is_admin: bool,
+    mora_activa: bool = False,
+    tasa_mora_diaria: float = 0.0,
+) -> tuple[int, int, float]:
+    """
+    Renueva un préstamo:
+    1. Marca el préstamo anterior como "RENOVADO"
+    2. Registra un pago por la última cuota (si descontar_ultima_cuota=True)
+    3. Crea un nuevo préstamo con los nuevos parámetros
+    4. Retorna: (nuevo_prestamo_id, prestamo_anterior_id, monto_desembolsado)
+    """
+    # Validar que se puede renovar
+    puede, mensaje, info = puede_renovar_prestamo(pid_anterior, user_id, is_admin)
+    if not puede:
+        raise ValueError(mensaje)
+    
+    with get_conn() as conn:
+        cur = conn.cursor()
+        
+        # 1. Marcar préstamo anterior como RENOVADO
+        cur.execute(
+            "UPDATE prestamos SET estado = 'RENOVADO' WHERE id = %s",
+            (pid_anterior,)
+        )
+        
+        # 2. Si se va a descontar la última cuota, registrar como pago
+        monto_descuento = 0.0
+        if descontar_ultima_cuota:
+            ultima_cuota = info["saldo_pendiente"]
+            fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+            
+            # Registrar pago de la última cuota
+            cur.execute(
+                """
+                INSERT INTO pagos (prestamo_id, fecha, valor, cuota, saldo_restante, interes_mora, nota)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (pid_anterior, fecha_hoy, ultima_cuota, info["pagadas"] + 1, 0, 0, "Pago por renovación de préstamo")
+            )
+            monto_descuento = ultima_cuota
+        
+        # 3. Calcular parámetros del nuevo préstamo
+        nuevo_interes = nuevo_monto * (nueva_tasa / 100.0)
+        nuevo_total = nuevo_monto + nuevo_interes
+        nuevo_valor_cuota = nuevo_total / nuevas_cuotas
+        nuevo_proximo_pago = proxima_fecha_pago(fecha_hoy, nueva_frecuencia, 0, nuevas_cuotas)
+        
+        # 4. Crear nuevo préstamo
+        cur.execute(
+            """
+            INSERT INTO prestamos
+            (cliente_id, fecha, frecuencia, cuotas, monto, tasa,
+             interes_total, total_pagar, valor_cuota, vencimiento, estado, pagadas, proximo_pago,
+             mora_activa, tasa_mora_diaria,
+             prestamo_anterior_id, monto_descuento_renovacion, tipo_pago_ultima_cuota, es_renovacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                info["cliente_id"],
+                fecha_hoy,
+                nueva_frecuencia,
+                nuevas_cuotas,
+                nuevo_monto,
+                nueva_tasa,
+                nuevo_interes,
+                nuevo_total,
+                nuevo_valor_cuota,
+                nuevo_vencimiento,
+                nuevo_proximo_pago,
+                bool(mora_activa),
+                float(tasa_mora_diaria or 0),
+                pid_anterior,
+                monto_descuento,
+                "renovacion" if descontar_ultima_cuota else None,
+                True,
+            )
+        )
+        nuevo_pid = int(cur.fetchone()[0])
+        
+        # 5. Registrar log
+        cur.execute(
+            "INSERT INTO logs (user_id, accion) VALUES (%s, %s)",
+            (user_id, f"Renovación préstamo #{pid_anterior} -> #{nuevo_pid}")
+        )
+        
+        monto_desembolsado = nuevo_monto - monto_descuento
+        return nuevo_pid, pid_anterior, monto_desembolsado
+
+
+def contar_renovaciones_prestamo(pid: int, user_id: int, is_admin: bool) -> int:
+    """Cuenta cuántas veces se ha renovado un préstamo (cadena de renovaciones)."""
+    extra, params = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        
+        # Contar renovaciones hacia adelante
+        cur.execute(f"""
+            WITH RECURSIVE renovaciones AS (
+                SELECT prestamo_anterior_id FROM prestamos WHERE prestamo_anterior_id = %s
+                UNION ALL
+                SELECT p.prestamo_anterior_id 
+                FROM prestamos p
+                INNER JOIN renovaciones r ON p.id = r.prestamo_anterior_id
+            )
+            SELECT COUNT(*) FROM renovaciones
+        """, (pid,))
+        return int(cur.fetchone()[0] or 0)
+
+
+def obtener_historial_renovaciones(pid: int, user_id: int, is_admin: bool) -> list[dict]:
+    """Obtiene el historial completo de renovaciones de un préstamo."""
+    extra, params = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Obtener toda la cadena de renovaciones (hacia atrás y adelante)
+        cur.execute(f"""
+            WITH RECURSIVE cadena AS (
+                -- Préstamo original
+                SELECT p.*, 0 as nivel FROM prestamos p
+                WHERE p.id = %s AND NOT p.es_renovacion
+                UNION ALL
+                -- Renovaciones hacia adelante
+                SELECT p.*, c.nivel + 1 FROM prestamos p
+                INNER JOIN cadena c ON p.prestamo_anterior_id = c.id
+            )
+            SELECT * FROM cadena ORDER BY nivel
+        """, (pid,))
+        return cur.fetchall()
+
+
 # ---------- pagos ----------
 def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_admin: bool, nota: str = "") -> tuple:
     """

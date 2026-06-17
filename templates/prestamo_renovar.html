@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Renovar Préstamo - Financiera NP{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+  <div class="flex items-center gap-2">
+    <a href="{{ url_for('clientes_perfil', cid=prestamo.cliente_id) }}" class="text-slate-400 hover:text-white">
+      <span class="text-lg">←</span>
+    </a>
+    <h1 class="text-xl font-bold text-white">Renovar Préstamo #{{ pid }}</h1>
+  </div>
+
+  <!-- Información del préstamo actual -->
+  <div class="rounded-2xl border border-slate-800 bg-panel p-4 space-y-3">
+    <h2 class="text-sm font-bold text-accent uppercase tracking-wider">Préstamo Actual</h2>
+    
+    <div class="grid grid-cols-2 gap-3 text-sm">
+      <div>
+        <p class="text-slate-500 text-xs uppercase font-bold">Cliente</p>
+        <p class="text-white font-semibold">{{ cliente_nombre }}</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-xs uppercase font-bold">Monto Original</p>
+        <p class="text-white font-semibold">{{ fmt_money(prestamo.monto) }}</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-xs uppercase font-bold">Cuotas Pagadas</p>
+        <p class="text-white font-semibold">{{ prestamo.pagadas }} de {{ prestamo.cuotas }}</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-xs uppercase font-bold">Última Cuota Pendiente</p>
+        <p class="text-red-400 font-bold">{{ fmt_money(prestamo.saldo_pendiente) }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulario de renovación -->
+  <form method="POST" class="rounded-2xl border border-slate-800 bg-panel p-4 space-y-4">
+    <h2 class="text-sm font-bold text-accent uppercase tracking-wider">Nuevo Préstamo</h2>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Monto del Préstamo</label>
+        <input type="number" step="0.01" name="nuevo_monto" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tasa de Interés (%)</label>
+        <input type="number" step="0.01" name="nueva_tasa" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Número de Cuotas</label>
+        <input type="number" name="nuevas_cuotas" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Frecuencia</label>
+        <select name="nueva_frecuencia" class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
+          <option value="diaria">Diaria</option>
+          <option value="semanal">Semanal</option>
+          <option value="quincenal">Quincenal</option>
+          <option value="mensual" selected>Mensual</option>
+        </select>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Fecha de Vencimiento</label>
+        <input type="date" name="nuevo_vencimiento" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
+      </div>
+    </div>
+
+    <!-- Opción de descuento automático -->
+    <div class="rounded-xl bg-slate-800/50 border border-slate-700 p-3">
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="checkbox" name="descontar_ultima_cuota" class="mt-1 w-4 h-4 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
+        <div>
+          <p class="text-sm font-bold text-white">Descontar automáticamente la última cuota pendiente</p>
+          <p class="text-xs text-slate-400 mt-1">
+            Se descontará {{ fmt_money(prestamo.saldo_pendiente) }} del nuevo préstamo. 
+            <span class="text-accent font-bold">Dinero a entregar: <span id="monto_entregar">{{ fmt_money(prestamo.saldo_pendiente) }}</span></span>
+          </p>
+        </div>
+      </label>
+    </div>
+
+    <!-- Configuración de mora -->
+    <div class="border-t border-slate-700 pt-4">
+      <label class="flex items-center gap-2 mb-2">
+        <input type="checkbox" id="mora_toggle" name="mora_activa" class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
+        <span class="text-sm font-bold text-slate-300">Activar interés por mora</span>
+      </label>
+      <div id="mora_config" class="hidden">
+        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tasa de mora diaria (%)</label>
+        <input type="number" step="0.01" name="tasa_mora_diaria" value="0" class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
+      </div>
+    </div>
+
+    <div class="flex gap-2 pt-2">
+      <button type="submit" class="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-slate-900 hover:bg-accent/90 transition-colors">
+        Confirmar Renovación
+      </button>
+      <a href="{{ url_for('clientes_perfil', cid=prestamo.cliente_id) }}" class="px-4 py-3 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700 transition-colors">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Toggle configuración de mora
+  document.getElementById('mora_toggle').addEventListener('change', function() {
+    document.getElementById('mora_config').classList.toggle('hidden', !this.checked);
+  });
+
+  // Calcular monto a entregar
+  const checkbox = document.querySelector('input[name="descontar_ultima_cuota"]');
+  const montoInput = document.querySelector('input[name="nuevo_monto"]');
+  const montoEntregar = document.getElementById('monto_entregar');
+  const saldoPendiente = {{ prestamo.saldo_pendiente }};
+
+  function actualizarMonto() {
+    const nuevoMonto = parseFloat(montoInput.value) || 0;
+    if (checkbox.checked) {
+      const entregar = nuevoMonto - saldoPendiente;
+      montoEntregar.textContent = '$' + entregar.toLocaleString('es-CO', {minimumFractionDigits: 0});
+    } else {
+      montoEntregar.textContent = '$' + nuevoMonto.toLocaleString('es-CO', {minimumFractionDigits: 0});
+    }
+  }
+
+  checkbox.addEventListener('change', actualizarMonto);
+  montoInput.addEventListener('input', actualizarMonto);
+</script>
+{% endblock %}

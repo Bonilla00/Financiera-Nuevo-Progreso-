@@ -1241,6 +1241,109 @@ def prestamos_cobrar(pid):
     )
 
 
+@app.route("/prestamos/<int:pid>/renovar", methods=["GET", "POST"])
+@require_role(['admin', 'cobrador'])
+def prestamos_renovar(pid):
+    uid, _, is_admin, rol = ctx_user()
+    
+    if rol == 'solo_lectura':
+        abort(403)
+    
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+    
+    # Verificar si puede renovar
+    puede, mensaje, datos = db.puede_renovar_prestamo(pid, uid, is_admin)
+    
+    if request.method == "POST":
+        if not puede:
+            flash(mensaje, "error")
+            return redirect(url_for("clientes_perfil", cid=info[1]))
+        
+        try:
+            nuevo_monto = float(request.form.get("nuevo_monto", "0"))
+            nueva_tasa = float(request.form.get("nueva_tasa", "0"))
+            nuevas_cuotas = int(request.form.get("nuevas_cuotas", "1"))
+            nueva_frecuencia = request.form.get("nueva_frecuencia", "mensual").lower()
+            nuevo_vencimiento = request.form.get("nuevo_vencimiento", "").strip()
+            descontar_ultima_cuota = request.form.get("descontar_ultima_cuota") == "on"
+            mora_on = request.form.get("mora_activa") == "on"
+            tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
+            
+            if nuevo_monto <= 0:
+                raise ValueError("El monto debe ser mayor a 0.")
+            if nuevas_cuotas < 1:
+                raise ValueError("Las cuotas deben ser al menos 1.")
+            if nueva_tasa < 0:
+                raise ValueError("La tasa no puede ser negativa.")
+            if not nuevo_vencimiento:
+                raise ValueError("El vencimiento es obligatorio.")
+            if mora_on and tasa_mora < 0:
+                raise ValueError("La tasa de mora no puede ser negativa.")
+            
+            # Ejecutar renovación
+            nuevo_pid, pid_anterior, monto_desembolsado = db.renovar_prestamo(
+                pid_anterior=pid,
+                nuevo_monto=nuevo_monto,
+                nueva_tasa=nueva_tasa,
+                nuevas_cuotas=nuevas_cuotas,
+                nueva_frecuencia=nueva_frecuencia,
+                nuevo_vencimiento=nuevo_vencimiento,
+                descontar_ultima_cuota=descontar_ultima_cuota,
+                user_id=uid,
+                is_admin=is_admin,
+                mora_activa=mora_on,
+                tasa_mora_diaria=tasa_mora,
+            )
+            
+            db.registrar_log(uid, f"Renovación: #{pid} -> #{nuevo_pid}. Monto: {fmt_money(nuevo_monto)}. Desembolsado: {fmt_money(monto_desembolsado)}")
+            
+            flash(
+                f"Préstamo renovado exitosamente. Nuevo préstamo #{nuevo_pid}. " +
+                (f"Se descontó {fmt_money(datos['saldo_pendiente'])} de la última cuota. " if descontar_ultima_cuota else "") +
+                f"Dinero entregado al cliente: {fmt_money(monto_desembolsado)}.",
+                "ok"
+            )
+            return redirect(url_for("clientes_perfil", cid=datos["cliente_id"]))
+            
+        except Exception as e:
+            flash(str(e), "error")
+            return redirect(url_for("prestamos_renovar", pid=pid))
+    
+    # GET: mostrar formulario de renovación
+    if not puede:
+        flash(mensaje, "error")
+        return redirect(url_for("clientes_perfil", cid=info[1]))
+    
+    return render_template(
+        "prestamo_renovar.html",
+        prestamo=datos,
+        pid=pid,
+        cliente_nombre=datos["cliente_nombre"],
+    )
+
+
+@app.route("/prestamos/<int:pid>/historial-renovaciones")
+@login_required
+def prestamos_historial_renovaciones(pid):
+    uid, _, is_admin, _ = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+    
+    historial = db.obtener_historial_renovaciones(pid, uid, is_admin)
+    count = db.contar_renovaciones_prestamo(pid, uid, is_admin)
+    
+    return render_template(
+        "prestamo_historial_renovaciones.html",
+        prestamo=info,
+        historial=historial,
+        count=count,
+        cliente_id=info[1],
+    )
+
+
 @app.route("/prestamos/<int:pid>/pago", methods=["POST"])
 @require_role(['admin', 'cobrador'])
 def prestamos_pago(pid):
