@@ -44,6 +44,10 @@ def ensure_schema_migrations() -> None:
     stmts = [
         "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS mora_activa BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS tasa_mora_diaria DOUBLE PRECISION NOT NULL DEFAULT 0",
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS prestamo_anterior_id INTEGER REFERENCES prestamos(id) ON DELETE SET NULL",
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS monto_descuento_renovacion DOUBLE PRECISION NOT NULL DEFAULT 0",
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS tipo_pago_ultima_cuota VARCHAR(20) DEFAULT NULL",
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS es_renovacion BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS interes_mora DOUBLE PRECISION NOT NULL DEFAULT 0",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS nota TEXT",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto TEXT",
@@ -65,6 +69,8 @@ def ensure_schema_migrations() -> None:
         "CREATE TABLE IF NOT EXISTS login_attempts (id SERIAL PRIMARY KEY, ip_address VARCHAR(45) NOT NULL, username VARCHAR(80), failed_at TIMESTAMPTZ DEFAULT NOW())",
         "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address)",
         "CREATE INDEX IF NOT EXISTS idx_login_attempts_time ON login_attempts(failed_at)",
+        "CREATE INDEX IF NOT EXISTS idx_prestamos_anterior ON prestamos(prestamo_anterior_id)",
+        "CREATE INDEX IF NOT EXISTS idx_prestamos_es_renovacion ON prestamos(es_renovacion)",
     ]
     for s in stmts:
         try:
