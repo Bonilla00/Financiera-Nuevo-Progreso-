@@ -482,6 +482,7 @@ def obtener_stats_clientes(user_id: int, is_admin: bool):
             FROM clientes c
             JOIN prestamos p ON p.cliente_id = c.id
             WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> ''
               AND p.proximo_pago::date IN (CURRENT_DATE, CURRENT_DATE + 1)
               {scope}
         """, sparams)
@@ -518,6 +519,7 @@ def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[
             EXISTS (
                 SELECT 1 FROM prestamos p
                 WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
+                AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> ''
                 AND p.proximo_pago::date IN (CURRENT_DATE, CURRENT_DATE + 1)
             ) as cuota_pendiente
         FROM clientes c
