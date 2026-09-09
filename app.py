@@ -647,6 +647,9 @@ def cambiar_password():
 @app.route("/logout")
 def logout():
     """Limpia la sesión y redirige al login."""
+    uid = session.get("user_id")
+    if uid:
+        db.registrar_log(uid, "Cierre de sesión")
     session.clear()
     flash("Has cerrado sesión correctamente.", "ok")
     return redirect(url_for("login"))
@@ -654,9 +657,12 @@ def logout():
 
 @app.route("/")
 @login_required
-def raiz():
-    """Redirige la raíz al dashboard de inicio."""
-    return redirect(url_for("inicio"))
+def index():
+    """Redirección inteligente según rol al entrar a la home."""
+    rol = session.get('rol', 'solo_lectura')
+    if rol == 'admin':
+        return redirect(url_for('admin_usuarios'))
+    return redirect(url_for('inicio'))
 
 @app.route("/inicio")
 @login_required
