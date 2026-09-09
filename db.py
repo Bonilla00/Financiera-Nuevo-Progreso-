@@ -444,52 +444,104 @@ def get_clientes(user_id: int) -> list[tuple]:
         return cur.fetchall()
 
 
-def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[tuple]:
-    """filtro: todo | activo | pago_hoy | pendiente_hoy | sin_activo"""
-    hoy = datetime.now().strftime("%Y-%m-%d")
-    q = """
-        SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion
-        FROM clientes c
-        WHERE c.owner_user_id = %s
-    """
-    args = [user_id]
-    f = (filtro or "todo").lower().strip()
-    if f == "activo":
-        q += """
-          AND EXISTS (
-            SELECT 1 FROM prestamos p
-            WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
-          )
-        """
-    elif f == "pago_hoy":
-        q += """
-          AND EXISTS (
-            SELECT 1 FROM prestamos p
-            JOIN pagos pg ON pg.prestamo_id = p.id
-            WHERE p.cliente_id = c.id AND pg.fecha = %s
-          )
-        """
-        args.append(hoy)
-    elif f == "pendiente_hoy":
-        q += """
-          AND EXISTS (
-            SELECT 1 FROM prestamos p
-            WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
-              AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
-              AND p.proximo_pago = %s
-          )
-        """
-        args.append(hoy)
-    elif f == "sin_activo":
-        q += """
-          AND NOT EXISTS (
-            SELECT 1 FROM prestamos p
-            WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
-          )
-        """
-    q += " ORDER BY c.nombre"
+def obtener_stats_clientes(user_id: int, is_admin: bool):
+    """Obtiene estadísticas reales de los clientes de un usuario."""
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+
     with get_conn() as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # 1. Total Clientes
+        cur.execute(f"SELECT COUNT(*) as total FROM clientes c WHERE 1=1 {scope}", sparams)
+        total = cur.fetchone()['total'] or 0
+
+        # 2. Con Crédito (Activo)
+        cur.execute(f"""
+            SELECT COUNT(DISTINCT c.id) as activos
+            FROM clientes c
+            JOIN prestamos p ON p.cliente_id = c.id
+            WHERE p.estado = 'ACTIVO' {scope}
+        """, sparams)
+        activos = cur.fetchone()['activos'] or 0
+
+        # 3. En Mora
+        cur.execute(f"""
+            SELECT COUNT(DISTINCT c.id) as mora
+            FROM clientes c
+            JOIN prestamos p ON p.cliente_id = c.id
+            WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> ''
+              AND p.proximo_pago::date < CURRENT_DATE
+              {scope}
+        """, sparams)
+        mora = cur.fetchone()['mora'] or 0
+
+        # 4. Pendiente Hoy/Mañana
+        cur.execute(f"""
+            SELECT COUNT(DISTINCT c.id) as pendientes
+            FROM clientes c
+            JOIN prestamos p ON p.cliente_id = c.id
+            WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago::date IN (CURRENT_DATE, CURRENT_DATE + 1)
+              {scope}
+        """, sparams)
+        pendientes = cur.fetchone()['pendientes'] or 0
+
+        return {
+            "total": total,
+            "activos": activos,
+            "sin_credito": total - activos,
+            "mora": mora,
+            "pendientes": pendientes
+        }
+
+
+def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[dict]:
+    """
+    Lista clientes con su estado de crédito e información completa.
+    Devuelve lista de diccionarios para facilitar el manejo en el frontend.
+    """
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    hoy = datetime.now().strftime("%Y-%m-%d")
+
+    # Query optimizada que trae el estado del crédito de una vez
+    q = f"""
+        SELECT
+            c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto,
+            (SELECT COUNT(*) FROM prestamos p WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO') > 0 as tiene_credito,
+            EXISTS (
+                SELECT 1 FROM prestamos p
+                WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
+                AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> ''
+                AND p.proximo_pago::date < CURRENT_DATE
+            ) as en_mora,
+            EXISTS (
+                SELECT 1 FROM prestamos p
+                WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
+                AND p.proximo_pago::date IN (CURRENT_DATE, CURRENT_DATE + 1)
+            ) as cuota_pendiente
+        FROM clientes c
+        WHERE 1=1 {scope}
+    """
+
+    args = list(sparams)
+    f = (filtro or "todo").lower().strip()
+
+    if f == "activo":
+        q += " AND EXISTS (SELECT 1 FROM prestamos p WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO')"
+    elif f == "mora":
+        q += """ AND EXISTS (
+            SELECT 1 FROM prestamos p
+            WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO'
+            AND p.proximo_pago::date < CURRENT_DATE
+        )"""
+    elif f == "sin_activo":
+        q += " AND NOT EXISTS (SELECT 1 FROM prestamos p WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO')"
+
+    q += " ORDER BY c.nombre"
+
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(q, tuple(args))
         return cur.fetchall()
 

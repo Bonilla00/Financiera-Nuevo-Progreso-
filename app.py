@@ -779,37 +779,18 @@ def clientes_list():
 
         uid, _, is_admin, _, _ = ctx_user()
         filtro = request.args.get("estado", "todo")
-        page = request.args.get("page", 1, type=int)
+
+        # Obtener estadísticas reales
+        stats = db.obtener_stats_clientes(uid, is_admin)
+
+        # Listado completo para el buscador frontend (o filtrado backend)
         rows = db.listar_clientes_filtrado(filtro, uid, is_admin)
-        total = len(rows)
-        start = (page - 1) * PER_PAGE
-        end = start + PER_PAGE
-        paginated = rows[start:end]
-        
-        # Exportar a CSV
-        if request.args.get("export") == "csv":
-            import csv
-            from io import StringIO
-            si = StringIO()
-            writer = csv.writer(si)
-            writer.writerow(["Nombre", "Identificación", "Teléfono", "Barrio", "Dirección"])
-            for r in rows:
-                writer.writerow([r[1], r[2], r[3], r[4], r[5]])
-            output = si.getvalue()
-            return send_file(
-                BytesIO(output.encode("utf-8")),
-                mimetype="text/csv",
-                as_attachment=True,
-                download_name=f"clientes_{today_str()}.csv",
-            )
             
         return render_template(
             "clientes.html",
-            clientes=paginated,
+            clientes=rows,
             filtro=filtro,
-            page=page,
-            total_pages=(total + PER_PAGE - 1) // PER_PAGE,
-            total=total,
+            stats=stats
         )
     except Exception as e:
         logger.exception("Error en ruta /clientes")

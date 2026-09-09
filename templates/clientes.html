@@ -2,133 +2,156 @@
 {% block title %}Clientes - Financiera NP{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold text-white">Clientes</h1>
-    <div class="flex gap-2">
-      {% if rol != 'solo_lectura' %}
-      <a href="{{ url_for('clientes_nuevo') }}" class="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-slate-900 shadow-lg active:scale-95 transition-transform">+ Nuevo</a>
-      {% endif %}
+<div class="space-y-6">
+  <!-- Encabezado Moderno -->
+  <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="text-center sm:text-left">
+      <h1 class="text-2xl font-bold text-white uppercase tracking-tight">Clientes</h1>
+      <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">Gestiona todos tus clientes</p>
     </div>
-  </div>
-
-  <!-- Buscador -->
-  <div class="relative group">
-    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-      <span class="text-slate-500">🔍</span>
-    </span>
-    <input type="text" id="buscador-ajax"
-           class="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-2xl bg-panel text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
-           placeholder="Nombre, identificación o teléfono...">
-  </div>
-
-  <!-- Filtros Rápidos -->
-  <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-    <a href="{{ url_for('clientes_list', estado='todo') }}"
-       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'todo' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
-       Todos
+    {% if rol != 'solo_lectura' %}
+    <a href="{{ url_for('clientes_nuevo') }}" class="w-full sm:w-auto rounded-2xl bg-accent px-6 py-3 text-sm font-black text-slate-900 shadow-lg shadow-cyan-900/20 active:scale-95 transition-all text-center uppercase tracking-widest">
+      + Nuevo Cliente
     </a>
-    <a href="{{ url_for('clientes_list', estado='activo') }}"
-       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'activo' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
-       Con Crédito
-    </a>
-    <a href="{{ url_for('clientes_list', estado='sin_activo') }}"
-       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'sin_activo' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
-       Sin Crédito
-    </a>
-  </div>
-
-  <div id="contenedor-clientes" class="space-y-3">
-    {% for c in clientes %}
-    <div class="list-row-interactive rounded-2xl border border-slate-800 p-4 relative overflow-hidden" onclick="window.location.href='{{ url_for('clientes_perfil', cid=c[0]) }}'">
-      <div class="flex justify-between items-start">
-        <div class="space-y-1">
-          <p class="text-sm font-bold text-white uppercase">{{ c[1] }}</p>
-          <p class="text-xs text-slate-400">
-            {{ c[2] }} ·
-            {% if c[3] %}<a href="{{ url_whatsapp(c[3]) }}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:underline" onclick="event.stopPropagation()">{{ c[3] }}</a>{% else %}Sin teléfono{% endif %}
-          </p>
-          <p class="text-xs text-slate-500 italic">
-            {% if c[5] or c[4] %}<a href="{{ url_maps(c[5], c[4]) }}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline" onclick="event.stopPropagation()">{{ c[5] or 'Sin dirección' }}</a>{% else %}Sin ubicación{% endif %}
-          </p>
-        </div>
-        <div class="text-accent">→</div>
-      </div>
-    </div>
-    {% endfor %}
-
-    {% if not clientes %}
-    <div class="py-12 text-center">
-      <span class="text-4xl">👥</span>
-      <p class="mt-2 text-sm text-slate-500 font-medium">No se encontraron clientes</p>
-    </div>
     {% endif %}
   </div>
 
-  {% if total_pages > 1 %}
-  <div class="flex items-center justify-between mt-4 px-2">
-    <p class="text-xs text-slate-500">{{ total }} registros</p>
-    <div class="flex gap-1">
-      {% if page > 1 %}
-      <a href="?page={{ page - 1 }}{% if filtro != 'todo' %}&estado={{ filtro }}{% endif %}" class="px-3 py-1.5 rounded-lg bg-panel2 border border-slate-600 text-slate-300 text-xs">← Anterior</a>
-      {% endif %}
-      <span class="px-3 py-1.5 text-xs text-slate-400">{{ page }} / {{ total_pages }}</span>
-      {% if page < total_pages %}
-      <a href="?page={{ page + 1 }}{% if filtro != 'todo' %}&estado={{ filtro }}{% endif %}" class="px-3 py-1.5 rounded-lg bg-panel2 border border-slate-600 text-slate-300 text-xs">Siguiente →</a>
-      {% endif %}
+  <!-- Estadísticas Reales -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 shadow-lg">
+      <p class="text-[10px] font-black uppercase text-slate-500 tracking-tighter">Total Clientes</p>
+      <p class="text-xl font-bold text-white mt-1">{{ stats.total }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 shadow-lg">
+      <p class="text-[10px] font-black uppercase text-emerald-500 tracking-tighter">Con Crédito</p>
+      <p class="text-xl font-bold text-white mt-1">{{ stats.activos }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 shadow-lg">
+      <p class="text-[10px] font-black uppercase text-amber-500 tracking-tighter">Cuotas Próximas</p>
+      <p class="text-xl font-bold text-white mt-1">{{ stats.pendientes }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 shadow-lg">
+      <p class="text-[10px] font-black uppercase text-rose-500 tracking-tighter">En Mora</p>
+      <p class="text-xl font-bold text-white mt-1">{{ stats.mora }}</p>
     </div>
   </div>
-  {% endif %}
+
+  <!-- Buscador Inteligente -->
+  <div class="relative group">
+    <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">🔍</span>
+    <input type="text" id="buscador-clientes"
+           class="block w-full pl-11 pr-4 py-4 border border-slate-700 rounded-2xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all shadow-xl"
+           placeholder="Buscar por nombre, identificación o teléfono...">
+  </div>
+
+  <!-- Filtros Visuales -->
+  <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+    {% set items_filtro = [
+        ('todo', 'Todos', 'bg-slate-800 text-slate-400'),
+        ('activo', 'Con Crédito', 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/20'),
+        ('sin_activo', 'Sin Crédito', 'bg-slate-800 text-slate-400'),
+        ('mora', 'En Mora', 'bg-rose-900/30 text-rose-400 border border-rose-500/20')
+    ] %}
+    {% for key, label, style in items_filtro %}
+    <a href="{{ url_for('clientes_list', estado=key) }}"
+       class="whitespace-nowrap px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
+       {% if filtro == key %}bg-accent text-slate-900 shadow-lg shadow-cyan-900/40{% else %}{{ style }}{% endif %}">
+       {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Listado de Tarjetas -->
+  <div id="grid-clientes" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% for c in clientes %}
+    <div class="card-cliente bg-panel border border-slate-800 rounded-3xl p-5 shadow-xl transition-all hover:border-slate-700 relative overflow-hidden group">
+
+      <!-- Indicador de Estado -->
+      <div class="absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-tighter shadow-sm
+          {% if c.en_mora %}bg-rose-500 text-white
+          {% elif c.cuota_pendiente %}bg-amber-500 text-white
+          {% elif c.tiene_credito %}bg-emerald-500 text-white
+          {% else %}bg-slate-700 text-slate-300{% endif %}">
+          {% if c.en_mora %}En Mora
+          {% elif c.cuota_pendiente %}Cuota Pendiente
+          {% elif c.tiene_credito %}Con Crédito
+          {% else %}Sin Crédito{% endif %}
+      </div>
+
+      <div class="flex items-start gap-4 cursor-pointer" onclick="window.location.href='{{ url_for('clientes_perfil', cid=c.id) }}'">
+        <!-- Avatar Inteligente -->
+        <div class="shrink-0">
+          {% if c.foto %}
+          <img src="{{ c.foto }}" class="w-14 h-14 rounded-2xl object-cover border border-slate-700 shadow-inner">
+          {% else %}
+          <div class="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-lg font-black text-accent uppercase tracking-tighter">
+            {{ c.nombre[:1] }}{{ c.nombre.split()[-1][:1] if c.nombre.split()|length > 1 else '' }}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="min-w-0 flex-1 space-y-1">
+          <h3 class="text-sm font-black text-white uppercase truncate leading-tight tracking-tighter">{{ c.nombre }}</h3>
+          <p class="text-[11px] text-slate-400 font-bold tracking-tight">{{ c.identificacion }}</p>
+          {% if c.direccion %}
+          <p class="text-[10px] text-slate-500 truncate flex items-center gap-1">
+            <span class="text-xs">📍</span> {{ c.direccion }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Acciones Rápidas -->
+      <div class="mt-5 pt-4 border-t border-slate-800/50 flex items-center justify-between">
+        <div class="flex gap-2">
+          {% if c.telefono %}
+          <a href="{{ url_tel(c.telefono) }}" class="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors" title="Llamar">
+            <span class="text-sm">📞</span>
+          </a>
+          <a href="{{ url_whatsapp(c.telefono) }}" target="_blank" class="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-900/30 text-emerald-500 hover:bg-emerald-900/50 transition-colors border border-emerald-500/20" title="WhatsApp">
+            <span class="text-sm">💬</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <a href="{{ url_for('clientes_perfil', cid=c.id) }}" class="flex items-center gap-1 text-[10px] font-black uppercase text-accent hover:text-white transition-all tracking-widest group-hover:translate-x-1">
+          Ver Cliente <span class="text-xs">→</span>
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pantalla Vacía -->
+  <div id="empty-state" class="hidden py-20 text-center">
+    <span class="text-6xl opacity-10">👥</span>
+    <p class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-xs">No se encontraron clientes</p>
+  </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const input = document.getElementById('buscador-ajax');
-    const contenedor = document.getElementById('contenedor-clientes');
-    let timeout = null;
+    const input = document.getElementById('buscador-clientes');
+    const grid = document.getElementById('grid-clientes');
+    const empty = document.getElementById('empty-state');
+    const cards = document.querySelectorAll('.card-cliente');
 
     input.addEventListener('input', function(e) {
-        clearTimeout(timeout);
-        const q = e.target.value.trim();
+        const q = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        let visibleCount = 0;
 
-        if (q.length < 2 && q.length > 0) return;
-
-        timeout = setTimeout(async () => {
-            if (q.length === 0) {
-                window.location.reload();
-                return;
+        cards.forEach(card => {
+            const text = card.innerText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (text.includes(q)) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
             }
+        });
 
-            try {
-                const res = await fetch(`/api/buscar_clientes?q=${encodeURIComponent(q)}`);
-                const data = await res.json();
-
-                if (data.length === 0) {
-                    contenedor.innerHTML = `
-                        <div class="py-12 text-center">
-                          <span class="text-4xl">🔎</span>
-                          <p class="mt-2 text-sm text-slate-500 font-medium">No hubo resultados para "${q}"</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                contenedor.innerHTML = data.map(c => `
-                    <div class="list-row-interactive rounded-2xl border border-slate-800 p-4 relative overflow-hidden" onclick="window.location.href='/clientes/\${c.id}/perfil'">
-                      <div class="flex justify-between items-start">
-                        <div class="space-y-1">
-                          <p class="text-sm font-bold text-white uppercase">\${c.nombre}</p>
-                          <p class="text-xs text-slate-400">\${c.identificacion} · <a href="https://wa.me/\${c.telefono ? (c.telefono.length <= 10 && !c.telefono.startsWith('57') ? '57' + c.telefono.replace(/\D/g,'') : c.telefono.replace(/\D/g,'')) : ''}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:underline" onclick="event.stopPropagation()">\${c.telefono || 'Sin teléfono'}</a></p>
-                           <p class="text-xs text-slate-500 italic"><a href="https://www.google.com/maps/search/?api=1&query=\${encodeURIComponent((c.direccion || '') + ', ' + (c.barrio || ''))}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline" onclick="event.stopPropagation()">\${c.direccion || 'Sin dirección'}</a></p>
-                        </div>
-                        <div class="text-accent">→</div>
-                      </div>
-                    </div>
-                `).join('');
-            } catch (err) {
-                console.error("Error buscando clientes:", err);
-            }
-        }, 300);
+        if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+        if (grid) grid.style.display = visibleCount === 0 ? 'none' : 'grid';
     });
 });
 </script>
