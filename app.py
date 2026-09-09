@@ -718,7 +718,7 @@ def inicio():
 
         chart_data = {
             "labels": ["Ganancia", "Capital Rec.", "Mora"],
-            "values": [round(interes_cobrado, 0), round(capital_cobrado, 0), round(mora_cobrada, 0)],
+            "puntos": [round(interes_cobrado, 0), round(capital_cobrado, 0), round(mora_cobrada, 0)],
         }
 
         context = {

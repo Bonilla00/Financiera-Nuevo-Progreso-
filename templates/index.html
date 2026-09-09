@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: {{ chart_data.labels|tojson }},
             datasets: [{
                 label: 'Ingresos',
-                data: {{ chart_data.values|tojson }},
+                data: {{ chart_data.puntos|tojson }},
                 borderColor: '#22D3EE',
                 borderWidth: 3,
                 backgroundColor: gradient,
