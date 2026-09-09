@@ -1,137 +1,191 @@
 {% extends "base.html" %}
-{% block title %}Inicio - Financiera NP{% endblock %}
+{% block title %}Dashboard - Financiera NP{% endblock %}
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold text-white">Panel de Control</h1>
-    <span class="text-xs text-slate-400">{{ today_str() }}</span>
-  </div>
-
-  <!-- Resumen Financiero -->
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-    <div class="rounded-2xl bg-panel p-5 border border-slate-800">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Prestado</p>
-      <p class="mt-1 text-2xl font-bold text-white">{{ fmt_money(stats.total_prestado) }}</p>
+<div class="space-y-6 pb-4">
+  <!-- Encabezado Perfil -->
+  <div class="flex items-center justify-between mb-2">
+    <div>
+      <p class="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Bienvenido de nuevo</p>
+      <h1 class="text-xl font-black text-white uppercase tracking-tighter">{{ session.username }}</h1>
     </div>
-    <div class="rounded-2xl bg-panel p-5 border border-slate-800">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Cobrado</p>
-      <p class="mt-1 text-2xl font-bold text-accent">{{ fmt_money(stats.total_cobrado) }}</p>
+    <div class="w-12 h-12 rounded-2xl bg-accent/20 border border-accent/30 flex items-center justify-center text-xl shadow-lg shadow-cyan-900/20">
+      🏦
     </div>
   </div>
 
-  <!-- Gráfica y Alertas -->
-  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-    <div class="rounded-2xl bg-panel p-6 border border-slate-800">
-      <h2 class="text-sm font-bold text-slate-300 mb-4 uppercase tracking-widest text-center">Estado de Préstamos</h2>
-      <div class="relative h-64">
-        <canvas id="chartEstados"></canvas>
+  <!-- Métricas Principales (Grid Móvil) -->
+  <div class="grid grid-cols-2 gap-3">
+    <!-- Card Cobro Hoy -->
+    <div class="col-span-2 rounded-[2rem] bg-gradient-to-br from-accent to-accent2 p-6 shadow-xl shadow-cyan-900/40 relative overflow-hidden group">
+      <div class="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-110 transition-transform">
+        <span class="text-6xl">💰</span>
+      </div>
+      <div class="relative z-10">
+        <p class="text-[10px] font-black uppercase text-slate-900/60 tracking-widest">Cobro programado hoy</p>
+        <h2 class="text-3xl font-black text-slate-950 mt-1">{{ fmt_money(cuotas_hoy_valor) }}</h2>
+        <div class="flex items-center gap-2 mt-4">
+          <a href="{{ url_for('cobro_hoy') }}" class="bg-slate-950 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest active:scale-95 transition-transform">Ver Ruta de Cobro</a>
+          <span class="text-[10px] font-bold text-slate-900/80">{{ cuotas_hoy_cantidad }} cuotas</span>
+        </div>
       </div>
     </div>
 
-    <div class="space-y-4">
-      <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">Alertas Urgentes</h2>
+    <!-- Mini Cards -->
+    <div class="rounded-3xl bg-panel p-5 border border-slate-800 shadow-lg">
+      <p class="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Clientes</p>
+      <div class="flex items-end justify-between">
+        <h3 class="text-xl font-black text-white leading-none">{{ stats_clientes.total }}</h3>
+        <span class="text-[10px] text-emerald-400 font-bold">+{{ stats_clientes.activos }} Act.</span>
+      </div>
+    </div>
 
-      {% if mora %}
-      <div class="rounded-2xl bg-red-900/20 border border-red-500/30 p-4">
-        <div class="flex items-center gap-3 text-red-400">
-          <span class="text-xl">⚠️</span>
+    <div class="rounded-3xl bg-panel p-5 border border-slate-800 shadow-lg">
+      <p class="text-[9px] font-black uppercase text-rose-500 tracking-widest mb-1">En Mora</p>
+      <div class="flex items-end justify-between">
+        <h3 class="text-xl font-black text-white leading-none">{{ en_mora }}</h3>
+        <span class="text-[10px] text-rose-400 font-bold animate-pulse-slow">Urgent</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumen de Cartera y Gráfico -->
+  <div class="rounded-[2.5rem] bg-panel p-6 border border-slate-800 shadow-2xl space-y-6">
+    <div class="flex items-center justify-between">
+      <h3 class="text-xs font-black text-white uppercase tracking-widest">Resumen Financiero</h3>
+      <select onchange="window.location.href='?periodo='+this.value" class="bg-slate-900 border border-slate-700 rounded-xl text-[9px] font-bold px-3 py-1.5 text-slate-400 outline-none">
+        <option value="hoy" {% if periodo == 'hoy' %}selected{% endif %}>Hoy</option>
+        <option value="ayer" {% if periodo == 'ayer' %}selected{% endif %}>Ayer</option>
+        <option value="7d" {% if periodo == '7d' %}selected{% endif %}>7 días</option>
+        <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Este mes</option>
+      </select>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="space-y-1">
+        <p class="text-[9px] font-bold text-slate-500 uppercase">Prestado</p>
+        <p class="text-lg font-black text-white tracking-tighter">{{ fmt_money(total_prestado) }}</p>
+      </div>
+      <div class="space-y-1">
+        <p class="text-[9px] font-bold text-slate-500 uppercase">Cobrado</p>
+        <p class="text-lg font-black text-accent tracking-tighter">{{ fmt_money(total_cobrado) }}</p>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="relative h-48 w-full mt-4">
+      <canvas id="chartCartera"></canvas>
+    </div>
+  </div>
+
+  <!-- Acciones Rápidas -->
+  <div class="space-y-3">
+    <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Acciones Rápidas</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <a href="{{ url_for('clientes_nuevo') }}" class="flex items-center gap-3 bg-panel border border-slate-800 p-4 rounded-2xl active:bg-slate-800 transition-colors shadow-lg">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-lg">👤</div>
+        <span class="text-[10px] font-black text-white uppercase">Nuevo Cliente</span>
+      </a>
+      <a href="{{ url_for('prestamos_nuevo') }}" class="flex items-center gap-3 bg-panel border border-slate-800 p-4 rounded-2xl active:bg-slate-800 transition-colors shadow-lg">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-lg">📝</div>
+        <span class="text-[10px] font-black text-white uppercase">Nuevo Crédito</span>
+      </a>
+      <a href="{{ url_for('reportes') }}" class="flex items-center gap-3 bg-panel border border-slate-800 p-4 rounded-2xl active:bg-slate-800 transition-colors shadow-lg">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg">📊</div>
+        <span class="text-[10px] font-black text-white uppercase">Ver Reportes</span>
+      </a>
+      <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 bg-panel border border-slate-800 p-4 rounded-2xl active:bg-slate-800 transition-colors shadow-lg">
+        <div class="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center text-lg">⚙️</div>
+        <span class="text-[10px] font-black text-white uppercase">Más Opciones</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Últimos Movimientos -->
+  <div class="space-y-3 pb-6">
+    <div class="flex items-center justify-between ml-2">
+      <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Movimientos Recientes</h3>
+      <a href="{{ url_for('pagos_list') }}" class="text-[9px] font-black text-accent uppercase tracking-widest hover:underline">Ver Todo</a>
+    </div>
+
+    <div class="space-y-2">
+      {% for p in pagos_recientes %}
+      <div class="bg-panel border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-md">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-sm">✅</div>
           <div>
-            <p class="text-sm font-bold">Préstamos en Mora ({{ mora|length }})</p>
-            <p class="text-xs opacity-80">Requieren gestión inmediata de cobro.</p>
+            <p class="text-[11px] font-black text-white uppercase tracking-tighter">{{ p[1] }}</p>
+            <p class="text-[9px] text-slate-500 font-bold uppercase">Cuota {{ p[3] }} &middot; {{ p[0] }}</p>
           </div>
         </div>
-        <div class="mt-3 space-y-2">
-          {% for p in mora[:3] %}
-          <div class="flex justify-between items-center bg-red-900/30 rounded-lg p-2 text-xs">
-            <span class="font-medium text-white">{{ p.nombre }}</span>
-            <span class="text-red-300">{{ fmt_money(p.valor_cuota) }}</span>
-          </div>
-          {% endfor %}
-          {% if mora|length > 3 %}
-          <a href="{{ url_for('prestamos_list', estado='mora') }}" class="block text-center text-xs text-red-400 font-bold mt-2">Ver todos →</a>
-          {% endif %}
+        <div class="text-right">
+          <p class="text-xs font-black text-emerald-400 tracking-tighter">{{ fmt_money(p[2]) }}</p>
+          <p class="text-[8px] text-slate-600 font-bold uppercase tracking-widest">Recibido</p>
         </div>
       </div>
-      {% endif %}
-
-      {% if vencen_manana %}
-      <div class="rounded-2xl bg-amber-900/20 border border-amber-500/30 p-4">
-        <div class="flex items-center gap-3 text-amber-400">
-          <span class="text-xl">📅</span>
-          <div>
-            <p class="text-sm font-bold">Vencen Mañana ({{ vencen_manana|length }})</p>
-            <p class="text-xs opacity-80">Recordatorios para seguimiento preventivo.</p>
-          </div>
-        </div>
-        <div class="mt-3 space-y-2 text-xs">
-          {% for p in vencen_manana[:3] %}
-          <div class="flex justify-between items-center bg-amber-900/30 rounded-lg p-2">
-            <span class="font-medium text-white">{{ p.nombre }}</span>
-            <span class="text-amber-300">{{ fmt_money(p.valor_cuota) }}</span>
-          </div>
-          {% endfor %}
-        </div>
+      {% else %}
+      <div class="py-8 text-center bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
+        <p class="text-xs text-slate-600 font-bold uppercase">Sin movimientos recientes</p>
       </div>
-      {% endif %}
-
-      {% if not mora and not vencen_manana %}
-      <div class="rounded-2xl bg-emerald-900/20 border border-emerald-500/30 p-8 text-center">
-        <span class="text-4xl">✅</span>
-        <p class="mt-2 text-sm text-emerald-400 font-medium">¡Todo al día!</p>
-        <p class="text-xs text-emerald-500/70">No hay alertas pendientes para hoy.</p>
-      </div>
-      {% endif %}
+      {% endfor %}
     </div>
   </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('chartEstados').getContext('2d');
+    const ctx = document.getElementById('chartCartera').getContext('2d');
+
+    // Gradient para el chart
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(34, 211, 238, 0.3)');
+    gradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
+
     new Chart(ctx, {
-        type: 'doughnut',
+        type: 'line',
         data: {
-            labels: ['Activos', 'Pagados', 'En Mora'],
+            labels: {{ chart_data.labels|tojson }},
             datasets: [{
-                data: [
-                    {{ stats.estados.get('ACTIVO', 0) }},
-                    {{ stats.estados.get('PAGADO', 0) }},
-                    {{ stats.estados.get('MORA', 0) }}
-                ],
-                backgroundColor: ['#22D3EE', '#1E293B', '#F87171'],
-                borderColor: '#0F172A',
-                borderWidth: 4,
-                hoverOffset: 10
+                label: 'Ingresos',
+                data: {{ chart_data.values|tojson }},
+                borderColor: '#22D3EE',
+                borderWidth: 3,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#22D3EE',
+                pointBorderColor: '#111827',
+                pointBorderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#94A3B8',
-                        font: { size: 11, weight: 'bold' },
-                        padding: 20,
-                        usePointStyle: true
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: {
+                        color: '#475569',
+                        font: { size: 9, weight: 'bold' },
+                        callback: function(value) {
+                            return '$' + (value / 1000) + 'k';
+                        }
                     }
                 },
-                tooltip: {
-                    backgroundColor: '#1F2937',
-                    titleColor: '#F3F4F6',
-                    bodyColor: '#D1D5DB',
-                    padding: 12,
-                    cornerRadius: 12,
-                    displayColors: false
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#475569', font: { size: 9, font: 'bold' } }
                 }
-            },
-            cutout: '70%'
+            }
         }
     });
 });

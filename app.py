@@ -685,12 +685,15 @@ def index():
 @app.route("/inicio")
 @login_required
 def inicio():
-    """Dashboard principal - idéntico a /reportes."""
+    """Dashboard principal rediseñado."""
     uid, _, is_admin, _, _ = ctx_user()
     periodo = request.args.get("periodo", "mes")
     f_ini, f_fin, periodo_etiqueta = _rango_periodo_dashboard(periodo)
     hoy = date.today().strftime("%Y-%m-%d")
+
     try:
+        # Métricas principales
+        stats_clientes = db.obtener_stats_clientes(uid, is_admin)
         total_prestado = db.total_prestado_en_rango(f_ini, f_fin, uid, is_admin)
         total_cobrado = db.total_cobrado_en_rango(f_ini, f_fin, uid, is_admin)
         mora_cobrada = db.total_mora_cobrada_en_rango(f_ini, f_fin, uid, is_admin)
@@ -700,54 +703,46 @@ def inicio():
         ganancia_neta = interes_cobrado + mora_cobrada
         activos = db.contar_prestamos_activos(uid, is_admin)
         en_mora = db.contar_prestamos_en_mora(uid, is_admin)
-        pagos_detalle = db.pagos_detalle_en_rango(f_ini, f_fin, uid, is_admin)
+
+        # Datos para cobros de hoy
+        cobro_hoy_rows = db.listar_cobro_hoy(uid, is_admin)
+        cuotas_hoy_valor = sum(float(r[5] or 0) for r in cobro_hoy_rows)
+        cuotas_hoy_cantidad = len(cobro_hoy_rows)
+
+        # Últimos movimientos (combinando logs y pagos recientes)
+        # Por ahora usaremos los pagos_detalle que ya existen
+        pagos_detalle = db.pagos_detalle_en_rango("2000-01-01", "2099-12-31", uid, is_admin)
+
+        # Historial de logs recientes
+        logs = db.obtener_logs_recientes(10, user_id=uid if not is_admin else None)
+
         chart_data = {
-            "labels": [
-                "Ganancia neta",
-                "Total prestado",
-                "Capital cobrado",
-                "Interés cobrado",
-                "Mora cobrada",
-            ],
-            "values": [
-                round(ganancia_neta, 2),
-                round(total_prestado, 2),
-                round(capital_cobrado, 2),
-                round(interes_cobrado, 2),
-                round(mora_cobrada, 2),
-            ],
+            "labels": ["Ganancia", "Capital Rec.", "Mora"],
+            "values": [round(interes_cobrado, 0), round(capital_cobrado, 0), round(mora_cobrada, 0)],
         }
+
         context = {
-            "route_name": "inicio",
-            "periodo": periodo,
-            "periodo_etiqueta": periodo_etiqueta,
-            "f_ini": f_ini,
-            "f_fin": f_fin,
+            "stats_clientes": stats_clientes,
             "total_prestado": total_prestado,
             "total_cobrado": total_cobrado,
-            "capital_cobrado": capital_cobrado,
-            "interes_cobrado": interes_cobrado,
-            "mora_cobrada": mora_cobrada,
             "ganancia_neta": ganancia_neta,
             "activos": activos,
             "en_mora": en_mora,
-            "pagos_detalle": pagos_detalle,
+            "cuotas_hoy_valor": cuotas_hoy_valor,
+            "cuotas_hoy_cantidad": cuotas_hoy_cantidad,
+            "pagos_recientes": pagos_detalle[:5],
+            "logs": logs,
             "chart_data": chart_data,
+            "periodo": periodo,
+            "periodo_etiqueta": periodo_etiqueta,
             "hoy": hoy,
         }
     except Exception as e:
         logger.error(f"Error en inicio: {e}")
-        context = {
-            "route_name": "inicio",
-            "periodo": periodo,
-            "periodo_etiqueta": periodo_etiqueta,
-            "f_ini": f_ini,
-            "f_fin": f_fin,
-            "total_prestado": 0,
-            "total_cobrado": 0,
-            "capital_cobrado": 0,
-            "interes_cobrado": 0,
-            "mora_cobrada": 0,
+        flash("Error al cargar el dashboard.", "error")
+        return redirect(url_for("clientes_list"))
+
+    return render_template("index.html", **context)
             "ganancia_neta": 0,
             "activos": 0,
             "en_mora": 0,

@@ -24,25 +24,72 @@
             panel2: '#1F2937',
             accent: '#22D3EE',
             accent2: '#0891B2',
+            success: '#22C55E',
+            danger: '#EF4444',
+            warning: '#F59E0B',
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
           }
         }
       }
     }
   </script>
   <style>
-    /* iPhone / WebKit: evita zoom de texto y respeta notch / home indicator */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
     html {
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
+
+    body {
+      background: radial-gradient(circle at top right, #1E293B, #0F172A 70%);
+      background-attachment: fixed;
+    }
+
     body.app-shell {
       padding-top: env(safe-area-inset-top, 0px);
       padding-left: env(safe-area-inset-left, 0px);
       padding-right: env(safe-area-inset-right, 0px);
     }
-    /* Safe area inferior un poco menor en la barra (sube el contenido en iPhone) */
+
     :root {
-      --nav-safe-bottom: max(4px, calc(env(safe-area-inset-bottom, 0px) - 8px));
+      --nav-safe-bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 4px));
+    }
+
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-active-glow {
+      position: relative;
+    }
+    .nav-active-glow::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #22D3EE;
+      box-shadow: 0 0 10px #22D3EE, 0 0 20px #22D3EE;
+    }
+
+    /* Mejora de tarjetas interactivas */
+    .card-modern {
+      background: #111827;
+      border: 1px solid #1F2937;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-modern:active {
+      transform: scale(0.98);
+      background: #1F2937;
     }
     /* NProgress: barra superior cyan 3px (estilo YouTube/GitHub) */
     #nprogress .bar {
@@ -325,21 +372,26 @@
     </div>
   </div>
 
-  <nav class="app-bottom-nav fixed bottom-0 inset-x-0 z-40 flex min-h-[4rem] justify-around items-center border-t border-slate-700 bg-panel pb-[var(--nav-safe-bottom)]">
-    <a href="{{ url_for('inicio') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if request.endpoint == 'inicio' %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-lg leading-none">⌂</span>Inicio
+  <nav class="app-bottom-nav fixed bottom-0 inset-x-0 z-40 flex min-h-[4.5rem] justify-around items-center border-t border-slate-800 bg-panel/90 backdrop-blur-xl pb-[var(--nav-safe-bottom)]">
+    <a href="{{ url_for('inicio') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'inicio' %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">🏠</span>
+      <span class="text-[10px] font-bold uppercase tracking-tighter">Inicio</span>
     </a>
-    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if 'clientes' in (request.endpoint or '') %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-lg leading-none">👤</span>Clientes
+    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if 'clientes' in (request.endpoint or '') %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">👥</span>
+      <span class="text-[10px] font-bold uppercase tracking-tighter">Clientes</span>
     </a>
-    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if 'prestamos' in (request.endpoint or '') %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-lg leading-none">📋</span>Préstamos
+    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if 'prestamos' in (request.endpoint or '') %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">📋</span>
+      <span class="text-[10px] font-bold uppercase tracking-tighter">Créditos</span>
     </a>
-    <a href="{{ url_for('cobro_hoy') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if request.endpoint == 'cobro_hoy' %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-lg leading-none">🗓</span>Cobro
+    <a href="{{ url_for('cobro_hoy') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'cobro_hoy' %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">💰</span>
+      <span class="text-[10px] font-bold uppercase tracking-tighter">Cobro</span>
     </a>
-    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-1 text-xs transition-all duration-200 {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','api_docs') %}text-accent scale-110 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-lg leading-none">⚙️</span>Más
+    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','api_docs') %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">⚙️</span>
+      <span class="text-[10px] font-bold uppercase tracking-tighter">Más</span>
     </a>
   </nav>
   {% endif %}
