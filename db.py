@@ -62,6 +62,7 @@ def ensure_schema_migrations() -> None:
         "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
         "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS permisos JSONB DEFAULT '{}'::jsonb",
+        "UPDATE usuarios SET permisos = '{}'::jsonb WHERE permisos IS NULL",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS eliminado BOOLEAN DEFAULT FALSE",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS eliminado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS eliminado_at TIMESTAMPTZ",
@@ -316,23 +317,6 @@ def admin_update_user_basic(uid: int, username: str, rol: str, permisos: dict = 
         cur = conn.cursor()
         cur.execute("UPDATE usuarios SET username = %s, rol = %s, permisos = %s WHERE id = %s",
                     (username.strip().lower(), rol, json.dumps(permisos), uid))
-        return cur.rowcount > 0
-
-
-def listar_usuarios_admin():
-    """Lista todos los usuarios para la gestión administrativa."""
-    with get_conn() as conn:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT id, username, rol, activo, creado_en FROM usuarios ORDER BY id ASC")
-        return cur.fetchall()
-
-
-def admin_update_user_basic(uid: int, username: str, rol: str):
-    """Actualiza solo datos básicos (no password)."""
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("UPDATE usuarios SET username = %s, rol = %s WHERE id = %s",
-                    (username.strip().lower(), rol, uid))
         return cur.rowcount > 0
 
 

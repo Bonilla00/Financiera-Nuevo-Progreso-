@@ -39,7 +39,7 @@
                     ] %}
                     {% for key, label in perms %}
                     <label class="flex items-center gap-3 bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl cursor-pointer hover:border-slate-700 transition-colors">
-                        <input type="checkbox" name="permiso_{{ key }}" {% if u.permisos.get(key) or u.rol == 'admin' %}checked{% endif %} class="accent-accent w-4 h-4" {% if u.rol == 'admin' %}disabled{% endif %}>
+                        <input type="checkbox" name="permiso_{{ key }}" {% if (u.permisos or {}).get(key) or u.rol == 'admin' %}checked{% endif %} class="accent-accent w-4 h-4" {% if u.rol == 'admin' %}disabled{% endif %}>
                         <span class="text-xs font-medium text-slate-300">{{ label }}</span>
                     </label>
                     {% endfor %}
