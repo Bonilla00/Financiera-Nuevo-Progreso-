@@ -940,6 +940,9 @@ def clientes_perfil(cid):
     prestamos_view = []
     for p in prestamos_rows:
         pid = p['id']
+        # Obtener pagos NO eliminados para este préstamo
+        pagos_prestamo = db.listar_pagos(pid, uid, is_admin)
+
         saldo = p['total_pagar'] - db.sum_pagos_por_prestamo(pid, uid, is_admin)
         prestamos_view.append(
             {
@@ -951,7 +954,15 @@ def clientes_perfil(cid):
                 "proximo_pago": p['proximo_pago'] or "",
                 "estado": p['estado'],
                 "saldo": max(0.0, round(float(saldo), 2)),
-                "en_mora": p['en_mora']
+                "en_mora": p['en_mora'],
+                "pagos": [
+                    {
+                        "id": pg[0],
+                        "fecha": pg[3],
+                        "valor": pg[4],
+                        "cuota": pg[5]
+                    } for pg in pagos_prestamo
+                ]
             }
         )
     auditoria = []
@@ -1547,27 +1558,33 @@ def pagos_list():
 
 
 @app.route("/pagos/<int:pago_id>/eliminar", methods=["POST"])
-@require_permission('eliminar_pagos')
+@login_required
 def pagos_eliminar(pago_id):
-    uid, _, is_admin, _, _ = ctx_user()
+    """Ruta unificada para eliminar pagos desde Historial o Perfil."""
+    uid, _, is_admin, _, permisos = ctx_user()
+
+    # Verificar si tiene permiso para eliminar pagos O eliminar cuotas (revertir)
+    tiene_permiso = is_admin or permisos.get('eliminar_pagos') or permisos.get('eliminar_cuotas_pagadas')
+    if not tiene_permiso:
+        flash("No tienes permiso para eliminar pagos o cuotas.", "error")
+        return redirect(url_for("inicio"))
+
     prestamo_id = int(request.form.get("prestamo_id", "0"))
     motivo = sanitize_input(request.form.get("motivo", "").strip())
     ip = request.remote_addr or "127.0.0.1"
 
     if not motivo:
         flash("El motivo de eliminación es obligatorio.", "error")
-        if prestamo_id:
-            return redirect(url_for("pagos_list", prestamo_id=prestamo_id))
-        return redirect(url_for("pagos_list"))
+        # Intentar volver a la página de origen
+        return redirect(request.referrer or url_for("pagos_list"))
 
     if db.eliminar_pago_y_actualizar(prestamo_id, pago_id, uid, is_admin, motivo, ip):
-        flash("Pago eliminado correctamente (eliminación lógica).", "ok")
+        flash("Pago/Cuota revertida correctamente.", "ok")
     else:
-        flash("No se pudo eliminar el pago.", "error")
+        flash("No se pudo realizar la operación.", "error")
 
-    if prestamo_id:
-        return redirect(url_for("pagos_list", prestamo_id=prestamo_id))
-    return redirect(url_for("pagos_list"))
+    # Redireccionar de vuelta al origen (Perfil del cliente o Lista de pagos)
+    return redirect(request.referrer or url_for("pagos_list"))
 
 
 @app.route("/admin/audit/eliminaciones")

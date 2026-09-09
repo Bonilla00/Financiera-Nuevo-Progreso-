@@ -125,6 +125,36 @@ if (document.getElementById('input-foto')) {
         </div>
       </div>
 
+      <!-- Plan de Pagos / Cuotas -->
+      <div class="mt-4 pt-4 border-t border-slate-800 space-y-2">
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Plan de Pagos</h3>
+        <div class="space-y-1.5">
+          {% for pg in pr.pagos|reverse %}
+          <div class="flex justify-between items-center bg-slate-900/50 rounded-xl px-3 py-2 border border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold text-emerald-400">CUOTA {{ pg.cuota }}</span>
+              <span class="text-[10px] text-slate-500">{{ pg.fecha }}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-bold text-white">{{ fmt_money(pg.valor) }}</span>
+              {% if permisos.get('eliminar_cuotas_pagadas') or is_admin %}
+              <button type="button"
+                      onclick="abrirModalRevertir({{ pg.id }}, {{ pr.id }}, '{{ cliente[1] }}', {{ pg.cuota }}, {{ pg.valor }}, '{{ pg.fecha }}')"
+                      class="text-[10px] font-bold text-rose-500 hover:text-rose-400 uppercase">Eliminar</button>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+
+          {% if pr.pagadas < pr.cuotas %}
+          <div class="flex justify-between items-center bg-slate-800/20 rounded-xl px-3 py-2 border border-dashed border-slate-700">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Próxima cuota a pagar...</span>
+            <span class="text-[10px] font-bold text-slate-600 uppercase">PENDIENTE</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
       <div class="flex flex-col gap-2 mt-4">
         <a href="{{ url_for('pagos_list', prestamo_id=pr.id) }}" class="block text-center py-2 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold uppercase tracking-widest">Ver Historial de Pagos</a>
 
@@ -202,5 +232,64 @@ if (document.getElementById('input-foto')) {
     <img src="{{ cliente[6] }}" class="w-full rounded-2xl object-contain" id="modal-foto-img">
   </div>
 </div>
+
+<!-- Modal de Reversión de Cuota -->
+<div id="modal-revertir" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-panel w-full max-w-sm rounded-3xl border border-slate-800 p-6 shadow-2xl animate-in zoom-in duration-200">
+        <h3 class="text-lg font-bold text-white mb-4">¿Revertir esta cuota?</h3>
+
+        <div id="cuota-info" class="space-y-2 mb-6 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400">
+            <!-- Rellenado por JS -->
+        </div>
+
+        <form id="form-revertir" method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="prestamo_id" id="modal-re-prestamo-id">
+
+            <div class="space-y-1">
+                <label for="modal-re-motivo" class="text-[10px] font-bold text-slate-500 uppercase ml-1">Motivo de reversión (Obligatorio)</label>
+                <textarea name="motivo" id="modal-re-motivo" required
+                          class="w-full h-24 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                          placeholder="Indique la razón de la corrección..."></textarea>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button" onclick="cerrarModalRevertir()"
+                        class="flex-1 py-3 rounded-2xl border border-slate-700 text-slate-400 font-bold text-xs uppercase">Cancelar</button>
+                <button type="submit"
+                        class="flex-[2] py-3 rounded-2xl bg-rose-600 text-white font-black text-xs uppercase shadow-lg shadow-rose-900/20 active:scale-95 transition-all">Eliminar Cuota</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function abrirModalRevertir(id, pid, cliente, cuota, valor, fecha) {
+    const modal = document.getElementById('modal-revertir');
+    const info = document.getElementById('cuota-info');
+    const form = document.getElementById('form-revertir');
+    const pidInput = document.getElementById('modal-re-prestamo-id');
+
+    info.innerHTML = `
+        <p><strong>Cliente:</strong> ${cliente}</p>
+        <p><strong>Préstamo:</strong> #${pid}</p>
+        <p><strong>Cuota:</strong> ${cuota}</p>
+        <p><strong>Valor:</strong> $${new Intl.NumberFormat().format(valor)}</p>
+        <p><strong>Fecha del pago:</strong> ${fecha}</p>
+    `;
+
+    form.action = `/pagos/${id}/eliminar`;
+    pidInput.value = pid;
+
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalRevertir() {
+    const modal = document.getElementById('modal-revertir');
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+</script>
 
 {% endblock %}

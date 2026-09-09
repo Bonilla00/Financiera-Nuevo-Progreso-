@@ -1473,13 +1473,15 @@ def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: boo
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Obtener datos del pago antes de eliminarlo para auditoría
         cur.execute(
             f"""
-            SELECT pagos.*, clientes.nombre as cliente_nombre
-            FROM pagos
-            JOIN prestamos p ON p.id = pagos.prestamo_id
+            SELECT pg.*, c.nombre as cliente_nombre
+            FROM pagos pg
+            JOIN prestamos p ON p.id = pg.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
-            WHERE pagos.id = %s AND pagos.prestamo_id = %s {extra}
+            WHERE pg.id = %s AND pg.prestamo_id = %s {extra}
             """,
             (pago_id, prestamo_id) + params,
         )
@@ -1487,25 +1489,30 @@ def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: boo
         if not pago:
             return False
 
-        # Eliminación lógica
+        # Eliminación lógica: marcar como eliminado y registrar metadatos
         cur.execute(
             """
             UPDATE pagos
-            SET eliminado = TRUE, eliminado_por = %s, eliminado_at = NOW(), motivo_eliminacion = %s
+            SET eliminado = TRUE,
+                eliminado_por = %s,
+                eliminado_at = NOW(),
+                motivo_eliminacion = %s
             WHERE id = %s
             """,
             (user_id, motivo, pago_id)
         )
 
-        # Registrar en auditoría específica
+        # Registrar en la tabla de logs de eliminación (auditoría financiera)
         registrar_log_eliminacion(
             pago_id, user_id, pago['cliente_nombre'], prestamo_id,
             pago['cuota'], pago['valor'], motivo, ip_address
         )
 
-        # Recalcular el estado del préstamo
+        # RECALCULAR ESTADO DEL PRÉSTAMO
+        # 1. Obtener el total pagado actual (excluyendo eliminados)
         total_cobrado = sum_pagos_por_prestamo(prestamo_id, user_id, is_admin)
 
+        # 2. Obtener parámetros base del préstamo
         cur.execute(
             "SELECT total_pagar, valor_cuota, cuotas, fecha, frecuencia FROM prestamos WHERE id=%s",
             (prestamo_id,),
@@ -1513,16 +1520,26 @@ def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: boo
         p = cur.fetchone()
         if not p: return False
 
-        total_pagar, valor_cuota, cuotas, fecha_ini, frecuencia = p
+        total_pagar, valor_cuota, cuotas, fecha_ini, frecuencia = p['total_pagar'], p['valor_cuota'], p['cuotas'], p['fecha'], p['frecuencia']
+
+        # 3. Calcular nuevas cuotas pagadas
+        # El número de cuotas pagadas se deriva siempre del total de dinero cobrado / valor de cuota base
         nuevas_pagadas = int(total_cobrado // float(valor_cuota))
+
+        # 4. Determinar nuevo estado y próxima fecha de pago
         saldo_restante = max(0.0, round(float(total_pagar) - total_cobrado, 2))
         nuevo_estado = "PAGADO" if saldo_restante <= 1 or nuevas_pagadas >= int(cuotas) else "ACTIVO"
         prox = proxima_fecha_pago(fecha_ini, frecuencia, nuevas_pagadas, int(cuotas))
 
+        # 5. Aplicar cambios al préstamo
         cur.execute(
             "UPDATE prestamos SET pagadas=%s, estado=%s, proximo_pago=%s WHERE id=%s",
             (nuevas_pagadas, nuevo_estado, prox, prestamo_id),
         )
+
+        # Registrar log general
+        registrar_log(user_id, f"Reversión de pago/cuota #{pago['cuota']} para préstamo #{prestamo_id}. Motivo: {motivo}")
+
         return True
 
 
