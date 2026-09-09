@@ -743,14 +743,6 @@ def inicio():
         return redirect(url_for("clientes_list"))
 
     return render_template("index.html", **context)
-            "ganancia_neta": 0,
-            "activos": 0,
-            "en_mora": 0,
-            "pagos_detalle": [],
-            "chart_data": {"labels": [], "values": []},
-            "hoy": hoy,
-        }
-    return render_template("reportes.html", **context)
 
 
 @app.route("/api/buscar_clientes")
