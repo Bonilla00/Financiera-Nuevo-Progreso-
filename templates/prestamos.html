@@ -2,94 +2,138 @@
 {% block title %}Préstamos - Financiera NP{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold text-white">Préstamos</h1>
-    <div class="flex gap-2">
-      {% if rol != 'solo_lectura' %}
-      <a href="{{ url_for('prestamos_nuevo') }}" class="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-slate-900 shadow-lg active:scale-95 transition-transform">+ Nuevo</a>
-      {% endif %}
+<div class="space-y-6 pb-6">
+  <!-- Encabezado -->
+  <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="text-center sm:text-left">
+      <h1 class="text-2xl font-black text-white uppercase tracking-tight">Préstamos</h1>
+      <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">Gestión de créditos activos y finalizados</p>
     </div>
-  </div>
-
-  <!-- Filtros -->
-  <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-    <a href="{{ url_for('prestamos_list', estado='activos') }}"
-       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'activos' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
-       Activos
+    {% if rol != 'solo_lectura' %}
+    <a href="{{ url_for('prestamos_nuevo') }}" class="w-full sm:w-auto rounded-2xl bg-accent px-6 py-3 text-sm font-black text-slate-900 shadow-lg shadow-cyan-900/20 active:scale-95 transition-all text-center uppercase tracking-widest">
+      + Nuevo Préstamo
     </a>
-    <a href="{{ url_for('prestamos_list', estado='mora') }}"
-       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'mora' %}bg-red-500 text-white{% else %}bg-slate-800 text-slate-400{% endif %}">
-       En Mora
-    </a>
-    <a href="{{ url_for('prestamos_list', estado='pagados') }}"
-       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'pagados' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
-       Pagados
-    </a>
-    <a href="{{ url_for('prestamos_list', estado='todos') }}"
-       class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors {% if filtro == 'todos' %}bg-accent text-slate-900{% else %}bg-slate-800 text-slate-400{% endif %}">
-       Todos
-    </a>
-  </div>
-
-  <div class="space-y-3">
-    {% for p in prestamos %}
-    {# Usamos cid (ID del cliente) para el link y id (ID del préstamo) para mostrar #}
-    <div class="list-row-interactive rounded-2xl border p-4 relative overflow-hidden {% if p.en_mora %}border-red-500/50 bg-red-900/10{% else %}border-slate-800 bg-panel{% endif %}"
-         onclick="window.location.href='{{ url_for('clientes_perfil', cid=p.cid) }}'">
-
-      {% if p.en_mora %}
-      <div class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
-        En Mora
-      </div>
-      {% endif %}
-
-      <div class="flex justify-between items-start">
-        <div class="space-y-1">
-          <p class="text-sm font-bold text-white uppercase">{{ p.nombre }}</p>
-          <p class="text-xs text-slate-400">{{ fmt_money(p.monto) }}</p>
-          <div class="flex items-center gap-2 mt-2">
-            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold uppercase tracking-wider">
-              {{ p.frecuencia }}
-            </span>
-            <span class="text-[10px] px-2 py-0.5 rounded {% if p.estado == 'ACTIVO' %}bg-emerald-900/30 text-emerald-400{% else %}bg-slate-800 text-slate-500{% endif %} font-bold uppercase tracking-wider">
-              {{ p.estado }}
-            </span>
-          </div>
-        </div>
-
-        <div class="text-right">
-          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Próx. Pago</p>
-          <p class="text-sm font-bold {% if p.en_mora %}text-red-400{% else %}text-white{% endif %}">
-            {{ fecha_proximo_pago_texto(p.proximo_pago) or 'Finalizado' }}
-          </p>
-          <p class="text-xs font-bold text-accent mt-1">{{ fmt_money(p.valor_cuota) }}</p>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-
-    {% if not prestamos %}
-    <div class="py-12 text-center">
-      <span class="text-4xl">📋</span>
-      <p class="mt-2 text-sm text-slate-500 font-medium">No se encontraron préstamos</p>
-    </div>
     {% endif %}
   </div>
 
-  {% if total_pages > 1 %}
-  <div class="flex items-center justify-between mt-4 px-2">
-    <p class="text-xs text-slate-500">{{ total }} registros</p>
-    <div class="flex gap-1">
-      {% if page > 1 %}
-      <a href="?page={{ page - 1 }}{% if filtro != 'activos' %}&estado={{ filtro }}{% endif %}" class="px-3 py-1.5 rounded-lg bg-panel2 border border-slate-600 text-slate-300 text-xs">← Anterior</a>
-      {% endif %}
-      <span class="px-3 py-1.5 text-xs text-slate-400">{{ page }} / {{ total_pages }}</span>
-      {% if page < total_pages %}
-      <a href="?page={{ page + 1 }}{% if filtro != 'activos' %}&estado={{ filtro }}{% endif %}" class="px-3 py-1.5 rounded-lg bg-panel2 border border-slate-600 text-slate-300 text-xs">Siguiente →</a>
-      {% endif %}
-    </div>
+  <!-- Buscador -->
+  <div class="relative group">
+    <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">🔍</span>
+    <input type="text" id="buscador-prestamos"
+           class="block w-full pl-11 pr-4 py-4 border border-slate-700 rounded-2xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all shadow-xl"
+           placeholder="Buscar por cliente o identificación...">
   </div>
-  {% endif %}
+
+  <!-- Filtros Visuales -->
+  <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+    {% set items_filtro = [
+        ('activos', 'Activos', 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/20'),
+        ('mora', 'En Mora', 'bg-rose-900/30 text-rose-400 border border-rose-500/20'),
+        ('pagados', 'Finalizados', 'bg-slate-800 text-slate-400'),
+        ('todos', 'Todos', 'bg-slate-800 text-slate-400')
+    ] %}
+    {% for key, label, style in items_filtro %}
+    <a href="{{ url_for('prestamos_list', estado=key) }}"
+       class="whitespace-nowrap px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
+       {% if filtro == key %}bg-accent text-slate-900 shadow-lg shadow-cyan-900/40{% else %}{{ style }}{% endif %}">
+       {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Grid de Préstamos -->
+  <div id="grid-prestamos" class="space-y-4">
+    {% for p in prestamos %}
+    {% set progreso = (p.pagadas / p.cuotas * 100)|round|int if p.cuotas > 0 else 0 %}
+    <div class="card-prestamo bg-panel border border-slate-800 rounded-[2rem] p-6 shadow-xl transition-all hover:border-slate-700 relative overflow-hidden group">
+
+      <!-- ID y Estado -->
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Crédito #{{ "%06d"|format(p.id) }}</p>
+          <h3 class="text-lg font-black text-white uppercase tracking-tighter mt-1">{{ p.nombre }}</h3>
+        </div>
+        <div class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter
+            {% if p.en_mora %}bg-rose-500/10 text-rose-500 border border-rose-500/20
+            {% elif p.estado == 'ACTIVO' %}bg-emerald-500/10 text-emerald-500 border border-emerald-500/20
+            {% else %}bg-slate-700 text-slate-300{% endif %}">
+            {{ p.estado }}
+        </div>
+      </div>
+
+      <!-- Métricas del Crédito -->
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="space-y-0.5">
+          <p class="text-[9px] font-bold text-slate-500 uppercase">Monto Total</p>
+          <p class="text-base font-black text-white tracking-tighter">{{ fmt_money(p.total_pagar) }}</p>
+        </div>
+        <div class="space-y-0.5 text-right">
+          <p class="text-[9px] font-bold text-slate-500 uppercase">Próximo Pago</p>
+          <p class="text-sm font-black {% if p.en_mora %}text-rose-400{% else %}text-white{% endif %}">
+            {{ fecha_proximo_pago_texto(p.proximo_pago) or 'Completado' }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Barra de Progreso -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-end">
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Progreso de Pago</p>
+          <p class="text-xs font-black text-accent">{{ p.pagadas }} / {{ p.cuotas }} <span class="text-[9px] text-slate-500 font-bold">Cuotas</span></p>
+        </div>
+        <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+          <div class="h-full bg-gradient-to-r from-accent to-accent2 rounded-full transition-all duration-1000" style="width: {{ progreso }}%"></div>
+        </div>
+      </div>
+
+      <!-- Acciones Rápidas -->
+      <div class="mt-6 pt-4 border-t border-slate-800/50 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-xs">
+            {% if p.frecuencia|lower == 'diaria' %}📅{% elif p.frecuencia|lower == 'semanal' %}📆{% else %}🏢{% endif %}
+          </div>
+          <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">{{ p.frecuencia }}</span>
+        </div>
+
+        <a href="{{ url_for('clientes_perfil', cid=p.cid) }}" class="flex items-center gap-1 text-[10px] font-black uppercase text-accent hover:text-white transition-all tracking-widest group-hover:translate-x-1">
+          Gestionar Crédito <span class="text-xs">→</span>
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pantalla Vacía -->
+  <div id="empty-state" class="hidden py-20 text-center">
+    <span class="text-6xl opacity-10">📋</span>
+    <p class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-xs">No se encontraron préstamos</p>
+  </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('buscador-prestamos');
+    const grid = document.getElementById('grid-prestamos');
+    const empty = document.getElementById('empty-state');
+    const cards = document.querySelectorAll('.card-prestamo');
+
+    input.addEventListener('input', function(e) {
+        const q = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            const text = card.innerText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (text.includes(q)) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+        if (grid) grid.style.display = visibleCount === 0 ? 'none' : 'block';
+    });
+});
+</script>
 {% endblock %}
