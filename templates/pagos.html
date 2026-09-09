@@ -33,11 +33,12 @@
         </div>
         <div class="flex flex-col items-end gap-2 shrink-0">
           <a href="{{ url_for('descargar_recibo', pid=r.prestamo_id, pago_id=r.id) }}" class="text-xs text-accent px-2">Recibo</a>
-          <form method="post" action="{{ url_for('pagos_eliminar', pago_id=r.id) }}" onsubmit="return confirm('Eliminar este pago?');" data-loading-submit data-loading-label="Procesando...">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="prestamo_id" value="{{ r.prestamo_id }}">
-            <button type="submit" class="text-xs text-rose-400 px-2">Quitar</button>
-          </form>
+
+          {% if permisos.get('eliminar_pagos') or is_admin %}
+          <button type="button"
+                  onclick="abrirModalEliminar({{ r.id }}, {{ r.prestamo_id }}, '{{ r.cliente }}', {{ r.cuota }}, {{ r.valor }}, '{{ r.fecha }}')"
+                  class="text-xs text-rose-400 px-2">Quitar</button>
+          {% endif %}
         </div>
       </div>
       {% endfor %}
@@ -47,6 +48,65 @@
   <p class="text-slate-500 text-sm">No hay pagos registrados.</p>
   {% endfor %}
 </div>
+
+<!-- Modal de Eliminación -->
+<div id="modal-eliminar" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-panel w-full max-w-sm rounded-3xl border border-slate-800 p-6 shadow-2xl animate-in zoom-in duration-200">
+        <h3 class="text-lg font-bold text-white mb-4">¿Eliminar este pago?</h3>
+
+        <div id="pago-info" class="space-y-2 mb-6 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400">
+            <!-- Rellenado por JS -->
+        </div>
+
+        <form id="form-eliminar" method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="prestamo_id" id="modal-prestamo-id">
+
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Motivo de eliminación (Obligatorio)</label>
+                <textarea name="motivo" id="modal-motivo" required
+                          class="w-full h-24 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                          placeholder="Ej: Error en el monto, digitación errónea..."></textarea>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button" onclick="cerrarModalEliminar()"
+                        class="flex-1 py-3 rounded-2xl border border-slate-700 text-slate-400 font-bold text-xs uppercase">Cancelar</button>
+                <button type="submit"
+                        class="flex-[2] py-3 rounded-2xl bg-rose-600 text-white font-black text-xs uppercase shadow-lg shadow-rose-900/20 active:scale-95 transition-all">Eliminar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function abrirModalEliminar(id, pid, cliente, cuota, valor, fecha) {
+    const modal = document.getElementById('modal-eliminar');
+    const info = document.getElementById('pago-info');
+    const form = document.getElementById('form-eliminar');
+    const pidInput = document.getElementById('modal-prestamo-id');
+
+    info.innerHTML = `
+        <p><strong>Cliente:</strong> ${cliente}</p>
+        <p><strong>Préstamo:</strong> #${pid}</p>
+        <p><strong>Cuota:</strong> ${cuota}</p>
+        <p><strong>Valor:</strong> $${new Intl.NumberFormat().format(valor)}</p>
+        <p><strong>Fecha:</strong> ${fecha}</p>
+    `;
+
+    form.action = `/pagos/${id}/eliminar`;
+    pidInput.value = pid;
+
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalEliminar() {
+    const modal = document.getElementById('modal-eliminar');
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+</script>
 
 {% if total_pages > 1 %}
 <div class="flex items-center justify-between mt-4 px-2">

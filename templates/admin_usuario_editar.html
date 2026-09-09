@@ -22,6 +22,33 @@
                 </select>
             </div>
 
+            <div class="space-y-3 pt-4 border-t border-slate-800">
+                <h2 class="text-xs font-bold text-accent uppercase tracking-widest">Permisos Granulares</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% set perms = [
+                        ('ver_clientes', 'Ver clientes'),
+                        ('crear_clientes', 'Crear clientes'),
+                        ('editar_clientes', 'Editar clientes'),
+                        ('crear_prestamos', 'Crear préstamos'),
+                        ('editar_prestamos', 'Editar préstamos'),
+                        ('registrar_pagos', 'Registrar pagos'),
+                        ('ver_pagos', 'Ver pagos'),
+                        ('generar_recibos', 'Generar recibos'),
+                        ('eliminar_pagos', 'ELIMINAR/CORREGIR PAGOS'),
+                        ('eliminar_cuotas_pagadas', 'ELIMINAR CUOTAS PAGADAS')
+                    ] %}
+                    {% for key, label in perms %}
+                    <label class="flex items-center gap-3 bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl cursor-pointer hover:border-slate-700 transition-colors">
+                        <input type="checkbox" name="permiso_{{ key }}" {% if u.permisos.get(key) or u.rol == 'admin' %}checked{% endif %} class="accent-accent w-4 h-4" {% if u.rol == 'admin' %}disabled{% endif %}>
+                        <span class="text-xs font-medium text-slate-300">{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% if u.rol == 'admin' %}
+                <p class="text-[10px] text-slate-500 italic">Nota: Los administradores tienen todos los permisos habilitados por defecto.</p>
+                {% endif %}
+            </div>
+
             <div class="flex gap-3 pt-4">
                 <a href="{{ url_for('admin_usuarios') }}" class="flex-1 text-center py-4 rounded-2xl border border-slate-700 text-slate-400 font-bold text-sm hover:bg-slate-800 transition-all">Cancelar</a>
                 <button type="submit" class="flex-[2] py-4 rounded-2xl bg-accent text-slate-900 font-bold text-sm shadow-lg shadow-cyan-900/20 active:scale-95 transition-all">Guardar Cambios</button>

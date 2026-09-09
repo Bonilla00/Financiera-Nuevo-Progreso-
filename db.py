@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import logging
+import json
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -60,6 +61,12 @@ def ensure_schema_migrations() -> None:
         "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, user_id INT, accion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
         "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS permisos JSONB DEFAULT '{}'::jsonb",
+        "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS eliminado BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS eliminado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL",
+        "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS eliminado_at TIMESTAMPTZ",
+        "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS motivo_eliminacion TEXT",
+        "CREATE TABLE IF NOT EXISTS logs_eliminacion (id SERIAL PRIMARY KEY, pago_id INTEGER, user_id INTEGER REFERENCES usuarios(id), fecha TIMESTAMPTZ DEFAULT NOW(), cliente TEXT, prestamo_id INTEGER, cuota INTEGER, valor DOUBLE PRECISION, motivo TEXT, ip_address VARCHAR(45))",
         "CREATE TABLE IF NOT EXISTS whatsapp_instances (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE, phone_number VARCHAR(20), instance_name VARCHAR(50) UNIQUE, status VARCHAR(20) DEFAULT 'pending', qr_code TEXT, connected_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW())",
         "CREATE TABLE IF NOT EXISTS whatsapp_messages (id SERIAL PRIMARY KEY, instance_id INTEGER NOT NULL REFERENCES whatsapp_instances(id) ON DELETE CASCADE, from_number VARCHAR(20) NOT NULL, to_number VARCHAR(20) NOT NULL, message_type VARCHAR(20) DEFAULT 'text', content TEXT, media_url TEXT, direction VARCHAR(10) CHECK (direction IN ('inbound', 'outbound')), created_at TIMESTAMPTZ DEFAULT NOW())",
         "CREATE TABLE IF NOT EXISTS whatsapp_sessions (id SERIAL PRIMARY KEY, instance_id INTEGER NOT NULL REFERENCES whatsapp_instances(id) ON DELETE CASCADE, client_phone VARCHAR(20) NOT NULL, state VARCHAR(30) DEFAULT 'idle', context JSONB DEFAULT '{}', last_activity TIMESTAMPTZ DEFAULT NOW(), UNIQUE(instance_id, client_phone))",
@@ -151,8 +158,8 @@ def crear_admin_inicial():
             return
         h = generate_password_hash(os.environ.get("ADMIN_DEFAULT_PASSWORD", "admin123"))
         cur.execute("""
-            INSERT INTO usuarios (username, password_hash, rol, debe_cambiar_password, activo)
-            VALUES ('admin', %s, 'admin', TRUE, TRUE)
+            INSERT INTO usuarios (username, password_hash, rol, debe_cambiar_password, activo, permisos)
+            VALUES ('admin', %s, 'admin', TRUE, TRUE, '{}'::jsonb)
         """, (h,))
 
 
@@ -233,16 +240,18 @@ def actualizar_username_usuario(uid: int, username: str) -> None:
         )
 
 
-def crear_usuario(username: str, password_hash: str, rol: str = "usuario") -> int:
+def crear_usuario(username: str, password_hash: str, rol: str = "usuario", permisos: dict = None) -> int:
+    if permisos is None:
+        permisos = {}
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO usuarios (username, password_hash, rol)
-            VALUES (%s, %s, %s)
+            INSERT INTO usuarios (username, password_hash, rol, permisos)
+            VALUES (%s, %s, %s, %s)
             RETURNING id
             """,
-            (username.strip().lower(), password_hash, rol),
+            (username.strip().lower(), password_hash, rol, json.dumps(permisos)),
         )
         return int(cur.fetchone()[0])
 
@@ -252,7 +261,7 @@ def obtener_usuario_por_username(username: str) -> Optional[dict]:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
             """
-            SELECT id, username, password_hash, rol, activo, debe_cambiar_password
+            SELECT id, username, password_hash, rol, activo, debe_cambiar_password, permisos
             FROM usuarios WHERE LOWER(username) = LOWER(%s)
             """,
             (username.strip(),),
@@ -264,7 +273,7 @@ def obtener_usuario_por_id(uid: int) -> Optional[dict]:
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            "SELECT id, username, password_hash, rol, activo, debe_cambiar_password FROM usuarios WHERE id = %s",
+            "SELECT id, username, password_hash, rol, activo, debe_cambiar_password, permisos FROM usuarios WHERE id = %s",
             (uid,),
         )
         return cur.fetchone()
@@ -275,7 +284,7 @@ def listar_usuarios() -> list[tuple]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, username, rol, activo, creado_en
+            SELECT id, username, rol, activo, creado_en, permisos
             FROM usuarios ORDER BY id
             """
         )
@@ -289,6 +298,25 @@ def actualizar_password_usuario(uid: int, password_hash: str) -> None:
             "UPDATE usuarios SET password_hash = %s WHERE id = %s",
             (password_hash, uid),
         )
+
+
+def listar_usuarios_admin():
+    """Lista todos los usuarios para la gestión administrativa."""
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id, username, rol, activo, creado_en, permisos FROM usuarios ORDER BY id ASC")
+        return cur.fetchall()
+
+
+def admin_update_user_basic(uid: int, username: str, rol: str, permisos: dict = None):
+    """Actualiza datos básicos y permisos (no password)."""
+    if permisos is None:
+        permisos = {}
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE usuarios SET username = %s, rol = %s, permisos = %s WHERE id = %s",
+                    (username.strip().lower(), rol, json.dumps(permisos), uid))
+        return cur.rowcount > 0
 
 
 def listar_usuarios_admin():
@@ -851,7 +879,7 @@ def contar_pagos_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: bool) 
             SELECT COUNT(*) FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
-            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            WHERE pagos.fecha BETWEEN %s AND %s AND pagos.eliminado = FALSE {scope}
             """,
             (f_ini, f_fin) + sparams,
         )
@@ -871,7 +899,7 @@ def sum_pagos_por_prestamo(prestamo_id: int, user_id: int, is_admin: bool) -> fl
             SELECT COALESCE(SUM(pg.valor), 0) FROM pagos pg
             JOIN prestamos p ON p.id = pg.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
-            WHERE pg.prestamo_id = %s {scope}
+            WHERE pg.prestamo_id = %s AND pg.eliminado = FALSE {scope}
             """,
             (prestamo_id,) + sparams,
         )
@@ -1381,11 +1409,12 @@ def listar_pagos(prestamo_id: Optional[int], user_id: int, is_admin: bool):
                prestamos.proximo_pago,
                prestamos.notas,
                COALESCE(pagos.interes_mora, 0),
-               COALESCE(pagos.nota, '')
+               COALESCE(pagos.nota, ''),
+               pagos.eliminado
         FROM pagos
         JOIN prestamos ON prestamos.id = pagos.prestamo_id
         JOIN clientes ON clientes.id = prestamos.cliente_id
-        WHERE 1=1 {scope}
+        WHERE pagos.eliminado = FALSE {scope}
     """
     args = list(sparams)
     if prestamo_id:
@@ -1429,23 +1458,66 @@ def obtener_pago_para_recibo(prestamo_id: int, pago_id: int, user_id: int, is_ad
         return cur.fetchone()
 
 
-def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: bool) -> bool:
-    extra, params = _filtro_owner("c", user_id, is_admin)
+def registrar_log_eliminacion(pago_id, user_id, cliente, prestamo_id, cuota, valor, motivo, ip_address):
+    """Registra una eliminación lógica en la tabla de auditoría."""
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
+            """
+            INSERT INTO logs_eliminacion (pago_id, user_id, cliente, prestamo_id, cuota, valor, motivo, ip_address)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (pago_id, user_id, cliente, prestamo_id, cuota, valor, motivo, ip_address),
+        )
+
+
+def listar_logs_eliminacion():
+    """Lista el historial de eliminaciones para el admin."""
+    query = """
+        SELECT l.*, u.username
+        FROM logs_eliminacion l
+        JOIN usuarios u ON l.user_id = u.id
+        ORDER BY l.fecha DESC
+    """
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query)
+        return cur.fetchall()
+
+
+def eliminar_pago_y_actualizar(prestamo_id, pago_id, user_id: int, is_admin: bool, motivo: str = "", ip_address: str = "") -> bool:
+    extra, params = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
             f"""
-            SELECT pagos.id FROM pagos
+            SELECT pagos.*, clientes.nombre as cliente_nombre
+            FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
             WHERE pagos.id = %s AND pagos.prestamo_id = %s {extra}
             """,
             (pago_id, prestamo_id) + params,
         )
-        if not cur.fetchone():
+        pago = cur.fetchone()
+        if not pago:
             return False
 
-        cur.execute("DELETE FROM pagos WHERE id=%s", (pago_id,))
+        # Eliminación lógica
+        cur.execute(
+            """
+            UPDATE pagos
+            SET eliminado = TRUE, eliminado_por = %s, eliminado_at = NOW(), motivo_eliminacion = %s
+            WHERE id = %s
+            """,
+            (user_id, motivo, pago_id)
+        )
+
+        # Registrar en auditoría específica
+        registrar_log_eliminacion(
+            pago_id, user_id, pago['cliente_nombre'], prestamo_id,
+            pago['cuota'], pago['valor'], motivo, ip_address
+        )
 
         # Recalcular el estado del préstamo
         total_cobrado = sum_pagos_por_prestamo(prestamo_id, user_id, is_admin)
@@ -1513,7 +1585,7 @@ def sum_pagos_por_rango(f_ini, f_fin, user_id: int, is_admin: bool) -> float:
             SELECT COALESCE(SUM(pagos.valor), 0), COUNT(pagos.id) FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
-            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            WHERE pagos.fecha BETWEEN %s AND %s AND pagos.eliminado = FALSE {scope}
             """,
             (f_ini, f_fin) + sparams,
         )
@@ -1542,7 +1614,7 @@ def total_mora_cobrada_en_rango(f_ini: str, f_fin: str, user_id: int, is_admin: 
             SELECT COALESCE(SUM(COALESCE(pagos.interes_mora, 0)), 0), COUNT(pagos.id) FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
-            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            WHERE pagos.fecha BETWEEN %s AND %s AND pagos.eliminado = FALSE {scope}
             """,
             (f_ini, f_fin) + sparams,
         )
@@ -1578,7 +1650,7 @@ def desglose_capital_interes_cobrado_en_rango(
             FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
-            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            WHERE pagos.fecha BETWEEN %s AND %s AND pagos.eliminado = FALSE {scope}
             """,
             (f_ini, f_fin) + sparams,
         )
@@ -1601,7 +1673,7 @@ def pagos_detalle_en_rango(
             FROM pagos
             JOIN prestamos p ON p.id = pagos.prestamo_id
             JOIN clientes c ON c.id = p.cliente_id
-            WHERE pagos.fecha BETWEEN %s AND %s {scope}
+            WHERE pagos.fecha BETWEEN %s AND %s AND pagos.eliminado = FALSE {scope}
             ORDER BY pagos.fecha DESC, pagos.id DESC
             """,
             (f_ini, f_fin) + sparams,
