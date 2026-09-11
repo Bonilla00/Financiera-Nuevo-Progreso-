@@ -8,48 +8,39 @@
 {% block content %}
 <div class="space-y-6 pb-4">
   <!-- Encabezado Perfil -->
-  <div class="flex items-center justify-between mb-2">
-    <div>
-      <p class="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Bienvenido de nuevo</p>
-      <h1 class="text-xl font-black text-white uppercase tracking-tighter">{{ session.username }}</h1>
-    </div>
-    <div class="w-12 h-12 rounded-2xl bg-accent/20 border border-accent/30 flex items-center justify-center text-xl shadow-lg shadow-cyan-900/20">
-      🏦
-    </div>
+  <div class="mb-4">
+    <h1 class="text-3xl font-black text-white">Hola, {{ session.username.split(' ')[0]|capitalize }} 👋</h1>
+    <p class="text-slate-400 text-sm mt-1 font-medium">Aquí tienes un resumen de hoy</p>
   </div>
 
-  <!-- Métricas Principales (Grid Móvil) -->
-  <div class="grid grid-cols-2 gap-3">
-    <!-- Card Cobro Hoy -->
-    <div class="col-span-2 rounded-[2rem] bg-gradient-to-br from-accent to-accent2 p-6 shadow-xl shadow-cyan-900/40 relative overflow-hidden group">
-      <div class="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-110 transition-transform">
-        <span class="text-6xl">💰</span>
-      </div>
-      <div class="relative z-10">
-        <p class="text-[10px] font-black uppercase text-slate-900/60 tracking-widest">Cobro programado hoy</p>
-        <h2 class="text-3xl font-black text-slate-950 mt-1">{{ fmt_money(cuotas_hoy_valor) }}</h2>
-        <div class="flex items-center gap-2 mt-4">
-          <a href="{{ url_for('cobro_hoy') }}" class="bg-slate-950 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest active:scale-95 transition-transform">Ver Ruta de Cobro</a>
-          <span class="text-[10px] font-bold text-slate-900/80">{{ cuotas_hoy_cantidad }} cuotas</span>
-        </div>
-      </div>
+  <!-- Métricas Principales -->
+  <div class="grid grid-cols-2 gap-4 mb-6">
+    <div class="bg-slate-900/50 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center">
+      <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-xl mb-2">👥</div>
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Clientes</p>
+      <h3 class="text-2xl font-black text-white mt-1">{{ stats_clientes.total }}</h3>
+      <span class="text-[10px] text-slate-400 mt-1">Activos</span>
     </div>
 
-    <!-- Mini Cards -->
-    <div class="rounded-3xl bg-panel p-5 border border-slate-800 shadow-lg">
-      <p class="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Clientes</p>
-      <div class="flex items-end justify-between">
-        <h3 class="text-xl font-black text-white leading-none">{{ stats_clientes.total }}</h3>
-        <span class="text-[10px] text-emerald-400 font-bold">+{{ stats_clientes.activos }} Act.</span>
-      </div>
+    <div class="bg-slate-900/50 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center">
+      <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-xl mb-2">💰</div>
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Préstamos</p>
+      <h3 class="text-2xl font-black text-white mt-1">{{ stats_clientes.activos }}</h3>
+      <span class="text-[10px] text-slate-400 mt-1">En curso</span>
     </div>
 
-    <div class="rounded-3xl bg-panel p-5 border border-slate-800 shadow-lg">
-      <p class="text-[9px] font-black uppercase text-rose-500 tracking-widest mb-1">En Mora</p>
-      <div class="flex items-end justify-between">
-        <h3 class="text-xl font-black text-white leading-none">{{ en_mora }}</h3>
-        <span class="text-[10px] text-rose-400 font-bold animate-pulse-slow">Urgent</span>
-      </div>
+    <div class="bg-emerald-950/20 border border-emerald-500/10 p-5 rounded-3xl flex flex-col items-center text-center">
+      <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-xl mb-2">📈</div>
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Pagos hoy</p>
+      <h3 class="text-lg font-black text-emerald-400 mt-1">{{ fmt_money(cuotas_hoy_valor) }}</h3>
+      <span class="text-[10px] text-slate-400 mt-1">{{ cuotas_hoy_cantidad }} pagos</span>
+    </div>
+
+    <div class="bg-rose-950/20 border border-rose-500/10 p-5 rounded-3xl flex flex-col items-center text-center">
+      <div class="w-10 h-10 rounded-2xl bg-rose-500/10 flex items-center justify-center text-xl mb-2">❗</div>
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Vencidos</p>
+      <h3 class="text-2xl font-black text-white mt-1">{{ stats_clientes.mora }}</h3>
+      <span class="text-[10px] text-slate-400 mt-1">Con mora</span>
     </div>
   </div>
 
@@ -126,33 +117,47 @@
   </div>
 
   <!-- Vencimientos de Hoy -->
-  <div class="space-y-3">
-    <div class="flex items-center justify-between ml-2">
-      <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Vencimientos de Hoy</h3>
-      <span class="text-[9px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-1 rounded-lg">{{ vencimientos_hoy|length }} CUOTAS</span>
-    </div>
-    <div class="space-y-2">
-      {% for v in vencimientos_hoy %}
-      <div class="bg-panel border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-md">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-sm">📅</div>
-          <div class="min-w-0">
-            <p class="text-[11px] font-black text-white uppercase tracking-tighter truncate">{{ v.nombre }}</p>
-            <p class="text-[9px] text-slate-500 font-bold uppercase">Cuota #{{ v.cuota }} &middot; Hoy</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <div class="text-right">
-            <p class="text-xs font-black text-white tracking-tighter">{{ fmt_money(v.valor) }}</p>
-          </div>
-          <a href="{{ url_for('prestamos_cobrar', pid=v.id) }}" class="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-slate-900 shadow-lg shadow-cyan-900/20 active:scale-95 transition-transform">
-            💰
-          </a>
-        </div>
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">🗓️</span>
+        <h2 class="text-sm font-black text-white uppercase tracking-widest">Vencimientos de hoy</h2>
       </div>
+      <a href="{{ url_for('cobro_hoy') }}" class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Ver todos</a>
+    </div>
+
+    <div class="space-y-3">
+      {% for v in vencimientos_hoy %}
+      <a href="{{ url_for('prestamos_cobrar', pid=v.id) }}" class="block bg-slate-900/50 border border-slate-800 p-4 rounded-[2rem] hover:bg-slate-800/50 transition-all active:scale-[0.98]">
+        <div class="flex items-center gap-4">
+          <!-- Avatar Circular -->
+          <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-black text-base border border-emerald-500/20">
+            {{ v.nombre[0].upper() }}
+          </div>
+
+          <!-- Información -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-bold text-white truncate">{{ v.nombre }}</h3>
+              <p class="text-sm font-black text-white">{{ fmt_money(v.valor) }}</p>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-1">
+              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Cuota #{{ v.cuota }}</p>
+              <p class="text-[10px] text-emerald-500 font-bold uppercase tracking-tight">Vence hoy</p>
+            </div>
+          </div>
+
+          <!-- Flecha de acción -->
+          <div class="text-slate-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      </a>
       {% else %}
-      <div class="py-6 text-center bg-slate-900/20 rounded-3xl border border-dashed border-slate-800">
-        <p class="text-[10px] text-slate-600 font-bold uppercase">No hay cuotas venciendo hoy</p>
+      <div class="py-10 text-center bg-slate-900/20 rounded-[2rem] border border-dashed border-slate-800">
+        <p class="text-xs text-slate-600 font-bold uppercase tracking-widest">No hay cuotas venciendo hoy</p>
       </div>
       {% endfor %}
     </div>

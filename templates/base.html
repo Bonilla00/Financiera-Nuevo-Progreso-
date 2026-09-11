@@ -22,8 +22,8 @@
             appbg: '#0F172A',
             panel: '#111827',
             panel2: '#1F2937',
-            accent: '#22D3EE',
-            accent2: '#0891B2',
+            accent: '#22C55E',
+            accent2: '#16A34A',
             success: '#22C55E',
             danger: '#EF4444',
             warning: '#F59E0B',
@@ -66,7 +66,7 @@
     }
 
     .nav-active-glow {
-      position: relative;
+      color: #22C55E !important;
     }
     .nav-active-glow::after {
       content: '';
@@ -77,8 +77,24 @@
       width: 4px;
       height: 4px;
       border-radius: 50%;
-      background: #22D3EE;
-      box-shadow: 0 0 10px #22D3EE, 0 0 20px #22D3EE;
+      background: #22C55E;
+      box-shadow: 0 0 10px #22C55E;
+    }
+
+    /* Menú de tres puntos */
+    #dropdown-menu {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: top right;
+    }
+    #dropdown-menu.hidden {
+      display: none;
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    #dropdown-menu.show {
+      display: block;
+      opacity: 1;
+      transform: scale(1);
     }
 
     /* Mejora de tarjetas interactivas */
@@ -123,7 +139,7 @@
     .list-row-interactive:hover,
     .list-row-interactive:active {
       background-color: #1f2937;
-      box-shadow: inset 3px 0 0 0 #22d3ee;
+      box-shadow: inset 3px 0 0 0 #22C55E;
     }
     .btn-editar {
       display: block;
@@ -300,12 +316,73 @@
   {% endwith %}
 
   {% if session.user_id %}
-  <header class="max-w-lg mx-auto px-3 pt-2 pb-2 flex justify-between items-center text-center select-none" role="banner">
-    <div class="brand-title font-bold tracking-tight">
-      <div class="text-white">FINANCIERA NUEVO</div>
-      <div class="text-[#22C55E]">PROGRESO</div>
+  <header class="sticky top-0 z-50 bg-[#0F172A]/80 backdrop-blur-lg border-b border-slate-800/50 px-4 py-3">
+    <div class="max-w-lg mx-auto flex justify-between items-center">
+      <div class="flex flex-col">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-6 bg-emerald-500 rounded-full"></div>
+          <h1 class="text-sm font-black leading-none tracking-tighter text-white">
+            FINANCIERA <br> <span class="text-emerald-500">NUEVO PROGRESO</span>
+          </h1>
+        </div>
+        <p class="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-1 ml-4">Tu progreso, nuestra prioridad</p>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Campana -->
+        <a href="{{ url_for('notificaciones_centro') }}" class="relative p-2 text-slate-400 hover:text-white transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span id="notif-badge-top" class="hidden absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white border-2 border-[#0F172A]"></span>
+        </a>
+
+        <!-- Botón Tres Puntos -->
+        <button id="btn-menu-toggle" class="p-2 text-slate-400 hover:text-white transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+          </svg>
+        </button>
+      </div>
     </div>
-    <button id="btn-open-install" type="button" class="btn-secondary text-xs uppercase tracking-wide hidden">Instalar</button>
+
+    <!-- Menú Desplegable -->
+    <div id="dropdown-menu" class="hidden absolute right-4 top-16 w-56 bg-[#1E293B] border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden z-[60]">
+      <div class="py-2">
+        <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors">
+          <span>👤</span> Mi perfil
+        </a>
+        <a href="{{ url_for('notificaciones_centro') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors">
+          <div class="flex items-center gap-3"><span>🔔</span> Notificaciones</div>
+          <span id="notif-badge-menu" class="hidden h-5 w-5 flex items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white"></span>
+        </a>
+        <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors border-b border-slate-700/30">
+          <span>⚙️</span> Configuración
+        </a>
+
+        {% if is_admin %}
+        <a href="{{ url_for('admin_usuarios') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors">
+          <div class="flex items-center gap-3"><span>👥</span> Usuarios</div>
+          <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20">ADMIN</span>
+        </a>
+        <a href="{{ url_for('reportes') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors">
+            <div class="flex items-center gap-3"><span>📊</span> Reportes</div>
+            <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20">ADMIN</span>
+        </a>
+        <a href="{{ url_for('backup_sql') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors border-b border-slate-700/30">
+          <div class="flex items-center gap-3"><span>🗄️</span> Copias de seguridad</div>
+          <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20">ADMIN</span>
+        </a>
+        {% endif %}
+
+        <a href="#" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors">
+          <span>❓</span> Ayuda
+        </a>
+        <a href="{{ url_for('logout') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors mt-1 font-bold">
+          <span>🚪</span> Cerrar sesión
+        </a>
+      </div>
+    </div>
   </header>
   {% endif %}
 
@@ -379,33 +456,30 @@
     </div>
   </div>
 
-  <nav class="app-bottom-nav fixed bottom-0 inset-x-0 z-40 flex min-h-[4.5rem] justify-around items-center border-t border-slate-800 bg-panel/90 backdrop-blur-xl pb-[var(--nav-safe-bottom)]">
-    <a href="{{ url_for('inicio') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'inicio' %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+  {% if session.user_id %}
+  <nav class="app-bottom-nav fixed bottom-0 inset-x-0 z-40 flex min-h-[4.5rem] justify-around items-center border-t border-slate-800 bg-[#0F172A]/95 backdrop-blur-xl pb-[var(--nav-safe-bottom)]">
+    <a href="{{ url_for('inicio') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'inicio' %}text-emerald-500 nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-xl mb-1 group-active:scale-125 transition-transform">🏠</span>
       <span class="text-[10px] font-bold uppercase tracking-tighter">Inicio</span>
     </a>
-    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if 'clientes' in (request.endpoint or '') %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+    <a href="{{ url_for('clientes_list') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if 'clientes' in (request.endpoint or '') %}text-emerald-500 nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-xl mb-1 group-active:scale-125 transition-transform">👥</span>
       <span class="text-[10px] font-bold uppercase tracking-tighter">Clientes</span>
     </a>
-    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if 'prestamos' in (request.endpoint or '') %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-xl mb-1 group-active:scale-125 transition-transform">📋</span>
+    <a href="{{ url_for('prestamos_list') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if 'prestamos' in (request.endpoint or '') %}text-emerald-500 nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">📄</span>
       <span class="text-[10px] font-bold uppercase tracking-tighter">Créditos</span>
     </a>
-    <a href="{{ url_for('cobro_hoy') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'cobro_hoy' %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+    <a href="{{ url_for('cobro_hoy') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'cobro_hoy' %}text-emerald-500 nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-xl mb-1 group-active:scale-125 transition-transform">💰</span>
       <span class="text-[10px] font-bold uppercase tracking-tighter">Cobro</span>
     </a>
-    <a href="{{ url_for('notificaciones_centro') }}" class="relative flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'notificaciones_centro' %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-xl mb-1 group-active:scale-125 transition-transform">🔔</span>
-      <span class="text-[10px] font-bold uppercase tracking-tighter">Notif.</span>
-      <span id="notif-badge" class="hidden absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white border border-slate-900"></span>
-    </a>
-    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','api_docs') %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
-      <span class="text-xl mb-1 group-active:scale-125 transition-transform">⚙️</span>
+    <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','api_docs') %}text-emerald-500 nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">⋮</span>
       <span class="text-[10px] font-bold uppercase tracking-tighter">Más</span>
     </a>
   </nav>
+  {% endif %}
   {% endif %}
   <script>
     if ('serviceWorker' in navigator) {
@@ -425,15 +499,37 @@
       try {
         const resp = await fetch('/api/notificaciones/unread');
         const data = await resp.json();
-        const badge = document.getElementById('notif-badge');
+        const badgeTop = document.getElementById('notif-badge-top');
+        const badgeMenu = document.getElementById('notif-badge-menu');
+
         if (data.unread_count > 0) {
-          badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
-          badge.classList.remove('hidden');
+          const val = data.unread_count > 9 ? '9+' : data.unread_count;
+          if (badgeTop) { badgeTop.textContent = val; badgeTop.classList.remove('hidden'); }
+          if (badgeMenu) { badgeMenu.textContent = val; badgeMenu.classList.remove('hidden'); }
         } else {
-          badge.classList.add('hidden');
+          if (badgeTop) badgeTop.classList.add('hidden');
+          if (badgeMenu) badgeMenu.classList.add('hidden');
         }
       } catch(e) {}
     }
+
+    // Lógica menú tres puntos
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('btn-menu-toggle');
+      const menu = document.getElementById('dropdown-menu');
+      if (!btn || !menu) return;
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.toggle('hidden');
+        menu.classList.toggle('show');
+      });
+
+      document.addEventListener('click', () => {
+        menu.classList.add('hidden');
+        menu.classList.remove('show');
+      });
+    });
 
     async function initialisePush(registration) {
       if (!('PushManager' in window)) return;
