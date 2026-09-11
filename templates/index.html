@@ -56,6 +56,26 @@
   <!-- Resumen de Cartera y Gráfico -->
   <div class="rounded-[2.5rem] bg-panel p-6 border border-slate-800 shadow-2xl space-y-6">
     <div class="flex items-center justify-between">
+      <h3 class="text-xs font-black text-white uppercase tracking-widest">Cartera Urgente</h3>
+      <a href="{{ url_for('cobro_hoy') }}" class="text-[9px] font-black text-accent uppercase tracking-widest">Ver Cobros →</a>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
+        <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Pendiente Hoy</p>
+        <p class="text-lg font-black text-emerald-400 leading-none">{{ fmt_money(cuotas_hoy_valor) }}</p>
+        <p class="text-[8px] text-slate-600 mt-2 font-bold">{{ cuotas_hoy_cantidad }} CUOTAS</p>
+      </div>
+      <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
+        <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Total Mora</p>
+        <p class="text-lg font-black text-rose-400 leading-none">{{ fmt_money(stats_clientes.mora_total_pesos) }}</p>
+        <p class="text-[8px] text-slate-600 mt-2 font-bold">{{ stats_clientes.mora }} ATRASADOS</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-[2.5rem] bg-panel p-6 border border-slate-800 shadow-2xl space-y-6">
+    <div class="flex items-center justify-between">
       <h3 class="text-xs font-black text-white uppercase tracking-widest">Resumen Financiero</h3>
       <select onchange="window.location.href='?periodo='+this.value" class="bg-slate-900 border border-slate-700 rounded-xl text-[9px] font-bold px-3 py-1.5 text-slate-400 outline-none">
         <option value="hoy" {% if periodo == 'hoy' %}selected{% endif %}>Hoy</option>
@@ -71,8 +91,8 @@
         <p class="text-lg font-black text-white tracking-tighter">{{ fmt_money(total_prestado) }}</p>
       </div>
       <div class="space-y-1">
-        <p class="text-[9px] font-bold text-slate-500 uppercase">Cobrado</p>
-        <p class="text-lg font-black text-accent tracking-tighter">{{ fmt_money(total_cobrado) }}</p>
+        <p class="text-[9px] font-bold text-rose-500 uppercase">Mora Total</p>
+        <p class="text-lg font-black text-rose-400 tracking-tighter">{{ fmt_money(stats_clientes.mora_total_pesos) }}</p>
       </div>
     </div>
 
@@ -102,6 +122,39 @@
         <div class="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center text-lg">⚙️</div>
         <span class="text-[10px] font-black text-white uppercase">Más Opciones</span>
       </a>
+    </div>
+  </div>
+
+  <!-- Vencimientos de Hoy -->
+  <div class="space-y-3">
+    <div class="flex items-center justify-between ml-2">
+      <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Vencimientos de Hoy</h3>
+      <span class="text-[9px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-1 rounded-lg">{{ vencimientos_hoy|length }} CUOTAS</span>
+    </div>
+    <div class="space-y-2">
+      {% for v in vencimientos_hoy %}
+      <div class="bg-panel border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-md">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-sm">📅</div>
+          <div class="min-w-0">
+            <p class="text-[11px] font-black text-white uppercase tracking-tighter truncate">{{ v.nombre }}</p>
+            <p class="text-[9px] text-slate-500 font-bold uppercase">Cuota #{{ v.cuota }} &middot; Hoy</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="text-right">
+            <p class="text-xs font-black text-white tracking-tighter">{{ fmt_money(v.valor) }}</p>
+          </div>
+          <a href="{{ url_for('prestamos_cobrar', pid=v.id) }}" class="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-slate-900 shadow-lg shadow-cyan-900/20 active:scale-95 transition-transform">
+            💰
+          </a>
+        </div>
+      </div>
+      {% else %}
+      <div class="py-6 text-center bg-slate-900/20 rounded-3xl border border-dashed border-slate-800">
+        <p class="text-[10px] text-slate-600 font-bold uppercase">No hay cuotas venciendo hoy</p>
+      </div>
+      {% endfor %}
     </div>
   </div>
 

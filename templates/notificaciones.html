@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Notificaciones{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-bold">🔔 Notificaciones</h1>
+  {% if notificaciones %}
+  <button class="text-xs text-rose-400 font-semibold uppercase tracking-wider" onclick="marcarTodasLeidas()">Marcar todas leídas</button>
+  {% endif %}
+</div>
+
+<div class="space-y-3" id="notifs-container">
+  {% if not notificaciones %}
+  <div class="flex flex-col items-center justify-center py-12 text-slate-500">
+    <span class="text-5xl mb-4">📭</span>
+    <p>No tienes notificaciones nuevas.</p>
+  </div>
+  {% else %}
+    {% for n in notificaciones %}
+    <div id="notif-{{ n.id }}" class="relative group block p-4 rounded-2xl border {% if not n.leida %}bg-slate-800/50 border-cyan-500/30{% else %}bg-panel border-slate-700/50{% endif %} transition-all">
+      <div class="flex items-start gap-3">
+        <a href="{{ n.url or '#' }}" class="w-10 h-10 shrink-0 rounded-full bg-slate-800 flex items-center justify-center text-xl no-underline">
+          {% if n.tipo == 'vencida' %}⚠️{% elif n.tipo == 'pago' %}✅{% elif n.tipo == 'mora' %}💰{% else %}📅{% endif %}
+        </a>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <a href="{{ n.url or '#' }}" class="font-bold text-sm text-white truncate no-underline block flex-1">{{ n.titulo }}</a>
+            <span class="text-[10px] text-slate-500 whitespace-nowrap">{{ n.fecha.strftime('%d %b, %H:%M') }}</span>
+          </div>
+          <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-0">{{ n.mensaje }}</p>
+        </div>
+        <button onclick="eliminarNotif({{ n.id }})" class="ml-2 text-slate-600 hover:text-rose-500 transition-colors p-1" title="Eliminar">
+          ✕
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<script>
+  async function marcarTodasLeidas() {
+    location.reload();
+  }
+
+  async function eliminarNotif(id) {
+    if(!confirm('¿Eliminar esta notificación?')) return;
+    try {
+      const resp = await fetch(`/notificaciones/${id}/eliminar`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
+      });
+      if(resp.ok) {
+        document.getElementById(`notif-${id}`).remove();
+        if(document.querySelectorAll('[id^="notif-"]').length === 0) {
+          location.reload();
+        }
+        updateNotifBadge(); // Función global en base.html
+      }
+    } catch(e) { alert('Error al eliminar'); }
+  }
+</script>
+{% endblock %}

@@ -389,6 +389,11 @@
       <span class="text-xl mb-1 group-active:scale-125 transition-transform">💰</span>
       <span class="text-[10px] font-bold uppercase tracking-tighter">Cobro</span>
     </a>
+    <a href="{{ url_for('notificaciones_centro') }}" class="relative flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint == 'notificaciones_centro' %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
+      <span class="text-xl mb-1 group-active:scale-125 transition-transform">🔔</span>
+      <span class="text-[10px] font-bold uppercase tracking-tighter">Notif.</span>
+      <span id="notif-badge" class="hidden absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white border border-slate-900"></span>
+    </a>
     <a href="{{ url_for('configuracion') }}" class="flex flex-col items-center py-2 transition-all duration-300 group {% if request.endpoint in ('configuracion','admin_usuarios','cuotas_vencidas','cuotas_vencer','reportes','reportes_pdf','api_docs') %}text-accent nav-active-glow{% else %}text-slate-500 hover:text-slate-300{% endif %}">
       <span class="text-xl mb-1 group-active:scale-125 transition-transform">⚙️</span>
       <span class="text-[10px] font-bold uppercase tracking-tighter">Más</span>
@@ -397,7 +402,69 @@
   {% endif %}
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('{{ url_for("static", filename="service-worker.js") }}').catch(() => {});
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('{{ url_for("static", filename="service-worker.js") }}')
+        .then(registration => {
+          console.log('SW registered');
+          {% if session.user_id %}
+          initialisePush(registration);
+          updateNotifBadge();
+          {% endif %}
+        }).catch(err => console.log('SW error', err));
+      });
+    }
+
+    async function updateNotifBadge() {
+      try {
+        const resp = await fetch('/api/notificaciones/unread');
+        const data = await resp.json();
+        const badge = document.getElementById('notif-badge');
+        if (data.unread_count > 0) {
+          badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      } catch(e) {}
+    }
+
+    async function initialisePush(registration) {
+      if (!('PushManager' in window)) return;
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const resp = await fetch('/api/vapid/public_key');
+        const data = await resp.json();
+        if (!data.public_key) return;
+
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(data.public_key)
+        });
+
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          body: JSON.stringify(subscription),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+          }
+        });
+      }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
     }
   </script>
   <script>

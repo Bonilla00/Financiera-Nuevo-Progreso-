@@ -79,6 +79,13 @@ def ensure_schema_migrations() -> None:
         "CREATE INDEX IF NOT EXISTS idx_login_attempts_time ON login_attempts(failed_at)",
         "CREATE INDEX IF NOT EXISTS idx_prestamos_anterior ON prestamos(prestamo_anterior_id)",
         "CREATE INDEX IF NOT EXISTS idx_prestamos_es_renovacion ON prestamos(es_renovacion)",
+        "CREATE TABLE IF NOT EXISTS configuracion_financiera (id SERIAL PRIMARY KEY, clave VARCHAR(50) UNIQUE NOT NULL, valor TEXT, tipo_dato VARCHAR(20))",
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS valor_mora_fijo_diario DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE prestamos ADD COLUMN IF NOT EXISTS dias_gracia_mora INTEGER DEFAULT 0",
+        "CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE, endpoint TEXT UNIQUE NOT NULL, p256dh TEXT, auth TEXT, created_at TIMESTAMPTZ DEFAULT NOW())",
+        "CREATE TABLE IF NOT EXISTS notificaciones_log (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE, tipo VARCHAR(30), titulo TEXT, mensaje TEXT, url TEXT, leida BOOLEAN DEFAULT FALSE, clave_unica TEXT UNIQUE, fecha TIMESTAMPTZ DEFAULT NOW())",
+        "CREATE INDEX IF NOT EXISTS idx_notificaciones_user ON notificaciones_log(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_notificaciones_leida ON notificaciones_log(leida)",
     ]
     for s in stmts:
         try:
@@ -88,8 +95,64 @@ def ensure_schema_migrations() -> None:
         except Exception as e:
             logger.info(f"Info migración: {e}")
 
+    inicializar_configuracion_defecto()
     ensure_auditoria_table()
     crear_admin_inicial()
+
+
+def inicializar_configuracion_defecto():
+    """Inserta configuraciones financieras iniciales si no existen."""
+    configs = [
+        ('mora_activa', 'false', 'boolean'),
+        ('mora_valor_diario', '0', 'float'),
+        ('mora_dias_gracia', '0', 'int'),
+        ('vapid_public_key', '', 'string'),
+        ('vapid_private_key', '', 'string'),
+        ('push_recordatorio_cuotas', 'true', 'boolean'),
+        ('push_cuotas_vencidas', 'true', 'boolean'),
+        ('push_mora', 'true', 'boolean'),
+        ('push_pagos_registrados', 'true', 'boolean'),
+        ('push_dias_antes', '0', 'int'),
+        ('push_hora_envio', '08:00', 'string'),
+    ]
+    with get_conn() as conn:
+        cur = conn.cursor()
+        for clave, valor, tipo in configs:
+            cur.execute(
+                "INSERT INTO configuracion_financiera (clave, valor, tipo_dato) VALUES (%s, %s, %s) ON CONFLICT (clave) DO NOTHING",
+                (clave, valor, tipo)
+            )
+
+
+def obtener_configuracion(clave: str):
+    """Obtiene un valor de configuración convertido a su tipo original."""
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT valor, tipo_dato FROM configuracion_financiera WHERE clave = %s", (clave,))
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        val = row['valor']
+        tipo = row['tipo_dato']
+
+        if tipo == 'boolean':
+            return val.lower() == 'true'
+        elif tipo == 'float':
+            return float(val or 0)
+        elif tipo == 'int':
+            return int(val or 0)
+        return val
+
+
+def guardar_configuracion(clave: str, valor: str):
+    """Guarda o actualiza un valor de configuración."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE configuracion_financiera SET valor = %s WHERE clave = %s",
+            (str(valor), clave)
+        )
 
 
 def registrar_log(user_id: int | None, accion: str):
@@ -186,8 +249,10 @@ def calcular_interes_mora(
     fecha_pago_iso: str,
     mora_activa: bool,
     tasa_mora_diaria: float,
+    valor_mora_fijo: float = 0.0,
+    dias_gracia: int = 0,
 ) -> float:
-    if not mora_activa or tasa_mora_diaria <= 0 or not proximo_pago_iso:
+    if not mora_activa or not proximo_pago_iso:
         return 0.0
     try:
         d0 = datetime.strptime(str(proximo_pago_iso).strip()[:10], "%Y-%m-%d").date()
@@ -195,9 +260,17 @@ def calcular_interes_mora(
     except ValueError:
         return 0.0
     dias = (d1 - d0).days
-    if dias <= 0:
+
+    # Restar días de gracia
+    dias_efectivos = dias - dias_gracia
+    if dias_efectivos <= 0:
         return 0.0
-    return round(float(valor_cuota) * (float(tasa_mora_diaria) / 100.0) * dias, 2)
+
+    # Calcular usando valor fijo si existe, sino usar tasa porcentual
+    if valor_mora_fijo > 0:
+        return round(float(valor_mora_fijo) * dias_efectivos, 2)
+
+    return round(float(valor_cuota) * (float(tasa_mora_diaria) / 100.0) * dias_efectivos, 2)
 
 
 def proxima_fecha_pago(fecha_inicio, frecuencia, pagadas, cuotas):
@@ -476,7 +549,29 @@ def obtener_stats_clientes(user_id: int, is_admin: bool):
         """, sparams)
         mora = cur.fetchone()['mora'] or 0
 
-        # 4. Pendiente Hoy/Mañana
+        # 4. Cálculo de Mora Acumulada Total ($)
+        # Traemos los datos necesarios para calcularla con la función existente
+        cur.execute(f"""
+            SELECT p.valor_cuota, p.proximo_pago, p.mora_activa, p.tasa_mora_diaria, p.valor_mora_fijo_diario, p.dias_gracia_mora
+            FROM prestamos p
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> ''
+              AND p.proximo_pago::date < CURRENT_DATE
+              {scope}
+        """, sparams)
+        prestamos_mora = cur.fetchall()
+
+        mora_total_pesos = 0
+        hoy_str = date.today().isoformat()
+        for p in prestamos_mora:
+            mora_total_pesos += calcular_interes_mora(
+                p['valor_cuota'], p['proximo_pago'], hoy_str,
+                p['mora_activa'], p['tasa_mora_diaria'],
+                p['valor_mora_fijo_diario'], p['dias_gracia_mora']
+            )
+
+        # 5. Pendiente Hoy/Mañana
         cur.execute(f"""
             SELECT COUNT(DISTINCT c.id) as pendientes
             FROM clientes c
@@ -493,6 +588,7 @@ def obtener_stats_clientes(user_id: int, is_admin: bool):
             "activos": activos,
             "sin_credito": total - activos,
             "mora": mora,
+            "mora_total_pesos": mora_total_pesos,
             "pendientes": pendientes
         }
 
@@ -615,6 +711,8 @@ def nuevo_prestamo(
     is_admin: bool,
     mora_activa: bool = False,
     tasa_mora_diaria: float = 0.0,
+    valor_mora_fijo: float = 0.0,
+    dias_gracia: int = 0,
 ) -> int:
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
@@ -642,8 +740,8 @@ def nuevo_prestamo(
             INSERT INTO prestamos
             (cliente_id, fecha, frecuencia, cuotas, monto, tasa,
              interes_total, total_pagar, valor_cuota, vencimiento, estado, pagadas, proximo_pago,
-             mora_activa, tasa_mora_diaria)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s)
+             mora_activa, tasa_mora_diaria, valor_mora_fijo_diario, dias_gracia_mora)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -660,6 +758,8 @@ def nuevo_prestamo(
                 proximo_pago,
                 bool(mora_activa),
                 float(tasa_mora_diaria or 0),
+                float(valor_mora_fijo or 0),
+                int(dias_gracia or 0),
             ),
         )
         return int(cur.fetchone()[0])
@@ -686,6 +786,7 @@ def listar_prestamos(
             p.total_pagar, p.frecuencia, p.proximo_pago, p.notas,
             c.id as cid,
             c.nombre, c.identificacion, c.telefono, c.barrio,
+            c.owner_user_id,
             CASE
                 WHEN p.estado = 'ACTIVO'
                      AND p.proximo_pago IS NOT NULL
@@ -953,7 +1054,8 @@ def obtener_prestamo(pid: int, user_id: int, is_admin: bool):
             SELECT p.id, p.cliente_id, c.nombre, c.identificacion, p.fecha, p.frecuencia,
                    p.cuotas, p.monto, p.tasa, p.interes_total, p.total_pagar,
                    p.valor_cuota, p.vencimiento, p.estado, p.pagadas,
-                   p.proximo_pago, p.notas, p.mora_activa, p.tasa_mora_diaria
+                   p.proximo_pago, p.notas, p.mora_activa, p.tasa_mora_diaria,
+                   p.valor_mora_fijo_diario, p.dias_gracia_mora
             FROM prestamos p
             JOIN clientes c ON c.id = p.cliente_id
             WHERE p.id = %s {extra}
@@ -1364,7 +1466,7 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
         cur.execute(
             f"""
             SELECT p.total_pagar, p.pagadas, p.cuotas, p.estado, p.valor_cuota, p.fecha, p.frecuencia,
-                   p.proximo_pago, p.mora_activa, p.tasa_mora_diaria
+                   p.proximo_pago, p.mora_activa, p.tasa_mora_diaria, p.valor_mora_fijo_diario, p.dias_gracia_mora
             FROM prestamos p
             JOIN clientes c ON c.id = p.cliente_id
             WHERE p.id = %s {extra}
@@ -1385,6 +1487,8 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
             proximo_pago,
             mora_activa,
             tasa_mora_diaria,
+            valor_mora_fijo,
+            dias_gracia,
         ) = row
         if estado == "PAGADO":
             raise ValueError("El préstamo ya está pagado.")
@@ -1395,6 +1499,8 @@ def registrar_pago(prestamo_id: int, fecha: str, valor: float, user_id: int, is_
             fecha,
             bool(mora_activa),
             float(tasa_mora_diaria or 0),
+            float(valor_mora_fijo or 0),
+            int(dias_gracia or 0),
         )
 
         # Cálculo de nuevas cuotas pagadas basado en el total acumulado cobrado
@@ -2012,6 +2118,82 @@ def export_user_data(user_id):
             "prestamos": prestamos,
             "pagos": pagos,
         }
+
+
+def save_push_subscription(user_id, endpoint, p256dh, auth):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+               VALUES (%s, %s, %s, %s)
+               ON CONFLICT (endpoint) DO UPDATE SET p256dh = %s, auth = %s""",
+            (user_id, endpoint, p256dh, auth, p256dh, auth),
+        )
+
+
+def get_user_push_subscriptions(user_id):
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM push_subscriptions WHERE user_id = %s", (user_id,))
+        return cur.fetchall()
+
+
+def delete_push_subscription(endpoint):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM push_subscriptions WHERE endpoint = %s", (endpoint,))
+
+
+def registrar_notificacion(user_id, tipo, titulo, mensaje, url, clave_unica):
+    """Registra una notificación en el log central. Retorna True si se insertó (no duplicada)."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO notificaciones_log (user_id, tipo, titulo, mensaje, url, clave_unica)
+               VALUES (%s, %s, %s, %s, %s, %s)
+               ON CONFLICT (clave_unica) DO NOTHING""",
+            (user_id, tipo, titulo, mensaje, url, clave_unica),
+        )
+        return cur.rowcount > 0
+
+
+def eliminar_notificacion(nid, user_id):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM notificaciones_log WHERE id = %s AND user_id = %s", (nid, user_id))
+
+
+def listar_notificaciones(user_id, limit=50, solo_no_leidas=False):
+    extra = " AND leida = FALSE" if solo_no_leidas else ""
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            f"SELECT * FROM notificaciones_log WHERE user_id = %s {extra} ORDER BY fecha DESC LIMIT %s",
+            (user_id, limit),
+        )
+        return cur.fetchall()
+
+
+def marcar_notificacion_leida(nid, user_id):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE notificaciones_log SET leida = TRUE WHERE id = %s AND user_id = %s",
+            (nid, user_id),
+        )
+
+
+def marcar_todas_leidas(user_id):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE notificaciones_log SET leida = TRUE WHERE user_id = %s", (user_id,))
+
+
+def contar_no_leidas(user_id):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM notificaciones_log WHERE user_id = %s AND leida = FALSE", (user_id,))
+        return int(cur.fetchone()[0])
 
 
 def restore_user_data(user_id, data):

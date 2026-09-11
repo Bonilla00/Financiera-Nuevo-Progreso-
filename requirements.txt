@@ -7,3 +7,4 @@ gunicorn>=22.0
 Pillow>=10.0
 requests>=2.31
 bleach>=6.0
+pywebpush>=1.14

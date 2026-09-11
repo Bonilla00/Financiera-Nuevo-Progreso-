@@ -147,9 +147,16 @@ if (document.getElementById('input-foto')) {
           {% endfor %}
 
           {% if pr.pagadas < pr.cuotas %}
-          <div class="flex justify-between items-center bg-slate-800/20 rounded-xl px-3 py-2 border border-dashed border-slate-700">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Próxima cuota a pagar...</span>
-            <span class="text-[10px] font-bold text-slate-600 uppercase">PENDIENTE</span>
+          <div class="flex justify-between items-center bg-slate-800/20 rounded-xl px-3 py-2 border border-dashed {% if pr.en_mora %}border-rose-500/50{% else %}border-slate-700{% endif %}">
+            <div>
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Cuota {{ pr.pagadas + 1 }} - Pendiente</span>
+              {% if pr.en_mora %}
+              <p class="text-[9px] text-rose-400 font-bold uppercase mt-0.5">Vencida: + {{ fmt_money(pr.mora_estimada) }} mora</p>
+              {% endif %}
+            </div>
+            <span class="text-[10px] font-bold {% if pr.en_mora %}text-rose-500{% else %}text-slate-600{% endif %} uppercase">
+              {% if pr.en_mora %}EN MORA{% else %}PENDIENTE{% endif %}
+            </span>
           </div>
           {% endif %}
         </div>

@@ -12,6 +12,109 @@
   <a href="{{ url_for('cuotas_vencer') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-800/50 text-accent text-sm font-semibold">Cuotas por vencer (hoy / mañana)</a>
 </div>
 
+{% if is_admin %}
+<form method="post" action="{{ url_for('admin_configuracion_financiera') }}" class="space-y-4 bg-panel rounded-2xl border border-cyan-500/20 p-5 mb-6">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="flex items-center gap-3 mb-2">
+    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-lg">💰</div>
+    <h2 class="font-bold text-white text-base">Mora y Notificaciones</h2>
+  </div>
+
+  <div class="space-y-4 pt-2">
+    <!-- Mora -->
+    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/30 border border-slate-700/50">
+      <div>
+        <p class="text-sm font-semibold text-white">Activar Mora Diaria</p>
+        <p class="text-[10px] text-slate-400">Habilita el cobro automático por atraso.</p>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" name="mora_activa" class="sr-only peer" {% if db.obtener_configuracion("mora_activa") %}checked{% endif %}>
+        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+      </label>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Mora por día ($)</label>
+        <input type="number" name="mora_valor_diario" value="{{ db.obtener_configuracion('mora_valor_diario') }}" class="w-full rounded-xl bg-panel2 border border-slate-700 px-3 py-2.5 text-white text-sm focus:border-cyan-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Días de gracia</label>
+        <input type="number" name="mora_dias_gracia" value="{{ db.obtener_configuracion('mora_dias_gracia') }}" class="w-full rounded-xl bg-panel2 border border-slate-700 px-3 py-2.5 text-white text-sm focus:border-cyan-500 outline-none">
+      </div>
+    </div>
+
+    <hr class="border-slate-700/50 my-2">
+
+    <!-- Push Notifs -->
+    <h3 class="text-[10px] text-slate-500 uppercase font-bold mb-2 ml-1">Configuración Push</h3>
+
+    <div class="space-y-2">
+      {% set push_configs = [
+        ('push_recordatorio_cuotas', 'Recordatorio de cuotas'),
+        ('push_cuotas_vencidas', 'Aviso de cuotas vencidas'),
+        ('push_mora', 'Aviso de mora acumulada'),
+        ('push_pagos_registrados', 'Confirmación de pagos')
+      ] %}
+      {% for clave, label in push_configs %}
+      <label class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/30 border border-slate-700/30 cursor-pointer hover:bg-slate-800/50 transition-colors">
+        <span class="text-xs text-slate-300">{{ label }}</span>
+        <input type="checkbox" name="{{ clave }}" class="rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500/50" {% if db.obtener_configuracion(clave) %}checked{% endif %}>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Avisar X días antes</label>
+        <input type="number" name="push_dias_antes" value="{{ db.obtener_configuracion('push_dias_antes') }}" class="w-full rounded-xl bg-panel2 border border-slate-700 px-3 py-2.5 text-white text-sm focus:border-cyan-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Hora de envío</label>
+        <input type="time" name="push_hora_envio" value="{{ db.obtener_configuracion('push_hora_envio') }}" class="w-full rounded-xl bg-panel2 border border-slate-700 px-3 py-2.5 text-white text-sm focus:border-cyan-500 outline-none">
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <button type="submit" class="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm shadow-lg shadow-cyan-900/20 transition-all">Guardar Configuración Financiera</button>
+    </div>
+  </div>
+</form>
+
+{% if not db.obtener_configuracion('vapid_public_key') %}
+<div class="mb-6 p-4 rounded-2xl bg-amber-900/20 border border-amber-600/30">
+  <p class="text-xs text-amber-200 mb-3">⚠️ Las notificaciones Push requieren llaves de seguridad VAPID. Presiona el botón para generarlas.</p>
+  <form method="post" action="{{ url_for('admin_vapid_generate') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="w-full py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-widest">Generar Llaves VAPID</button>
+  </form>
+</div>
+{% else %}
+<div class="mb-6">
+  <form method="post" action="{{ url_for('admin_push_test') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="w-full py-2.5 rounded-xl border border-emerald-500/50 text-emerald-400 text-xs font-bold uppercase tracking-widest hover:bg-emerald-500/10 transition-colors">Test: Enviar notificación de prueba</button>
+  </form>
+</div>
+{% endif %}
+
+<a href="{{ url_for('admin_dashboard') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-bold mb-3 shadow-lg shadow-cyan-900/20">Monitoreo Global (Admin)</a>
+<a href="{{ url_for('admin_usuarios') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-accent font-semibold mb-3">Usuarios (admin)</a>
+<a href="{{ url_for('backup_sql') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-semibold mb-3">Descargar backup .sql</a>
+
+<form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="space-y-3 bg-panel rounded-2xl border border-rose-900/50 p-4 mb-6" data-loading-submit data-loading-label="Procesando…">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h2 class="font-semibold text-rose-300 text-sm">Restaurar desde backup (.sql)</h2>
+  <p class="text-xs text-slate-400">Solo archivos generados con &quot;Descargar backup&quot; de esta misma app. Esto <strong class="text-rose-200">borra los datos actuales</strong> y los reemplaza por el archivo.</p>
+  <input type="file" name="sql_file" accept=".sql,text/plain" required class="block w-full text-sm text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-panel2 file:text-accent">
+  <label class="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+    <input type="checkbox" name="confirm_restore" value="si" required class="mt-0.5 rounded border-slate-600">
+    <span>Entiendo que se sobrescribirá toda la base con este archivo.</span>
+  </label>
+  <button type="submit" class="w-full py-3 rounded-xl border border-rose-500 text-rose-200 font-bold hover:bg-rose-950/50">Restaurar base de datos</button>
+</form>
+{% endif %}
+
 <form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6" data-loading-submit data-loading-label="Procesando…">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="accion" value="cambiar_usuario">
@@ -31,24 +134,6 @@
   <input type="password" name="password_nueva2" placeholder="Confirmar nueva" required minlength="8" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Actualizar contraseña</button>
 </form>
-
-{% if is_admin %}
-<a href="{{ url_for('admin_dashboard') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-bold mb-3 shadow-lg shadow-cyan-900/20">Monitoreo Global (Admin)</a>
-<a href="{{ url_for('admin_usuarios') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-accent font-semibold mb-3">Usuarios (admin)</a>
-<a href="{{ url_for('backup_sql') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-slate-600 text-white font-semibold mb-3">Descargar backup .sql</a>
-
-<form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="space-y-3 bg-panel rounded-2xl border border-rose-900/50 p-4 mb-6" data-loading-submit data-loading-label="Procesando…">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <h2 class="font-semibold text-rose-300 text-sm">Restaurar desde backup (.sql)</h2>
-  <p class="text-xs text-slate-400">Solo archivos generados con &quot;Descargar backup&quot; de esta misma app. Esto <strong class="text-rose-200">borra los datos actuales</strong> y los reemplaza por el archivo.</p>
-  <input type="file" name="sql_file" accept=".sql,text/plain" required class="block w-full text-sm text-slate-300 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-panel2 file:text-accent">
-  <label class="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
-    <input type="checkbox" name="confirm_restore" value="si" required class="mt-0.5 rounded border-slate-600">
-    <span>Entiendo que se sobrescribirá toda la base con este archivo.</span>
-  </label>
-  <button type="submit" class="w-full py-3 rounded-xl border border-rose-500 text-rose-200 font-bold hover:bg-rose-950/50">Restaurar base de datos</button>
-</form>
-{% endif %}
 
 <a href="{{ url_for('logout') }}" class="block text-center py-3 rounded-xl border border-rose-800 text-rose-400">Cerrar sesión</a>
 {% endblock %}

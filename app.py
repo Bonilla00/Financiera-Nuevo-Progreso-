@@ -41,6 +41,12 @@ from utils_web import (
     url_whatsapp,
 )
 
+try:
+    from pywebpush import webpush, WebPushException
+    PYWEBPUSH_AVAILABLE = True
+except ImportError:
+    PYWEBPUSH_AVAILABLE = False
+
 app = Flask(__name__)
 
 # Security: Validate SECRET_KEY
@@ -449,6 +455,7 @@ def admin_required(f):
 def inject_globals():
     _, __, is_admin, rol, permisos = ctx_user()
     return {
+        "db": db,
         "fmt_money": fmt_money,
         "today_str": today_str,
         "is_admin": is_admin,
@@ -709,6 +716,18 @@ def inicio():
         cuotas_hoy_valor = sum(float(r[5] or 0) for r in cobro_hoy_rows)
         cuotas_hoy_cantidad = len(cobro_hoy_rows)
 
+        # Enriquecer cobros de hoy para el dashboard (solo los que vencen HOY exactamente)
+        vencimientos_hoy = []
+        for r in cobro_hoy_rows:
+            if str(r[6])[:10] == hoy:
+                vencimientos_hoy.append({
+                    "id": r[0],
+                    "nombre": r[1],
+                    "cuota": int(r[10] or 0) + 1,
+                    "valor": float(r[5] or 0),
+                    "cid": r[13] if len(r) > 13 else None
+                })
+
         # Últimos movimientos (combinando logs y pagos recientes)
         # Por ahora usaremos los pagos_detalle que ya existen
         pagos_detalle = db.pagos_detalle_en_rango("2000-01-01", "2099-12-31", uid, is_admin)
@@ -730,6 +749,7 @@ def inicio():
             "en_mora": en_mora,
             "cuotas_hoy_valor": cuotas_hoy_valor,
             "cuotas_hoy_cantidad": cuotas_hoy_cantidad,
+            "vencimientos_hoy": vencimientos_hoy,
             "pagos_recientes": pagos_detalle[:5],
             "logs": logs,
             "chart_data": chart_data,
@@ -830,10 +850,11 @@ def clientes_nuevo():
             cuota = total / cuotas
             dias = {"diaria": 1, "semanal": 7, "quincenal": 15, "mensual": 30}[freq]
             venc = add_days(fecha, dias * cuotas)
-            mora_on = request.form.get("mora_activa") == "on"
-            tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
-            if mora_on and tasa_mora < 0:
-                raise ValueError("La tasa de mora no puede ser negativa.")
+
+            # Obtener configuración global de mora
+            mora_on_global = db.obtener_configuracion("mora_activa")
+            mora_valor_global = db.obtener_configuracion("mora_valor_diario")
+            mora_gracia_global = db.obtener_configuracion("mora_dias_gracia")
 
             db.nuevo_prestamo(
                 cid,
@@ -848,8 +869,10 @@ def clientes_nuevo():
                 venc,
                 uid,
                 is_admin,
-                mora_activa=mora_on,
-                tasa_mora_diaria=tasa_mora,
+                mora_activa=mora_on_global,
+                tasa_mora_diaria=0,  # Ya no usamos tasa porcentual por defecto
+                valor_mora_fijo=mora_valor_global,
+                dias_gracia=mora_gracia_global,
             )
             db.registrar_log(uid, f"Nuevo cliente ({nombre}) y préstamo de {fmt_money(monto)}")
             flash("Cliente y préstamo guardados.", "ok")
@@ -912,6 +935,19 @@ def clientes_perfil(cid):
         pagos_prestamo = db.listar_pagos(pid, uid, is_admin)
 
         saldo = p['total_pagar'] - db.sum_pagos_por_prestamo(pid, uid, is_admin)
+        # Calcular mora estimada para la siguiente cuota
+        mora_estimada = 0
+        if p['estado'] == 'ACTIVO' and p['en_mora']:
+            mora_estimada = db.calcular_interes_mora(
+                p['valor_cuota'],
+                p['proximo_pago'],
+                today_str(),
+                p.get('mora_activa', False),
+                p.get('tasa_mora_diaria', 0),
+                p.get('valor_mora_fijo_diario', 0),
+                p.get('dias_gracia_mora', 0)
+            )
+
         prestamos_view.append(
             {
                 "id": pid,
@@ -923,6 +959,7 @@ def clientes_perfil(cid):
                 "estado": p['estado'],
                 "saldo": max(0.0, round(float(saldo), 2)),
                 "en_mora": p['en_mora'],
+                "mora_estimada": mora_estimada,
                 "pagos": [
                     {
                         "id": pg[0],
@@ -1106,10 +1143,12 @@ def prestamos_nuevo():
             cuota = total / max(1, cuotas)
             dias = {"diaria": 1, "semanal": 7, "quincenal": 15, "mensual": 30}.get(freq, 30)
             venc = add_days(fecha, dias * cuotas)
-            mora_on = request.form.get("mora_activa") == "on"
-            tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
-            if mora_on and tasa_mora < 0:
-                raise ValueError("La tasa de mora no puede ser negativa.")
+
+            # Obtener configuración global de mora
+            mora_on_global = db.obtener_configuracion("mora_activa")
+            mora_valor_global = db.obtener_configuracion("mora_valor_diario")
+            mora_gracia_global = db.obtener_configuracion("mora_dias_gracia")
+
             pid = db.nuevo_prestamo(
                 cid,
                 fecha,
@@ -1123,8 +1162,10 @@ def prestamos_nuevo():
                 venc,
                 uid,
                 is_admin,
-                mora_activa=mora_on,
-                tasa_mora_diaria=tasa_mora,
+                mora_activa=mora_on_global,
+                tasa_mora_diaria=0,
+                valor_mora_fijo=mora_valor_global,
+                dias_gracia=mora_gracia_global,
             )
             cliente_nombre = next((c[1] for c in clientes if c[0] == cid), "desconocido")
             db.registrar_log(uid, f"Nuevo préstamo #{pid} para {cliente_nombre} por {fmt_money(monto)}")
@@ -1224,7 +1265,20 @@ def prestamos_cobrar(pid):
     prox = info[15]
     mora_act = bool(info[17])
     tasa_m = float(info[18] or 0)
-    interes_mora = db.calcular_interes_mora(valor_cuota, prox, fecha, mora_act, tasa_m)
+    mora_fijo = float(info[19] or 0)
+    dias_g = int(info[20] or 0)
+
+    interes_mora = db.calcular_interes_mora(valor_cuota, prox, fecha, mora_act, tasa_m, mora_fijo, dias_g)
+
+    # Calcular días de atraso para mostrar en la UI
+    dias_atraso = 0
+    if prox:
+        try:
+            d0 = datetime.strptime(str(prox).strip()[:10], "%Y-%m-%d").date()
+            d1 = datetime.strptime(str(fecha).strip()[:10], "%Y-%m-%d").date()
+            dias_atraso = (d1 - d0).days
+        except: pass
+
     total_sugerido = round(valor_cuota + interes_mora, 2)
     pagadas = info[14] or 0
     num_cuota = int(pagadas) + 1
@@ -1241,6 +1295,9 @@ def prestamos_cobrar(pid):
         mora_activa=mora_act,
         telefono=telefono,
         num_cuota=num_cuota,
+        dias_atraso=dias_atraso,
+        mora_fijo=mora_fijo,
+        dias_gracia=dias_g
     )
 
 
@@ -1375,6 +1432,21 @@ def prestamos_pago(pid):
         telefono = info[16] if len(info) > 16 else ""
         wa_url = url_whatsapp(telefono, nombre, valor, num_cuota) if telefono else ""
         flash("Pago registrado.", "ok")
+
+        # Notificación Push para el administrador si está activada
+        if db.obtener_configuracion("push_pagos_registrados"):
+            admin_id = 1 # Enviamos al admin principal
+            titulo = "✅ Nuevo Pago"
+            mensaje = f"Se han recibido {fmt_money(valor)} de {nombre} (Cuota #{num_cuota})."
+            clave_n = f"pago_{pago_id}"
+
+            if db.registrar_notificacion(admin_id, "pago", titulo, mensaje, f"/pagos?prestamo_id={pid}", clave_n):
+                send_push_notification(admin_id, {
+                    "title": titulo,
+                    "body": mensaje,
+                    "url": f"/pagos?prestamo_id={pid}"
+                })
+
         return render_template(
             "pago_exito.html",
             pid=pid,
@@ -2047,6 +2119,124 @@ def recordatorios():
         hoy=hoy.strftime("%Y-%m-%d"),
         manana=manana.strftime("%Y-%m-%d"),
     )
+
+
+from push_service import send_push_notification
+
+
+@app.route("/api/push/subscribe", methods=["POST"])
+@login_required
+def push_subscribe():
+    """Registra una suscripción Push para el usuario actual."""
+    sub_data = request.get_json()
+    if not sub_data or "endpoint" not in sub_data:
+        return jsonify({"error": "Datos de suscripción inválidos"}), 400
+
+    uid = session["user_id"]
+    endpoint = sub_data["endpoint"]
+    p256dh = sub_data.get("keys", {}).get("p256dh")
+    auth = sub_data.get("keys", {}).get("auth")
+
+    db.save_push_subscription(uid, endpoint, p256dh, auth)
+    return jsonify({"status": "subscribed"}), 201
+
+
+@app.route("/notificaciones")
+@login_required
+def notificaciones_centro():
+    """Centro de notificaciones en la UI."""
+    uid, _, _, _, _ = ctx_user()
+    notifs = db.listar_notificaciones(uid)
+    db.marcar_todas_leidas(uid)  # Se marcan como leídas al entrar
+    return render_template("notificaciones.html", notificaciones=notifs)
+
+
+@app.route("/api/notificaciones/unread")
+@login_required
+def notificaciones_unread_count():
+    uid = session["user_id"]
+    count = db.contar_no_leidas(uid)
+    return jsonify({"unread_count": count})
+
+
+@app.route("/admin/configuracion_financiera", methods=["POST"])
+@admin_required
+def admin_configuracion_financiera():
+    """Guarda la configuración global de mora y notificaciones."""
+    try:
+        # Mora
+        db.guardar_configuracion("mora_activa", "true" if request.form.get("mora_activa") == "on" else "false")
+        db.guardar_configuracion("mora_valor_diario", request.form.get("mora_valor_diario", "0"))
+        db.guardar_configuracion("mora_dias_gracia", request.form.get("mora_dias_gracia", "0"))
+
+        # Push
+        db.guardar_configuracion("push_recordatorio_cuotas", "true" if request.form.get("push_recordatorio_cuotas") == "on" else "false")
+        db.guardar_configuracion("push_cuotas_vencidas", "true" if request.form.get("push_cuotas_vencidas") == "on" else "false")
+        db.guardar_configuracion("push_mora", "true" if request.form.get("push_mora") == "on" else "false")
+        db.guardar_configuracion("push_pagos_registrados", "true" if request.form.get("push_pagos_registrados") == "on" else "false")
+        db.guardar_configuracion("push_dias_antes", request.form.get("push_dias_antes", "0"))
+        db.guardar_configuracion("push_hora_envio", request.form.get("push_hora_envio", "08:00"))
+
+        # VAPID (solo si se proporcionan nuevas)
+        if request.form.get("vapid_public_key"):
+            db.guardar_configuracion("vapid_public_key", request.form.get("vapid_public_key"))
+        if request.form.get("vapid_private_key"):
+            db.guardar_configuracion("vapid_private_key", request.form.get("vapid_private_key"))
+
+        flash("Configuración financiera actualizada correctamente.", "ok")
+    except Exception as e:
+        flash(f"Error al guardar: {e}", "error")
+
+    return redirect(url_for("configuracion"))
+
+
+@app.route("/admin/vapid/generate", methods=["POST"])
+@admin_required
+def admin_vapid_generate():
+    """Genera un nuevo par de llaves VAPID."""
+    if not PYWEBPUSH_AVAILABLE:
+        flash("pywebpush no está instalado.", "error")
+        return redirect(url_for("configuracion"))
+
+    from pywebpush import vapid_keys
+    try:
+        keys = vapid_keys()
+        db.guardar_configuracion("vapid_public_key", keys["public_key"])
+        db.guardar_configuracion("vapid_private_key", keys["private_key"])
+        flash("Nuevas llaves VAPID generadas con éxito.", "ok")
+    except Exception as e:
+        flash(f"Error al generar llaves: {e}", "error")
+
+    return redirect(url_for("configuracion"))
+
+
+@app.route("/api/vapid/public_key")
+@login_required
+def get_vapid_public_key():
+    key = db.obtener_configuracion("vapid_public_key")
+    return jsonify({"public_key": key})
+
+
+@app.route("/admin/push/test", methods=["POST"])
+@admin_required
+def admin_push_test():
+    """Envía una notificación de prueba al usuario actual."""
+    uid = session["user_id"]
+    titulo = "🔔 Prueba de Conexión"
+    mensaje = "¡Felicidades! Tu sistema de notificaciones Push está funcionando correctamente."
+
+    success = send_push_notification(uid, {
+        "title": titulo,
+        "body": mensaje,
+        "url": url_for("inicio")
+    })
+
+    if success:
+        flash("Notificación de prueba enviada. Debería llegar en unos segundos.", "ok")
+    else:
+        flash("No se pudo enviar la notificación. Verifica que hayas aceptado los permisos en este navegador y que las llaves VAPID existan.", "error")
+
+    return redirect(url_for("configuracion"))
 
 
 @app.route("/api/docs")
