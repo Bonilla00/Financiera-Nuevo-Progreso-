@@ -1,0 +1,129 @@
+{% extends "base_admin.html" %}
+{% block title %}Ajustes Financieros - Admin{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-4 mb-8">
+    <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30 text-2xl">⚙️</div>
+    <div>
+        <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Ajustes Financieros</h2>
+        <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">Mora y Notificaciones Push</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <!-- Columna Izquierda: Configuración Financiera -->
+    <div class="space-y-6">
+        <form method="post" action="{{ url_for('admin_configuracion_financiera') }}" class="bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="from_admin_panel" value="yes">
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-lg">💰</div>
+                <h3 class="font-bold text-white text-base uppercase tracking-tight">Reglas de Mora</h3>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50">
+                    <div>
+                        <p class="text-sm font-bold text-white">Activar Mora Diaria</p>
+                        <p class="text-[10px] text-slate-500 font-medium">Cobro automático por cada día de atraso.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="mora_activa" class="sr-only peer" {% if db.obtener_configuracion("mora_activa") %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] text-slate-500 uppercase font-black mb-1.5 ml-1 tracking-widest">Valor Diario ($)</label>
+                        <input type="number" name="mora_valor_diario" value="{{ db.obtener_configuracion('mora_valor_diario') }}" placeholder="0" class="w-full rounded-2xl bg-slate-800 border border-slate-700 px-4 py-3 text-white text-sm font-bold focus:border-cyan-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 uppercase font-black mb-1.5 ml-1 tracking-widest">Días de Gracia</label>
+                        <input type="number" name="mora_dias_gracia" value="{{ db.obtener_configuracion('mora_dias_gracia') }}" placeholder="0" class="w-full rounded-2xl bg-slate-800 border border-slate-700 px-4 py-3 text-white text-sm font-bold focus:border-cyan-500 outline-none transition-all">
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" class="w-full py-4 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-cyan-900/20 transition-all active:scale-95">Guardar Cambios</button>
+            </div>
+        </form>
+
+        <!-- Seguridad VAPID -->
+        <div class="bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-lg">🔑</div>
+                <h3 class="font-bold text-white text-base uppercase tracking-tight">Seguridad Push</h3>
+            </div>
+
+            {% if not db.obtener_configuracion('vapid_public_key') %}
+            <div class="p-4 rounded-2xl bg-amber-900/20 border border-amber-500/30 mb-6">
+                <p class="text-[11px] text-amber-200 leading-relaxed font-bold">⚠️ FALTA CONFIGURACIÓN: El servidor no tiene llaves de seguridad generadas. Las notificaciones no funcionarán.</p>
+            </div>
+            <form method="post" action="{{ url_for('admin_vapid_generate') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="redirect_to" value="admin_financiera_view">
+                <button type="submit" class="w-full py-3 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-black text-[10px] uppercase tracking-widest transition-all">Generar Llaves de Seguridad</button>
+            </form>
+            {% else %}
+            <div class="space-y-4">
+                <div class="p-4 rounded-2xl bg-emerald-900/10 border border-emerald-500/20">
+                    <p class="text-[10px] text-emerald-400 font-black uppercase tracking-widest">✅ Sistema de Seguridad Activo</p>
+                </div>
+                <form method="post" action="{{ url_for('admin_push_test') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="redirect_to" value="admin_financiera_view">
+                    <button type="submit" class="w-full py-3 rounded-2xl border border-emerald-500/30 text-emerald-400 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500/10 transition-all">Enviar Notificación de Prueba</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Columna Derecha: Configuración Notificaciones -->
+    <div>
+        <form method="post" action="{{ url_for('admin_configuracion_financiera') }}" class="bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl h-full flex flex-col">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="from_admin_panel" value="yes">
+
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-lg">🔔</div>
+                <h3 class="font-bold text-white text-base uppercase tracking-tight">Preferencias Push</h3>
+            </div>
+
+            <div class="space-y-3 flex-1">
+                {% set push_configs = [
+                    ('push_recordatorio_cuotas', 'Recordatorio de cuotas para el día'),
+                    ('push_cuotas_vencidas', 'Aviso inmediato de vencimiento'),
+                    ('push_mora', 'Seguimiento de mora acumulada'),
+                    ('push_pagos_registrados', 'Alertas de pagos recibidos')
+                ] %}
+                {% for clave, label in push_configs %}
+                <label class="flex items-center justify-between p-4 rounded-2xl bg-slate-800/30 border border-slate-700/30 cursor-pointer hover:bg-slate-800/50 transition-all group">
+                    <span class="text-xs text-slate-300 font-bold group-hover:text-white transition-colors">{{ label }}</span>
+                    <input type="checkbox" name="{{ clave }}" class="w-5 h-5 rounded-lg border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500/50" {% if db.obtener_configuracion(clave) %}checked{% endif %}>
+                </label>
+                {% endfor %}
+
+                <div class="grid grid-cols-2 gap-4 mt-6">
+                    <div>
+                        <label class="block text-[10px] text-slate-500 uppercase font-black mb-1.5 ml-1 tracking-widest">Anticipación (Días)</label>
+                        <input type="number" name="push_dias_antes" value="{{ db.obtener_configuracion('push_dias_antes') }}" class="w-full rounded-2xl bg-slate-800 border border-slate-700 px-4 py-3 text-white text-sm font-bold focus:border-cyan-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 uppercase font-black mb-1.5 ml-1 tracking-widest">Hora Envío</label>
+                        <input type="time" name="push_hora_envio" value="{{ db.obtener_configuracion('push_hora_envio') }}" class="w-full rounded-2xl bg-slate-800 border border-slate-700 px-4 py-3 text-white text-sm font-bold focus:border-cyan-500 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-8">
+                <button type="submit" class="w-full py-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-purple-900/20 transition-all active:scale-95">Actualizar Preferencias</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

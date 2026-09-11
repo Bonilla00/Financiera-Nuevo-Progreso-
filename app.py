@@ -2159,6 +2159,13 @@ def notificaciones_unread_count():
     return jsonify({"unread_count": count})
 
 
+@app.route("/admin/financiera")
+@admin_required
+def admin_financiera_view():
+    """Vista de configuración financiera en el Panel Admin."""
+    return render_template("admin_financiera.html")
+
+
 @app.route("/admin/configuracion_financiera", methods=["POST"])
 @admin_required
 def admin_configuracion_financiera():
@@ -2187,6 +2194,8 @@ def admin_configuracion_financiera():
     except Exception as e:
         flash(f"Error al guardar: {e}", "error")
 
+    if request.form.get("from_admin_panel") == "yes":
+        return redirect(url_for("admin_financiera_view"))
     return redirect(url_for("configuracion"))
 
 
@@ -2207,7 +2216,8 @@ def admin_vapid_generate():
     except Exception as e:
         flash(f"Error al generar llaves: {e}", "error")
 
-    return redirect(url_for("configuracion"))
+    dest = request.form.get("redirect_to") or "configuracion"
+    return redirect(url_for(dest))
 
 
 @app.route("/api/vapid/public_key")
@@ -2236,7 +2246,8 @@ def admin_push_test():
     else:
         flash("No se pudo enviar la notificación. Verifica que hayas aceptado los permisos en este navegador y que las llaves VAPID existan.", "error")
 
-    return redirect(url_for("configuracion"))
+    dest = request.form.get("redirect_to") or "configuracion"
+    return redirect(url_for(dest))
 
 
 @app.route("/api/docs")

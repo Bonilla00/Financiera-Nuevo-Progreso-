@@ -367,6 +367,13 @@
                 <p id="sim-out-cuota" class="text-sm font-bold text-white mt-1"></p>
               </div>
             </div>
+
+            <div class="mt-4">
+              <p class="text-[10px] text-slate-500 uppercase font-bold mb-2">📅 Proyección de fechas</p>
+              <div id="sim-plan-pagos" class="space-y-1.5 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                <!-- Se rellena con JS -->
+              </div>
+            </div>
           </div>
         </div>
     </div>
@@ -717,12 +724,6 @@
         
         if (!Number.isFinite(m) || m <= 0 || !Number.isFinite(t) || t < 0 || !Number.isFinite(c) || c < 1) {
           if (resultWrap) resultWrap.classList.add("hidden");
-          if (m > 0 && (!Number.isFinite(t) || t < 0 || !Number.isFinite(c) || c < 1)) {
-            if (simError) {
-              simError.textContent = "Ingresa tasa y cuotas válidas.";
-              simError.classList.remove("hidden");
-            }
-          }
           return;
         }
         
@@ -730,13 +731,27 @@
         var total = m + interes;
         var cuota = total / c;
         
-        var elI = document.getElementById("sim-out-interes");
-        var elT = document.getElementById("sim-out-total");
-        var elC = document.getElementById("sim-out-cuota");
-        if (elI) elI.textContent = fmtMoney(interes);
-        if (elT) elT.textContent = fmtMoney(total);
-        if (elC) elC.textContent = fmtMoney(cuota);
+        document.getElementById("sim-out-interes").textContent = fmtMoney(interes);
+        document.getElementById("sim-out-total").textContent = fmtMoney(total);
+        document.getElementById("sim-out-cuota").textContent = fmtMoney(cuota);
         if (resultWrap) resultWrap.classList.remove("hidden");
+
+        // Generar proyección de fechas simple
+        var planDiv = document.getElementById("sim-plan-pagos");
+        planDiv.innerHTML = "";
+        var hoy = new Date();
+        for(let i=1; i<=c; i++) {
+          // Aproximación de 30 días para mensual en el simulador rápido
+          hoy.setDate(hoy.getDate() + 30);
+          let fechaStr = hoy.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+          planDiv.innerHTML += `
+            <div class="flex justify-between items-center bg-slate-800/40 rounded-lg px-3 py-1.5 border border-slate-700/50">
+              <span class="text-[9px] font-bold text-slate-500 uppercase">Cuota ${i}</span>
+              <span class="text-[10px] text-white font-medium">${fechaStr}</span>
+              <span class="text-[10px] text-cyan-400 font-bold">${fmtMoney(cuota)}</span>
+            </div>
+          `;
+        }
       }
 
       ["sim-monto", "sim-tasa", "sim-cuotas"].forEach(function (id) {

@@ -162,6 +162,23 @@ def registrar_log(user_id: int | None, accion: str):
         cur.execute("INSERT INTO logs (user_id, accion) VALUES (%s, %s)", (user_id, accion))
 
 
+def proyectar_plan_pagos(fecha_inicio, frecuencia, cuotas, monto, tasa):
+    """Genera una lista de cuotas proyectadas (fecha, valor) sin persistir."""
+    interes_total = float(monto) * (float(tasa) / 100.0)
+    total_pagar = float(monto) + interes_total
+    valor_cuota = round(total_pagar / max(1, int(cuotas)), 2)
+
+    plan = []
+    for i in range(1, int(cuotas) + 1):
+        fecha_cuota = proxima_fecha_pago(fecha_inicio, frecuencia, i - 1, cuotas)
+        plan.append({
+            "numero": i,
+            "fecha": fecha_cuota,
+            "valor": valor_cuota
+        })
+    return plan, total_pagar, interes_total
+
+
 def obtener_metricas_globales():
     """Obtiene métricas totales de todo el sistema para el admin."""
     with get_conn() as conn:
