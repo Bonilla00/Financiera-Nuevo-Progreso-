@@ -1327,10 +1327,14 @@ def prestamos_renovar(pid):
             nuevas_cuotas = int(request.form.get("nuevas_cuotas", "1"))
             nueva_frecuencia = request.form.get("nueva_frecuencia", "mensual").lower()
             nuevo_vencimiento = request.form.get("nuevo_vencimiento", "").strip()
-            descontar_ultima_cuota = request.form.get("descontar_ultima_cuota") == "on"
             mora_on = request.form.get("mora_activa") == "on"
             tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
             
+            # Obtener configuración global de mora para renovación
+            mora_on_global = db.obtener_configuracion("mora_activa")
+            mora_valor_global = db.obtener_configuracion("mora_valor_diario")
+            mora_gracia_global = db.obtener_configuracion("mora_dias_gracia")
+
             if nuevo_monto <= 0:
                 raise ValueError("El monto debe ser mayor a 0.")
             if nuevas_cuotas < 1:
@@ -1339,9 +1343,7 @@ def prestamos_renovar(pid):
                 raise ValueError("La tasa no puede ser negativa.")
             if not nuevo_vencimiento:
                 raise ValueError("El vencimiento es obligatorio.")
-            if mora_on and tasa_mora < 0:
-                raise ValueError("La tasa de mora no puede ser negativa.")
-            
+
             # Ejecutar renovación
             nuevo_pid, pid_anterior, monto_desembolsado = db.renovar_prestamo(
                 pid_anterior=pid,
@@ -1353,8 +1355,10 @@ def prestamos_renovar(pid):
                 descontar_ultima_cuota=descontar_ultima_cuota,
                 user_id=uid,
                 is_admin=is_admin,
-                mora_activa=mora_on,
+                mora_activa=mora_on_global if not mora_on else mora_on, # Priorizar form si está activo
                 tasa_mora_diaria=tasa_mora,
+                valor_mora_fijo=mora_valor_global,
+                dias_gracia=mora_gracia_global,
             )
             
             db.registrar_log(uid, f"Renovación: #{pid} -> #{nuevo_pid}. Monto: {fmt_money(nuevo_monto)}. Desembolsado: {fmt_money(monto_desembolsado)}")

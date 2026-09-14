@@ -1325,7 +1325,7 @@ def puede_renovar_prestamo(pid: int, user_id: int, is_admin: bool) -> tuple[bool
         "cuotas": cuotas,
         "valor_cuota": float(info[11]),
         "pagadas": pagadas,
-        "saldo_pendiente": float(info[10]) - (pagadas * float(info[11])),
+        "saldo_pendiente": max(0.0, float(info[10]) - (pagadas * float(info[11]))),
     }
 
 
@@ -1341,6 +1341,8 @@ def renovar_prestamo(
     is_admin: bool,
     mora_activa: bool = False,
     tasa_mora_diaria: float = 0.0,
+    valor_mora_fijo: float = 0.0,
+    dias_gracia: int = 0,
 ) -> tuple[int, int, float]:
     """
     Renueva un préstamo:
@@ -1356,7 +1358,8 @@ def renovar_prestamo(
     
     with get_conn() as conn:
         cur = conn.cursor()
-        
+        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+
         # 1. Marcar préstamo anterior como RENOVADO
         cur.execute(
             "UPDATE prestamos SET estado = 'RENOVADO' WHERE id = %s",
@@ -1367,8 +1370,7 @@ def renovar_prestamo(
         monto_descuento = 0.0
         if descontar_ultima_cuota:
             ultima_cuota = info["saldo_pendiente"]
-            fecha_hoy = datetime.now().strftime("%Y-%m-%d")
-            
+
             # Registrar pago de la última cuota
             cur.execute(
                 """
@@ -1392,9 +1394,9 @@ def renovar_prestamo(
             INSERT INTO prestamos
             (cliente_id, fecha, frecuencia, cuotas, monto, tasa,
              interes_total, total_pagar, valor_cuota, vencimiento, estado, pagadas, proximo_pago,
-             mora_activa, tasa_mora_diaria,
+             mora_activa, tasa_mora_diaria, valor_mora_fijo_diario, dias_gracia_mora,
              prestamo_anterior_id, monto_descuento_renovacion, tipo_pago_ultima_cuota, es_renovacion)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -1411,6 +1413,8 @@ def renovar_prestamo(
                 nuevo_proximo_pago,
                 bool(mora_activa),
                 float(tasa_mora_diaria or 0),
+                float(valor_mora_fijo or 0),
+                int(dias_gracia or 0),
                 pid_anterior,
                 monto_descuento,
                 "renovacion" if descontar_ultima_cuota else None,
