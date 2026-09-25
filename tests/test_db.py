@@ -173,7 +173,8 @@ class TestDbPostgreSQL(unittest.TestCase):
             nuevo_vencimiento="2026-04-01",
             descontar_ultima_cuota=True,
             user_id=self.user_id,
-            is_admin=False
+            is_admin=False,
+            observaciones="Renovación de prueba con asistente"
         )
 
         self.assertEqual(pid_ant, pid)

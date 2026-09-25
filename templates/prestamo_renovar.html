@@ -2,190 +2,548 @@
 {% block title %}Renovar Préstamo - Financiera NP{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-4">
-  <div class="flex items-center gap-2">
-    <a href="{{ url_for('clientes_perfil', cid=prestamo.cliente_id) }}" class="text-slate-400 hover:text-white">
+<div class="max-w-3xl mx-auto space-y-5">
+  <!-- Header con enlace de regreso -->
+  <div class="flex items-center gap-3">
+    <a href="{{ url_for('clientes_perfil', cid=prestamo.cliente_id) }}" class="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
       <span class="text-lg">←</span>
     </a>
-    <h1 class="text-xl font-bold text-white">Renovar Préstamo #{{ pid }}</h1>
-  </div>
-
-  <!-- Información del préstamo actual -->
-  <div class="rounded-2xl border border-slate-800 bg-panel p-4 space-y-3">
-    <h2 class="text-sm font-bold text-accent uppercase tracking-wider">Préstamo Actual</h2>
-    
-    <div class="grid grid-cols-2 gap-3 text-sm">
-      <div>
-        <p class="text-slate-500 text-xs uppercase font-bold">Cliente</p>
-        <p class="text-white font-semibold">{{ cliente_nombre }}</p>
-      </div>
-      <div>
-        <p class="text-slate-500 text-xs uppercase font-bold">Monto Original</p>
-        <p class="text-white font-semibold">{{ fmt_money(prestamo.monto) }}</p>
-      </div>
-      <div>
-        <p class="text-slate-500 text-xs uppercase font-bold">Cuotas Pagadas</p>
-        <p class="text-white font-semibold">{{ prestamo.pagadas }} de {{ prestamo.cuotas }}</p>
-      </div>
-      <div>
-        <p class="text-slate-500 text-xs uppercase font-bold">Última Cuota Pendiente</p>
-        <p class="text-red-400 font-bold">{{ fmt_money(prestamo.saldo_pendiente) }}</p>
-      </div>
+    <div>
+      <h1 class="text-xl font-bold text-white">Asistente de Renovación de Préstamo</h1>
+      <p class="text-xs text-slate-400">Préstamo Anterior #{{ pid }} &middot; {{ cliente_nombre }}</p>
     </div>
   </div>
 
-  <!-- Formulario de renovación -->
-  <form method="POST" class="rounded-2xl border border-slate-800 bg-panel p-4 space-y-4">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <h2 class="text-sm font-bold text-accent uppercase tracking-wider">Nuevo Préstamo</h2>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Monto del Préstamo</label>
-        <input type="number" step="0.01" name="nuevo_monto" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
-      </div>
-      <div>
-        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tasa de Interés (%)</label>
-        <input type="number" step="0.01" name="nueva_tasa" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
-      </div>
-      <div>
-        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Número de Cuotas</label>
-        <input type="number" name="nuevas_cuotas" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
-      </div>
-      <div>
-        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Frecuencia</label>
-        <select name="nueva_frecuencia" class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
-          <option value="diaria">Diaria</option>
-          <option value="semanal">Semanal</option>
-          <option value="quincenal">Quincenal</option>
-          <option value="mensual" selected>Mensual</option>
-        </select>
-      </div>
-      <div class="col-span-2">
-        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Fecha de Vencimiento</label>
-        <input type="date" name="nuevo_vencimiento" required class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
-      </div>
-    </div>
-
-    <!-- Opción de descuento automático -->
-    {% if prestamo.saldo_pendiente > 0 %}
-    <div class="rounded-xl bg-slate-800/50 border border-slate-700 p-4 space-y-3">
-      <label class="flex items-start gap-3 cursor-pointer">
-        <input type="checkbox" name="descontar_ultima_cuota" id="checkbox_descontar" checked class="mt-1 w-4 h-4 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
-        <div>
-          <p class="text-sm font-bold text-white">Descontar automáticamente la última cuota pendiente</p>
-          <p class="text-xs text-slate-400 mt-0.5">
-            Se registrará como pago de la cuota #{{ prestamo.pagadas + 1 }} del préstamo anterior (#{{ pid }}).
-          </p>
-        </div>
-      </label>
-
-      <!-- Resumen detallado de la renovación -->
-      <div class="border-t border-slate-700/60 pt-3 space-y-1.5 text-xs font-mono">
-        <div class="flex justify-between text-slate-300">
-          <span>MONTO NUEVO PRÉSTAMO:</span>
-          <span id="resumen_monto" class="font-bold text-white">$0</span>
-        </div>
-        <div class="flex justify-between text-slate-300">
-          <span>DESCUENTO ÚLTIMA CUOTA:</span>
-          <span id="resumen_descuento" class="font-bold text-rose-400">-$0</span>
-        </div>
-        <div class="flex justify-between text-sm border-t border-slate-700/80 pt-1.5 text-white font-bold">
-          <span>DINERO A ENTREGAR:</span>
-          <span id="resumen_entregar" class="text-accent">$0</span>
-        </div>
-      </div>
-      <div id="advertencia_monto" class="hidden text-xs font-bold text-rose-400 bg-rose-950/40 border border-rose-800 p-2 rounded-lg">
-        ⚠ No es posible descontar {{ fmt_money(prestamo.saldo_pendiente) }} de un nuevo préstamo menor a la deuda.
-      </div>
-    </div>
-    {% else %}
-    <div class="rounded-xl bg-slate-800/30 border border-slate-700 p-3 text-xs text-slate-400">
-      El préstamo anterior no tiene saldo pendiente por descontar.
-    </div>
-    {% endif %}
-
-    <!-- Configuración de mora -->
-    <div class="border-t border-slate-700 pt-4">
-      <label class="flex items-center gap-2 mb-2">
-        <input type="checkbox" id="mora_toggle" name="mora_activa" class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
-        <span class="text-sm font-bold text-slate-300">Activar interés por mora</span>
-      </label>
-      <div id="mora_config" class="hidden">
-        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tasa de mora diaria (%)</label>
-        <input type="number" step="0.01" name="tasa_mora_diaria" value="0" class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:border-accent">
-      </div>
-    </div>
-
-    <div class="flex gap-2 pt-2">
-      <button type="submit" id="btn_confirmar" class="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-slate-900 hover:bg-accent/90 transition-colors">
-        Confirmar Renovación
+  <!-- Stepper / Indicador de Pasos del Asistente -->
+  <div class="rounded-2xl border border-slate-800 bg-panel p-3">
+    <div class="grid grid-cols-4 gap-1 text-center">
+      <button type="button" onclick="irAlPaso(1)" id="step_btn_1" class="py-2 px-1 rounded-xl text-xs font-bold transition-all bg-accent text-slate-900 shadow">
+        <span class="block text-[10px] opacity-75 uppercase">Paso 1</span>
+        <span>Préstamo Actual</span>
       </button>
-      <a href="{{ url_for('clientes_perfil', cid=prestamo.cliente_id) }}" class="px-4 py-3 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700 transition-colors">
-        Cancelar
-      </a>
+      <button type="button" onclick="irAlPaso(2)" id="step_btn_2" class="py-2 px-1 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white">
+        <span class="block text-[10px] opacity-75 uppercase">Paso 2</span>
+        <span>Nuevo Préstamo</span>
+      </button>
+      <button type="button" onclick="irAlPaso(3)" id="step_btn_3" class="py-2 px-1 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white">
+        <span class="block text-[10px] opacity-75 uppercase">Paso 3</span>
+        <span>Liquidación</span>
+      </button>
+      <button type="button" onclick="irAlPaso(4)" id="step_btn_4" class="py-2 px-1 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white">
+        <span class="block text-[10px] opacity-75 uppercase">Paso 4</span>
+        <span>Confirmación</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Formulario Único del Asistente -->
+  <form method="POST" id="form_renovacion" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- ==================== PASO 1: PRÉSTAMO ACTUAL ==================== -->
+    <div id="paso_1" class="rounded-2xl border border-slate-800 bg-panel p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h2 class="text-sm font-bold text-accent uppercase tracking-wider">1. Información del Préstamo Actual</h2>
+        <span class="text-xs px-2.5 py-1 rounded-lg bg-emerald-900/40 text-emerald-300 font-bold uppercase border border-emerald-800">Préstamo Activo</span>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+          <p class="text-slate-500 text-xs font-bold uppercase">Cliente</p>
+          <p class="text-white font-semibold mt-0.5">{{ cliente_nombre }}</p>
+        </div>
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+          <p class="text-slate-500 text-xs font-bold uppercase">ID Préstamo</p>
+          <p class="text-white font-semibold mt-0.5">#{{ pid }}</p>
+        </div>
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+          <p class="text-slate-500 text-xs font-bold uppercase">Monto Original</p>
+          <p class="text-white font-semibold mt-0.5">{{ fmt_money(prestamo.monto) }}</p>
+        </div>
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+          <p class="text-slate-500 text-xs font-bold uppercase">Tasa de Interés</p>
+          <p class="text-white font-semibold mt-0.5">{{ prestamo.tasa }}%</p>
+        </div>
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+          <p class="text-slate-500 text-xs font-bold uppercase">Cuotas Pagadas</p>
+          <p class="text-white font-semibold mt-0.5">{{ prestamo.pagadas }} de {{ prestamo.cuotas }}</p>
+        </div>
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+          <p class="text-slate-500 text-xs font-bold uppercase">Cuotas Pendientes</p>
+          <p class="text-amber-400 font-bold mt-0.5">{{ prestamo.cuotas - prestamo.pagadas }} cuota</p>
+        </div>
+        <div class="col-span-2 bg-rose-950/20 p-3 rounded-xl border border-rose-900/40">
+          <p class="text-rose-400 text-xs font-bold uppercase">Última Cuota Pendiente (Saldo)</p>
+          <p class="text-rose-300 font-black text-lg mt-0.5">{{ fmt_money(prestamo.saldo_pendiente) }}</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="button" onclick="irAlPaso(2)" class="px-5 py-2.5 rounded-xl bg-accent text-slate-900 font-bold text-sm hover:bg-accent/90 transition-colors flex items-center gap-1 shadow">
+          <span>Siguiente: Configurar Nuevo Préstamo</span>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== PASO 2: NUEVO PRÉSTAMO Y VISTA PREVIA ==================== -->
+    <div id="paso_2" class="hidden rounded-2xl border border-slate-800 bg-panel p-5 space-y-4">
+      <div class="border-b border-slate-800 pb-3">
+        <h2 class="text-sm font-bold text-accent uppercase tracking-wider">2. Configuración del Nuevo Préstamo</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Ingresa las condiciones del nuevo crédito y revisa la proyección de cuotas.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Monto del Nuevo Préstamo ($)</label>
+          <input type="number" step="0.01" name="nuevo_monto" id="nuevo_monto" required min="1" placeholder="Ej: 300000" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2.5 text-white font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tasa de Interés (%)</label>
+          <input type="number" step="0.01" name="nueva_tasa" id="nueva_tasa" required min="0" placeholder="Ej: 10" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2.5 text-white font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Número de Cuotas</label>
+          <input type="number" name="nuevas_cuotas" id="nuevas_cuotas" required min="1" value="2" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2.5 text-white font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Frecuencia de Pago</label>
+          <select name="nueva_frecuencia" id="nueva_frecuencia" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2.5 text-white font-semibold focus:outline-none focus:border-accent">
+            <option value="diaria">Diaria</option>
+            <option value="semanal">Semanal</option>
+            <option value="quincenal">Quincenal</option>
+            <option value="mensual" selected>Mensual</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Fecha de Inicio / Emisión</label>
+          <input type="date" name="fecha_inicio" id="fecha_inicio" required class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2.5 text-white font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Primera Fecha de Vencimiento</label>
+          <input type="date" name="nuevo_vencimiento" id="nuevo_vencimiento" required class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2.5 text-white font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div class="col-span-1 md:col-span-2">
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Observaciones / Notas (Opcional)</label>
+          <input type="text" name="observaciones" id="observaciones" placeholder="Ej: Renovación autorizada por buen comportamiento de pago" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2.5 text-white focus:outline-none focus:border-accent">
+        </div>
+      </div>
+
+      <!-- Configuración de Mora Opcional -->
+      <div class="border-t border-slate-800 pt-3">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="mora_toggle" name="mora_activa" class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
+          <span class="text-xs font-bold text-slate-300">Activar interés por mora personalizado para este crédito</span>
+        </label>
+        <div id="mora_config" class="hidden mt-2">
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tasa de mora diaria (%)</label>
+          <input type="number" step="0.01" name="tasa_mora_diaria" value="0" class="w-full md:w-1/2 rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-white focus:outline-none focus:border-accent text-sm">
+        </div>
+      </div>
+
+      <!-- VISTA PREVIA DEL PLAN DE PAGOS (Sin guardar) -->
+      <div class="border-t border-slate-800 pt-4 space-y-2">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold text-accent uppercase tracking-wider">Proyección: Vista Previa del Plan de Pagos</h3>
+          <span class="text-[11px] text-slate-400">Total a Pagar: <strong id="preview_total_pagar" class="text-white">$0</strong></span>
+        </div>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 overflow-x-auto max-h-48 overflow-y-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-800/80 text-slate-400 uppercase font-bold sticky top-0">
+              <tr>
+                <th class="p-2.5"># Cuota</th>
+                <th class="p-2.5">Fecha Proyectada</th>
+                <th class="p-2.5 text-right">Valor Cuota</th>
+              </tr>
+            </thead>
+            <tbody id="tabla_plan_pagos_preview" class="divide-y divide-slate-800/60 text-slate-300">
+              <tr>
+                <td colspan="3" class="p-3 text-center text-slate-500">Ingresa un monto válido para generar la proyección.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex justify-between pt-2">
+        <button type="button" onclick="irAlPaso(1)" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-700 transition-colors">
+          ← Anterior
+        </button>
+        <button type="button" onclick="validarYIrAlPaso(3)" class="px-5 py-2.5 rounded-xl bg-accent text-slate-900 font-bold text-sm hover:bg-accent/90 transition-colors flex items-center gap-1 shadow">
+          <span>Siguiente: Liquidación de Deuda</span>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== PASO 3: LIQUIDACIÓN DEL PRÉSTAMO ANTERIOR ==================== -->
+    <div id="paso_3" class="hidden rounded-2xl border border-slate-800 bg-panel p-5 space-y-4">
+      <div class="border-b border-slate-800 pb-3">
+        <h2 class="text-sm font-bold text-accent uppercase tracking-wider">3. Liquidación del Préstamo Anterior</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Define si deseas descontar la cuota pendiente del nuevo desembolso.</p>
+      </div>
+
+      {% if prestamo.saldo_pendiente > 0 %}
+      <div class="rounded-xl bg-slate-800/40 border border-slate-700/80 p-4 space-y-4">
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" name="descontar_ultima_cuota" id="checkbox_descontar" checked class="mt-1 w-5 h-5 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
+          <div>
+            <p class="text-sm font-bold text-white">Descontar automáticamente la última cuota pendiente</p>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Se registrará como cancelación de la cuota #{{ prestamo.pagadas + 1 }} del préstamo anterior (#{{ pid }}).
+            </p>
+          </div>
+        </label>
+
+        <!-- Desglose de Liquidación -->
+        <div class="border-t border-slate-700/60 pt-3 space-y-2 font-mono text-xs">
+          <div class="flex justify-between text-slate-300">
+            <span>NUEVO PRÉSTAMO CONTRATADO:</span>
+            <span id="liq_monto_nuevo" class="font-bold text-white">$0</span>
+          </div>
+          <div class="flex justify-between text-slate-300">
+            <span>DESCUENTO PRÉSTAMO ANTERIOR:</span>
+            <span id="liq_descuento" class="font-bold text-rose-400">-$0</span>
+          </div>
+          <div class="flex justify-between text-sm border-t border-slate-700/80 pt-2 text-white font-bold">
+            <span>DINERO EFECTIVO A ENTREGAR:</span>
+            <span id="liq_entregar" class="text-accent">$0</span>
+          </div>
+        </div>
+
+        <div id="liq_error" class="hidden text-xs font-bold text-rose-400 bg-rose-950/40 border border-rose-800 p-3 rounded-xl">
+          ⚠ No es posible descontar {{ fmt_money(prestamo.saldo_pendiente) }} de un nuevo préstamo menor a la deuda pendiente.
+        </div>
+      </div>
+      {% else %}
+      <div class="rounded-xl bg-slate-800/30 border border-slate-700 p-4 text-xs text-slate-400">
+        El préstamo anterior no tiene saldo pendiente por descontar.
+      </div>
+      {% endif %}
+
+      <div class="flex justify-between pt-2">
+        <button type="button" onclick="irAlPaso(2)" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-700 transition-colors">
+          ← Anterior
+        </button>
+        <button type="button" onclick="validarYIrAlPaso(4)" class="px-5 py-2.5 rounded-xl bg-accent text-slate-900 font-bold text-sm hover:bg-accent/90 transition-colors flex items-center gap-1 shadow">
+          <span>Siguiente: Ver Resumen y Confirmar</span>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== PASO 4: CONFIRMACIÓN Y RESUMEN ==================== -->
+    <div id="paso_4" class="hidden rounded-2xl border border-slate-800 bg-panel p-5 space-y-4">
+      <div class="border-b border-slate-800 pb-3">
+        <h2 class="text-sm font-bold text-accent uppercase tracking-wider">4. Resumen y Confirmación Final</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Por favor revisa detenidamente el desglose antes de aplicar la renovación en el sistema.</p>
+      </div>
+
+      <!-- Tarjeta Resumen Consolidado -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800">
+          <div>
+            <span class="text-slate-500 font-bold uppercase block">Cliente:</span>
+            <strong class="text-white text-sm">{{ cliente_nombre }}</strong>
+          </div>
+          <div>
+            <span class="text-slate-500 font-bold uppercase block">Préstamo Anterior:</span>
+            <strong class="text-white text-sm">#{{ pid }}</strong>
+          </div>
+        </div>
+
+        <div class="space-y-1.5 font-mono">
+          <div class="flex justify-between">
+            <span class="text-slate-400">Saldo Pendiente Anterior:</span>
+            <span class="text-rose-400 font-bold">{{ fmt_money(prestamo.saldo_pendiente) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Nuevo Monto Contratado:</span>
+            <span id="confirm_monto" class="text-white font-bold">$0</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Descuento Aplicado:</span>
+            <span id="confirm_descuento" class="text-amber-400 font-bold">$0</span>
+          </div>
+          <div class="flex justify-between text-sm pt-2 border-t border-slate-800">
+            <span class="text-white font-bold">DINERO EFECTIVO A ENTREGAR:</span>
+            <span id="confirm_entregar" class="text-accent font-black">$0</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-[11px]">
+          <div>
+            <span class="text-slate-500 font-bold block uppercase">Cuotas:</span>
+            <span id="confirm_cuotas" class="text-slate-200 font-semibold">0</span>
+          </div>
+          <div>
+            <span class="text-slate-500 font-bold block uppercase">Frecuencia:</span>
+            <span id="confirm_frecuencia" class="text-slate-200 font-semibold">Mensual</span>
+          </div>
+          <div>
+            <span class="text-slate-500 font-bold block uppercase">Primer Vencimiento:</span>
+            <span id="confirm_vencimiento" class="text-slate-200 font-semibold">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="irAlPaso(2)" class="px-4 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-700 transition-colors flex-1">
+          ← Modificar Datos
+        </button>
+        <button type="submit" id="btn_submit_final" class="flex-[2] rounded-xl bg-accent px-5 py-3 text-sm font-bold text-slate-900 hover:bg-accent/90 transition-colors shadow-lg shadow-accent/20">
+          ✓ Confirmar y Aplicar Renovación
+        </button>
+      </div>
     </div>
   </form>
 </div>
 
 <script>
-  // Toggle configuración de mora
+  const saldoPendiente = {{ prestamo.saldo_pendiente }};
+  let pasoActual = 1;
+
+  // Inicializar fechas por defecto en JavaScript
+  document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_inicio').value = today;
+    calcularProximaFechaVencimiento();
+    actualizarVistaPreviaPlanPagos();
+  });
+
+  // Toggle de configuración de mora
   document.getElementById('mora_toggle').addEventListener('change', function() {
     document.getElementById('mora_config').classList.toggle('hidden', !this.checked);
   });
 
-  // Calcular resumen y dinero a entregar
-  const checkbox = document.getElementById('checkbox_descontar');
-  const montoInput = document.querySelector('input[name="nuevo_monto"]');
-  const resumenMonto = document.getElementById('resumen_monto');
-  const resumenDescuento = document.getElementById('resumen_descuento');
-  const resumenEntregar = document.getElementById('resumen_entregar');
-  const advertenciaMonto = document.getElementById('advertencia_monto');
-  const btnConfirmar = document.getElementById('btn_confirmar');
-  const saldoPendiente = {{ prestamo.saldo_pendiente }};
+  // Escuchar cambios de entradas para actualizar la vista previa
+  ['nuevo_monto', 'nueva_tasa', 'nuevas_cuotas', 'nueva_frecuencia', 'fecha_inicio', 'nuevo_vencimiento'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        if (id === 'fecha_inicio' || id === 'nueva_frecuencia') {
+          calcularProximaFechaVencimiento();
+        }
+        actualizarVistaPreviaPlanPagos();
+        actualizarLiquidacion();
+      });
+      el.addEventListener('change', () => {
+        if (id === 'fecha_inicio' || id === 'nueva_frecuencia') {
+          calcularProximaFechaVencimiento();
+        }
+        actualizarVistaPreviaPlanPagos();
+        actualizarLiquidacion();
+      });
+    }
+  });
+
+  const checkboxDescontar = document.getElementById('checkbox_descontar');
+  if (checkboxDescontar) {
+    checkboxDescontar.addEventListener('change', () => {
+      actualizarLiquidacion();
+    });
+  }
 
   function fmtCOP(val) {
     return '$' + Math.max(0, val).toLocaleString('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0});
   }
 
-  function actualizarMonto() {
-    const nuevoMonto = parseFloat(montoInput.value) || 0;
-    const descontar = checkbox ? checkbox.checked : false;
+  // Navegación del Asistente (Wizard)
+  function irAlPaso(paso) {
+    if (paso > pasoActual && !validarPaso(pasoActual)) return;
 
-    if (resumenMonto) resumenMonto.textContent = fmtCOP(nuevoMonto);
+    pasoActual = paso;
+    for (let i = 1; i <= 4; i++) {
+      const elPaso = document.getElementById('paso_' + i);
+      const elBtn = document.getElementById('step_btn_' + i);
+      if (elPaso) elPaso.classList.toggle('hidden', i !== paso);
 
-    if (descontar) {
-      if (resumenDescuento) resumenDescuento.textContent = '-' + fmtCOP(saldoPendiente);
-      const entregar = nuevoMonto - saldoPendiente;
-
-      if (nuevoMonto > 0 && nuevoMonto < saldoPendiente) {
-        if (advertenciaMonto) advertenciaMonto.classList.remove('hidden');
-        if (resumenEntregar) {
-          resumenEntregar.textContent = fmtCOP(entregar);
-          resumenEntregar.className = 'text-rose-400 font-bold';
+      if (elBtn) {
+        if (i === paso) {
+          elBtn.className = 'py-2 px-1 rounded-xl text-xs font-bold transition-all bg-accent text-slate-900 shadow';
+        } else if (i < paso) {
+          elBtn.className = 'py-2 px-1 rounded-xl text-xs font-bold transition-all text-emerald-400 hover:text-white';
+        } else {
+          elBtn.className = 'py-2 px-1 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white';
         }
-        if (btnConfirmar) btnConfirmar.disabled = true;
-      } else {
-        if (advertenciaMonto) advertenciaMonto.classList.add('hidden');
-        if (resumenEntregar) {
-          resumenEntregar.textContent = fmtCOP(entregar);
-          resumenEntregar.className = 'text-accent font-bold';
-        }
-        if (btnConfirmar) btnConfirmar.disabled = false;
       }
-    } else {
-      if (resumenDescuento) resumenDescuento.textContent = '$0';
-      if (advertenciaMonto) advertenciaMonto.classList.add('hidden');
-      if (resumenEntregar) {
-        resumenEntregar.textContent = fmtCOP(nuevoMonto);
-        resumenEntregar.className = 'text-accent font-bold';
-      }
-      if (btnConfirmar) btnConfirmar.disabled = false;
+    }
+
+    if (paso === 4) {
+      prepararResumenFinal();
     }
   }
 
-  if (checkbox) checkbox.addEventListener('change', actualizarMonto);
-  if (montoInput) montoInput.addEventListener('input', actualizarMonto);
-  actualizarMonto();
+  function validarYIrAlPaso(siguientePaso) {
+    if (validarPaso(pasoActual)) {
+      irAlPaso(siguientePaso);
+    }
+  }
+
+  function validarPaso(paso) {
+    if (paso === 2) {
+      const monto = parseFloat(document.getElementById('nuevo_monto').value) || 0;
+      const tasa = parseFloat(document.getElementById('nueva_tasa').value);
+      const cuotas = parseInt(document.getElementById('nuevas_cuotas').value) || 0;
+      const vencimiento = document.getElementById('nuevo_vencimiento').value;
+
+      if (monto <= 0) {
+        alert("Por favor ingresa un monto mayor a 0.");
+        document.getElementById('nuevo_monto').focus();
+        return false;
+      }
+      if (isNaN(tasa) || tasa < 0) {
+        alert("Por favor ingresa una tasa de interés válida.");
+        document.getElementById('nueva_tasa').focus();
+        return false;
+      }
+      if (cuotas < 1) {
+        alert("El número de cuotas debe ser de al menos 1.");
+        document.getElementById('nuevas_cuotas').focus();
+        return false;
+      }
+      if (!vencimiento) {
+        alert("Por favor selecciona la fecha de primer vencimiento.");
+        document.getElementById('nuevo_vencimiento').focus();
+        return false;
+      }
+    }
+
+    if (paso === 3) {
+      const monto = parseFloat(document.getElementById('nuevo_monto').value) || 0;
+      const descontar = checkboxDescontar ? checkboxDescontar.checked : false;
+      if (descontar && monto < saldoPendiente) {
+        alert(`No es posible descontar ${fmtCOP(saldoPendiente)} de un nuevo préstamo de ${fmtCOP(monto)}.`);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function calcularProximaFechaVencimiento() {
+    const fInicio = document.getElementById('fecha_inicio').value;
+    if (!fInicio) return;
+
+    const base = new Date(fInicio + 'T00:00:00');
+    const freq = document.getElementById('nueva_frecuencia').value;
+
+    let deltaDays = 30;
+    if (freq === 'diaria') deltaDays = 1;
+    else if (freq === 'semanal') deltaDays = 7;
+    else if (freq === 'quincenal') deltaDays = 15;
+
+    base.setDate(base.getDate() + deltaDays);
+    const yyyy = base.getFullYear();
+    const mm = String(base.getMonth() + 1).padStart(2, '0');
+    const dd = String(base.getDate()).padStart(2, '0');
+    document.getElementById('nuevo_vencimiento').value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  // Proyección de la Tabla de Plan de Pagos
+  function actualizarVistaPreviaPlanPagos() {
+    const monto = parseFloat(document.getElementById('nuevo_monto').value) || 0;
+    const tasa = parseFloat(document.getElementById('nueva_tasa').value) || 0;
+    const cuotas = parseInt(document.getElementById('nuevas_cuotas').value) || 1;
+    const freq = document.getElementById('nueva_frecuencia').value;
+    const fvencStr = document.getElementById('nuevo_vencimiento').value;
+
+    const tbody = document.getElementById('tabla_plan_pagos_preview');
+    const totalSpan = document.getElementById('preview_total_pagar');
+
+    if (monto <= 0 || cuotas < 1) {
+      tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-center text-slate-500">Ingresa un monto válido para generar la proyección.</td></tr>';
+      totalSpan.textContent = '$0';
+      return;
+    }
+
+    const interesTotal = monto * (tasa / 100.0);
+    const totalPagar = monto + interesTotal;
+    const valorCuota = totalPagar / cuotas;
+
+    totalSpan.textContent = fmtCOP(totalPagar);
+
+    let html = '';
+    let fechaBase = fvencStr ? new Date(fvencStr + 'T00:00:00') : new Date();
+
+    let stepDays = 30;
+    if (freq === 'diaria') stepDays = 1;
+    else if (freq === 'semanal') stepDays = 7;
+    else if (freq === 'quincenal') stepDays = 15;
+
+    for (let i = 1; i <= cuotas; i++) {
+      let fCuota = new Date(fechaBase);
+      if (i > 1) {
+        fCuota.setDate(fCuota.getDate() + (stepDays * (i - 1)));
+      }
+      const dateFormatted = fCuota.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      html += `<tr class="hover:bg-slate-800/40 transition-colors">
+        <td class="p-2.5 font-bold text-accent">Cuota #${i}</td>
+        <td class="p-2.5 text-slate-200">${dateFormatted}</td>
+        <td class="p-2.5 text-right font-bold text-white">${fmtCOP(valorCuota)}</td>
+      </tr>`;
+    }
+
+    tbody.innerHTML = html;
+  }
+
+  // Actualizar Cálculos de Liquidación
+  function actualizarLiquidacion() {
+    const monto = parseFloat(document.getElementById('nuevo_monto').value) || 0;
+    const descontar = checkboxDescontar ? checkboxDescontar.checked : false;
+
+    const elMontoNuevo = document.getElementById('liq_monto_nuevo');
+    const elDescuento = document.getElementById('liq_descuento');
+    const elEntregar = document.getElementById('liq_entregar');
+    const elError = document.getElementById('liq_error');
+
+    if (elMontoNuevo) elMontoNuevo.textContent = fmtCOP(monto);
+
+    if (descontar) {
+      if (elDescuento) elDescuento.textContent = '-' + fmtCOP(saldoPendiente);
+      const entregar = monto - saldoPendiente;
+
+      if (monto > 0 && monto < saldoPendiente) {
+        if (elError) elError.classList.remove('hidden');
+        if (elEntregar) {
+          elEntregar.textContent = fmtCOP(entregar);
+          elEntregar.className = 'text-rose-400 font-bold';
+        }
+      } else {
+        if (elError) elError.classList.add('hidden');
+        if (elEntregar) {
+          elEntregar.textContent = fmtCOP(entregar);
+          elEntregar.className = 'text-accent font-bold';
+        }
+      }
+    } else {
+      if (elDescuento) elDescuento.textContent = '$0';
+      if (elError) elError.classList.add('hidden');
+      if (elEntregar) {
+        elEntregar.textContent = fmtCOP(monto);
+        elEntregar.className = 'text-accent font-bold';
+      }
+    }
+  }
+
+  // Preparar Resumen Final en Paso 4
+  function prepararResumenFinal() {
+    const monto = parseFloat(document.getElementById('nuevo_monto').value) || 0;
+    const cuotas = parseInt(document.getElementById('nuevas_cuotas').value) || 0;
+    const freq = document.getElementById('nueva_frecuencia').value;
+    const venc = document.getElementById('nuevo_vencimiento').value;
+    const descontar = checkboxDescontar ? checkboxDescontar.checked : false;
+
+    const descVal = descontar ? saldoPendiente : 0;
+    const entregar = monto - descVal;
+
+    document.getElementById('confirm_monto').textContent = fmtCOP(monto);
+    document.getElementById('confirm_descuento').textContent = descontar ? '-' + fmtCOP(descVal) : '$0';
+    document.getElementById('confirm_entregar').textContent = fmtCOP(entregar);
+    document.getElementById('confirm_cuotas').textContent = cuotas + ' cuotas';
+    document.getElementById('confirm_frecuencia').textContent = freq.toUpperCase();
+    document.getElementById('confirm_vencimiento').textContent = venc;
+  }
 </script>
 {% endblock %}

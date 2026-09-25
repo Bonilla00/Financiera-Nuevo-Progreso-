@@ -1331,6 +1331,7 @@ def prestamos_renovar(pid):
             nuevas_cuotas = int(request.form.get("nuevas_cuotas", "1"))
             nueva_frecuencia = request.form.get("nueva_frecuencia", "mensual").lower()
             nuevo_vencimiento = request.form.get("nuevo_vencimiento", "").strip()
+            observaciones = request.form.get("observaciones", "").strip()
             mora_on = request.form.get("mora_activa") == "on"
             tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
             
@@ -1368,15 +1369,16 @@ def prestamos_renovar(pid):
                 tasa_mora_diaria=tasa_mora,
                 valor_mora_fijo=mora_valor_global,
                 dias_gracia=mora_gracia_global,
+                observaciones=observaciones,
             )
             
             db.registrar_log(uid, f"Renovación: #{pid} -> #{nuevo_pid}. Monto: {fmt_money(nuevo_monto)}. Desembolsado: {fmt_money(monto_desembolsado)}")
             
-            msg_descuento = f"Se descontó {fmt_money(datos['saldo_pendiente'])} de la última cuota. " if descontar_ultima_cuota else ""
+            msg_descuento = f"Se descontó {fmt_money(datos['saldo_pendiente'])} de la última cuota del préstamo anterior. " if descontar_ultima_cuota else ""
             flash(
                 f"Préstamo renovado exitosamente. Nuevo préstamo #{nuevo_pid}. " +
                 msg_descuento +
-                f"Dinero entregado al cliente: {fmt_money(monto_desembolsado)}.",
+                f"Dinero efectivo entregado al cliente: {fmt_money(monto_desembolsado)}.",
                 "ok"
             )
             return redirect(url_for("clientes_perfil", cid=datos["cliente_id"]))
@@ -1450,7 +1452,7 @@ def prestamos_pago(pid):
         # Notificación Push para el administrador si está activada
         if db.obtener_configuracion("push_pagos_registrados"):
             admin_id = 1 # Enviamos al admin principal
-            titulo = "✅ Nuevo Pago"
+            titulo = " Nuevo Pago"
             mensaje = f"Se han recibido {fmt_money(valor)} de {nombre} (Cuota #{num_cuota})."
             clave_n = f"pago_{pago_id}"
 

@@ -1355,6 +1355,7 @@ def renovar_prestamo(
     tasa_mora_diaria: float = 0.0,
     valor_mora_fijo: float = 0.0,
     dias_gracia: int = 0,
+    observaciones: str = "",
 ) -> tuple[int, int, float]:
     """
     Renueva un préstamo en una transacción atómica:
@@ -1428,8 +1429,8 @@ def renovar_prestamo(
             (cliente_id, fecha, frecuencia, cuotas, monto, tasa,
              interes_total, total_pagar, valor_cuota, vencimiento, estado, pagadas, proximo_pago,
              mora_activa, tasa_mora_diaria, valor_mora_fijo_diario, dias_gracia_mora,
-             prestamo_anterior_id, monto_descuento_renovacion, tipo_pago_ultima_cuota, es_renovacion)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             prestamo_anterior_id, monto_descuento_renovacion, tipo_pago_ultima_cuota, es_renovacion, notas)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', 0, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -1452,14 +1453,18 @@ def renovar_prestamo(
                 monto_descuento,
                 "renovacion" if descontar_ultima_cuota else None,
                 True,
+                observaciones or f"Renovación de préstamo #{pid_anterior}",
             )
         )
         nuevo_pid = int(cur.fetchone()[0])
         
         # 5. Registrar log
+        log_txt = f"Renovación préstamo #{pid_anterior} -> #{nuevo_pid}"
+        if observaciones:
+            log_txt += f" ({observaciones})"
         cur.execute(
             "INSERT INTO logs (user_id, accion) VALUES (%s, %s)",
-            (user_id, f"Renovación préstamo #{pid_anterior} -> #{nuevo_pid}")
+            (user_id, log_txt)
         )
         
         monto_desembolsado = nuevo_monto - monto_descuento
