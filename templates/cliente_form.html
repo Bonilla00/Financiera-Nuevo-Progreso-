@@ -1,82 +1,150 @@
 {% extends "base.html" %}
-{% block title %}{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente{% endblock %}
-{% block content %}
-<h1 class="text-xl font-bold mb-4">{% if cliente %}Editar{% else %}Nuevo{% endif %} cliente</h1>
-<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…" enctype="multipart/form-data">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {% set c = cliente %}
-  {% set fd = form_data or {} %}
-  <h2 class="text-sm uppercase tracking-wide text-slate-300 font-semibold">Datos del cliente</h2>
-  <input name="nombre" placeholder="Nombre" required value="{{ c[1] if c else (fd.get('nombre', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="identificacion" placeholder="Identificación" required value="{{ c[2] if c else (fd.get('identificacion', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="telefono" placeholder="Teléfono" value="{{ c[3] if c else (fd.get('telefono', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="barrio" placeholder="Barrio" value="{{ c[4] if c else (fd.get('barrio', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="direccion" placeholder="Dirección" value="{{ c[5] if c else (fd.get('direccion', '')) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+{% block title %}{% if cliente %}Editar{% else %}Nuevo{% endif %} Cliente - Financiera NP{% endblock %}
 
-  {% if crear_prestamo_junto %}
-  <div class="pt-2 mt-2 border-t border-slate-700"></div>
-  <h2 class="text-sm uppercase tracking-wide text-slate-300 font-semibold">Datos del préstamo</h2>
-  <input name="monto" type="number" min="0" step="0.01" placeholder="Monto a prestar" required value="{{ fd.get('monto', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="tasa" type="number" min="0" step="0.01" placeholder="Tasa de interés (%)" required value="{{ fd.get('tasa', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="cuotas" type="number" min="1" step="1" placeholder="Número de cuotas" required value="{{ fd.get('cuotas', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <select name="frecuencia" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-    {% set freq = fd.get('frecuencia', 'mensual') %}
-    <option value="diaria" {% if freq == 'diaria' %}selected{% endif %}>Diaria</option>
-    <option value="semanal" {% if freq == 'semanal' %}selected{% endif %}>Semanal</option>
-    <option value="quincenal" {% if freq == 'quincenal' %}selected{% endif %}>Quincenal</option>
-    <option value="mensual" {% if freq == 'mensual' %}selected{% endif %}>Mensual</option>
-  </select>
-  <input name="fecha" type="date" required value="{{ fd.get('fecha', hoy) }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-    <input type="checkbox" name="mora_activa" value="on" class="rounded border-slate-600" {% if fd.get('mora_activa') == 'on' %}checked{% endif %}>
-    <span>Habilitar interés por mora</span>
-  </label>
-  <input name="tasa_mora_diaria" type="number" min="0" step="0.01" placeholder="% mora diario (sobre la cuota, ej. 1)" value="{{ fd.get('tasa_mora_diaria', '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <p class="text-xs text-slate-500">Solo aplica si hay retraso al cobrar. Se calcula por día vencido desde el próximo pago.</p>
-  <button
-    id="btn-simular"
-    type="button"
-    class="w-full py-3 rounded-xl font-bold bg-transparent hover:brightness-110"
-    style="border:1px solid #22D3EE;color:#22D3EE;"
-  >
-    Simular crédito
-  </button>
-  <p id="sim-error" class="hidden text-sm font-semibold" style="color:#ef4444;">Completa Monto, Tasa y Cuotas para simular</p>
-  <div
-    id="sim-resultado"
-    class="hidden rounded-2xl p-4 border-2 text-white space-y-1.5"
-    style="background:#1F2937;border-color:#22D3EE;"
-  >
-    <h3 class="text-base font-bold mb-2 text-white">💰 Simulación del crédito</h3>
-    <div class="flex justify-between gap-4 text-sm">
-      <span class="text-white">Monto prestado:</span>
-      <span id="sim-monto" class="font-bold shrink-0" style="color:#22D3EE;"></span>
-    </div>
-    <div class="flex justify-between gap-4 text-sm">
-      <span class="text-white">Interés (<span id="sim-tasa-lbl"></span>%):</span>
-      <span id="sim-interes" class="font-bold shrink-0" style="color:#22D3EE;"></span>
-    </div>
-    <div class="flex justify-between gap-4 text-sm">
-      <span class="text-white">Total a pagar:</span>
-      <span id="sim-total" class="font-bold shrink-0" style="color:#22D3EE;"></span>
-    </div>
-    <div class="flex justify-between gap-4 text-sm">
-      <span class="text-white">Valor por cuota:</span>
-      <span id="sim-cuota" class="font-bold shrink-0" style="color:#22D3EE;"></span>
-    </div>
-    <div class="flex justify-between gap-4 text-sm">
-      <span class="text-white">Número de cuotas:</span>
-      <span id="sim-cuotas" class="font-bold shrink-0" style="color:#22D3EE;"></span>
-    </div>
-    <div class="flex justify-between gap-4 text-sm">
-      <span class="text-white">Frecuencia:</span>
-      <span id="sim-frecuencia" class="font-bold shrink-0" style="color:#22D3EE;"></span>
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-5 pb-8">
+  <!-- Encabezado Moderno -->
+  <div class="flex items-center gap-3">
+    <a href="{{ url_for('clientes_list') }}" class="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+      <span class="text-lg">←</span>
+    </a>
+    <div>
+      <h1 class="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">{% if cliente %}Editar Cliente{% else %}Nuevo Cliente{% endif %}</h1>
+      <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">Registra la información del cliente en el sistema</p>
     </div>
   </div>
-  {% endif %}
 
-  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
-</form>
+  <form method="post" class="space-y-5" data-loading-submit data-loading-label="Procesando…" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% set c = cliente %}
+    {% set fd = form_data or {} %}
+
+    <!-- SECCIÓN 1: INFORMACIÓN PERSONAL -->
+    <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-4 shadow-xl">
+      <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+        <span>👤</span> Información Personal
+      </h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Completo *</label>
+          <input name="nombre" placeholder="Ej: Juan Pérez" required value="{{ c[1] if c else (fd.get('nombre', '')) }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Identificación / Cédula *</label>
+          <input name="identificacion" placeholder="Ej: 1113362923" required value="{{ c[2] if c else (fd.get('identificacion', '')) }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono / Celular</label>
+          <input name="telefono" placeholder="Ej: 3000000000" value="{{ c[3] if c else (fd.get('telefono', '')) }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: DIRECCIÓN -->
+    <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-4 shadow-xl">
+      <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+        <span>📍</span> Dirección y Ubicación
+      </h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Barrio</label>
+          <input name="barrio" placeholder="Ej: Centro" value="{{ c[4] if c else (fd.get('barrio', '')) }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Dirección</label>
+          <input name="direccion" placeholder="Ej: Calle 1 # 2-3" value="{{ c[5] if c else (fd.get('direccion', '')) }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+      </div>
+    </div>
+
+    {% if crear_prestamo_junto %}
+    <!-- SECCIÓN 3: DATOS DEL PRÉSTAMO (Opcional si se crea junto) -->
+    <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-4 shadow-xl">
+      <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+        <span>📄</span> Datos del Préstamo Inicial
+      </h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Monto a Prestar ($) *</label>
+          <input name="monto" type="number" min="0" step="0.01" placeholder="Ej: 300000" required value="{{ fd.get('monto', '') }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tasa de Interés (%) *</label>
+          <input name="tasa" type="number" min="0" step="0.01" placeholder="Ej: 10" required value="{{ fd.get('tasa', '') }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Número de Cuotas *</label>
+          <input name="cuotas" type="number" min="1" step="1" placeholder="Ej: 2" required value="{{ fd.get('cuotas', '') }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Frecuencia *</label>
+          <select name="frecuencia" required class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+            {% set freq = fd.get('frecuencia', 'mensual') %}
+            <option value="diaria" {% if freq == 'diaria' %}selected{% endif %}>Diaria</option>
+            <option value="semanal" {% if freq == 'semanal' %}selected{% endif %}>Semanal</option>
+            <option value="quincenal" {% if freq == 'quincenal' %}selected{% endif %}>Quincenal</option>
+            <option value="mensual" {% if freq == 'mensual' %}selected{% endif %}>Mensual</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha de Emisión *</label>
+          <input name="fecha" type="date" required value="{{ fd.get('fecha', hoy) }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tasa Mora Diaria (%)</label>
+          <input name="tasa_mora_diaria" type="number" min="0" step="0.01" placeholder="0" value="{{ fd.get('tasa_mora_diaria', '') }}" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" name="mora_activa" value="on" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-accent focus:ring-accent" {% if fd.get('mora_activa') == 'on' %}checked{% endif %}>
+            <span class="font-bold">Habilitar interés por mora</span>
+          </label>
+        </div>
+      </div>
+
+      <button id="btn-simular" type="button" class="w-full py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-cyan-400 border border-cyan-600/50 hover:bg-slate-700 transition-colors">
+        🧮 Simular Crédito
+      </button>
+
+      <p id="sim-error" class="hidden text-xs text-rose-400 text-center font-bold" role="alert">Completa Monto, Tasa y Cuotas para simular.</p>
+
+      <div id="sim-resultado" class="hidden rounded-xl bg-slate-900/90 border border-cyan-500/40 p-4 space-y-2 text-xs font-mono">
+        <h3 class="text-xs font-bold text-cyan-400 uppercase">💰 Simulación del crédito</h3>
+        <div class="flex justify-between text-slate-300">
+          <span>Monto prestado:</span>
+          <span id="sim-monto" class="font-bold text-white"></span>
+        </div>
+        <div class="flex justify-between text-slate-300">
+          <span>Interés (<span id="sim-tasa-lbl"></span>%):</span>
+          <span id="sim-interes" class="font-bold text-cyan-400"></span>
+        </div>
+        <div class="flex justify-between text-slate-300 border-t border-slate-800 pt-1.5">
+          <span>Total a pagar:</span>
+          <span id="sim-total" class="font-bold text-accent"></span>
+        </div>
+        <div class="flex justify-between text-slate-300">
+          <span>Valor por cuota:</span>
+          <span id="sim-cuota" class="font-bold text-white"></span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- BOTONES DE ACCIÓN -->
+    <div class="flex items-center gap-3 pt-2">
+      <a href="{{ url_for('clientes_list') }}" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase text-center hover:bg-slate-700 transition-colors">
+        Cancelar
+      </a>
+      <button type="submit" class="flex-[2] py-3 rounded-xl bg-accent text-slate-900 font-black text-xs uppercase tracking-widest hover:bg-accent/90 transition-all shadow-lg shadow-accent/20">
+        {% if cliente %}Guardar Cambios{% else %}Guardar Cliente{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+
 {% if crear_prestamo_junto %}
 <script>
   (function () {
@@ -93,11 +161,6 @@
     const fmtMoney = (n) =>
       "$" + new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(n);
 
-    const spinBtn =
-      '<svg class="animate-spin h-4 w-4 shrink-0 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">' +
-      '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
-      '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-
     const simular = function () {
       const rawMonto = (montoEl?.value || "").trim();
       const rawTasa = (tasaEl?.value || "").trim();
@@ -107,15 +170,7 @@
       const cuotas = parseInt(rawCuotas, 10);
       const frecuencia = (freqEl?.selectedOptions?.[0]?.textContent || "").trim();
 
-      if (
-        rawMonto === "" ||
-        rawTasa === "" ||
-        rawCuotas === "" ||
-        !Number.isFinite(monto) ||
-        !Number.isFinite(tasa) ||
-        !Number.isFinite(cuotas) ||
-        cuotas < 1
-      ) {
+      if (rawMonto === "" || rawTasa === "" || rawCuotas === "" || !Number.isFinite(monto) || !Number.isFinite(tasa) || !Number.isFinite(cuotas) || cuotas < 1) {
         err.classList.remove("hidden");
         box.classList.add("hidden");
         return;
@@ -130,28 +185,13 @@
       document.getElementById("sim-interes").textContent = fmtMoney(interes);
       document.getElementById("sim-total").textContent = fmtMoney(total);
       document.getElementById("sim-cuota").textContent = fmtMoney(valorCuota);
-      document.getElementById("sim-cuotas").textContent = cuotas.toString();
-      document.getElementById("sim-frecuencia").textContent = frecuencia;
 
       err.classList.add("hidden");
       box.classList.remove("hidden");
     };
 
     btn.addEventListener("click", function () {
-      if (btn.disabled) return;
-      var prev = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML =
-        '<span class="inline-flex items-center justify-center gap-2 w-full">' +
-        spinBtn +
-        "<span>Procesando…</span></span>";
-      var t0 = Date.now();
       simular();
-      var wait = Math.max(0, 200 - (Date.now() - t0));
-      setTimeout(function () {
-        btn.disabled = false;
-        btn.innerHTML = prev;
-      }, wait);
     });
   })();
 </script>
