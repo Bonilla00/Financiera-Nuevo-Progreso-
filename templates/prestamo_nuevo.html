@@ -1,92 +1,223 @@
 {% extends "base.html" %}
-{% block title %}Nuevo préstamo{% endblock %}
+{% block title %}Nuevo Crédito - Financiera NP{% endblock %}
+
 {% block content %}
-<h1 class="text-xl font-bold mb-4">Nuevo préstamo</h1>
-<form method="post" class="relative space-y-3 bg-panel rounded-2xl border border-slate-700 p-4" data-loading-submit data-loading-label="Procesando…" id="form-prestamo">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="hidden" name="cliente_id" id="cliente_id" required>
-
-  <label class="block text-sm text-slate-400">Buscar cliente</label>
-  <div class="relative">
-    <input type="text" id="buscador-cliente"
-           class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent"
-           placeholder="Nombre, cédula o teléfono…" autocomplete="off">
-    <div id="resultados-cliente" class="hidden absolute z-50 mt-1 w-full bg-panel2 border border-slate-600 rounded-xl max-h-48 overflow-y-auto shadow-xl"></div>
-  </div>
-  <p id="cliente-seleccionado" class="text-xs text-accent hidden"></p>
-
-  <input type="date" name="fecha" value="{{ today_str() }}" id="campo-fecha" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <select name="frecuencia" id="campo-frecuencia" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-    <option value="diaria">Diaria</option>
-    <option value="semanal">Semanal</option>
-    <option value="quincenal">Quincenal</option>
-    <option value="mensual" selected>Mensual</option>
-  </select>
-  <input name="cuotas" type="number" min="1" value="1" placeholder="Cuotas" id="campo-cuotas" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="monto" type="number" step="0.01" min="0" placeholder="Monto" required id="campo-monto" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <input name="tasa" type="number" step="0.01" min="0" placeholder="Tasa % sobre monto" required id="campo-tasa" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-    <input type="checkbox" name="mora_activa" value="on" class="rounded border-slate-600">
-    <span>Habilitar interés por mora</span>
-  </label>
-  <input name="tasa_mora_diaria" type="number" min="0" step="0.01" placeholder="% mora diario (sobre la cuota)" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
-  <p class="text-xs text-slate-500">Al cobrar con retraso, se suma mora = cuota × % × días de atraso.</p>
-
-  <div id="resultado-calculo" class="rounded-2xl border border-slate-700 bg-panel2 p-4 space-y-2 transition-all">
-    <h3 class="text-sm font-bold text-accent uppercase tracking-wide">Resumen del préstamo</h3>
-    <div class="grid grid-cols-2 gap-2 text-sm">
-      <div>
-        <p class="text-slate-500 text-[10px] uppercase font-bold">Interés total</p>
-        <p id="calc-interes" class="text-white font-semibold">—</p>
-      </div>
-      <div>
-        <p class="text-slate-500 text-[10px] uppercase font-bold">Total a pagar</p>
-        <p id="calc-total" class="text-accent font-bold">—</p>
-      </div>
-      <div>
-        <p class="text-slate-500 text-[10px] uppercase font-bold">Valor por cuota</p>
-        <p id="calc-cuota" class="text-white font-semibold">—</p>
-      </div>
-      <div>
-        <p class="text-slate-500 text-[10px] uppercase font-bold">Vencimiento est.</p>
-        <p id="calc-vencimiento" class="text-white font-semibold">—</p>
-      </div>
+<div class="max-w-4xl mx-auto space-y-5 pb-8">
+  <!-- Encabezado Moderno -->
+  <div class="flex items-center gap-3">
+    <a href="{{ url_for('prestamos_list') }}" class="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+      <span class="text-lg">←</span>
+    </a>
+    <div>
+      <h1 class="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Nuevo Crédito</h1>
+      <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">Registra un nuevo crédito y genera su plan de pagos</p>
     </div>
   </div>
 
-  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar</button>
-</form>
+  <form method="post" id="form-prestamo" class="space-y-5" data-loading-submit data-loading-label="Procesando…">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="cliente_id" id="cliente_id" required>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- COLUMNA IZQUIERDA: CLIENTE Y DATOS DEL CRÉDITO -->
+      <div class="space-y-5">
+
+        <!-- SECCIÓN 1: CLIENTE -->
+        <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-3 shadow-xl">
+          <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+            <span>👤</span> 1. Selección de Cliente
+          </h2>
+
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 text-xs">🔍</span>
+            <input type="text" id="buscador-cliente" autocomplete="off"
+                   class="w-full rounded-xl bg-slate-900 border border-slate-700 pl-9 pr-3 py-2.5 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-accent"
+                   placeholder="Buscar cliente por nombre, cédula o teléfono…">
+            <div id="resultados-cliente" class="hidden absolute z-50 mt-1 w-full bg-slate-900 border border-slate-700 rounded-xl max-h-48 overflow-y-auto shadow-2xl divide-y divide-slate-800"></div>
+          </div>
+
+          <!-- Tarjeta de Cliente Seleccionado -->
+          <div id="tarjeta-cliente-seleccionado" class="hidden rounded-xl bg-emerald-950/20 border border-emerald-500/30 p-3 flex items-center justify-between">
+            <div class="min-w-0">
+              <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Cliente Seleccionado</p>
+              <p id="cliente-nombre-display" class="text-xs font-black text-white truncate mt-0.5">—</p>
+              <p id="cliente-cedula-display" class="text-[10px] text-slate-400 font-mono mt-0.5">—</p>
+            </div>
+            <button type="button" id="btn-cambiar-cliente" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold hover:bg-slate-700">Cambiar</button>
+          </div>
+          <p id="cliente-error" class="hidden text-[11px] text-rose-400 font-bold">⚠ Por favor selecciona un cliente de la lista.</p>
+        </div>
+
+        <!-- SECCIÓN 2: DATOS DEL CRÉDITO -->
+        <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-4 shadow-xl">
+          <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+            <span>📄</span> 2. Datos del Crédito
+          </h2>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha de Inicio</label>
+              <input type="date" name="fecha" value="{{ today_str() }}" id="campo-fecha" required class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Frecuencia</label>
+              <select name="frecuencia" id="campo-frecuencia" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+                <option value="diaria">Diaria</option>
+                <option value="semanal">Semanal</option>
+                <option value="quincenal">Quincenal</option>
+                <option value="mensual" selected>Mensual</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Monto a Prestar ($)</label>
+              <input name="monto" type="number" step="0.01" min="1" required id="campo-monto" placeholder="Ej: 300000" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Número de Cuotas</label>
+              <input name="cuotas" type="number" min="1" value="2" required id="campo-cuotas" placeholder="Ej: 3" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tasa de Interés (%)</label>
+              <input name="tasa" type="number" step="0.01" min="0" required id="campo-tasa" placeholder="Ej: 10" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN 3: CONFIGURACIÓN DE MORA -->
+        <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-3 shadow-xl">
+          <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+            <span>⏰</span> 3. Configuración de Mora
+          </h2>
+          <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" name="mora_activa" value="on" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-accent focus:ring-accent">
+            <span class="font-bold">Habilitar interés por mora para este crédito</span>
+          </label>
+          <div class="mt-2">
+            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tasa de mora diaria (%) — Opcional</label>
+            <input name="tasa_mora_diaria" type="number" min="0" step="0.01" value="0" placeholder="0" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+          </div>
+          <p class="text-[10px] text-slate-500">Al cobrar con retraso, se calculará automáticamente la mora acumulada.</p>
+        </div>
+
+      </div>
+
+      <!-- COLUMNA DERECHA: RESUMEN Y PLAN DE PAGOS PROYECTADO -->
+      <div class="space-y-5 flex flex-col">
+
+        <!-- SECCIÓN 5: RESUMEN DEL CRÉDITO -->
+        <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-3 shadow-xl">
+          <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+            <span>📊</span> Resumen del Crédito
+          </h2>
+
+          <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <p class="text-[9px] font-bold text-slate-500 uppercase">Monto Prestado</p>
+              <p id="calc-monto" class="text-white font-black text-sm mt-0.5">$0</p>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <p class="text-[9px] font-bold text-slate-500 uppercase">Interés Total</p>
+              <p id="calc-interes" class="text-cyan-400 font-black text-sm mt-0.5">$0</p>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <p class="text-[9px] font-bold text-slate-500 uppercase">Total a Pagar</p>
+              <p id="calc-total" class="text-accent font-black text-sm mt-0.5">$0</p>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <p class="text-[9px] font-bold text-slate-500 uppercase">Valor por Cuota</p>
+              <p id="calc-cuota" class="text-white font-black text-sm mt-0.5">$0</p>
+            </div>
+          </div>
+
+          <div class="text-[11px] text-slate-400 flex justify-between pt-1 border-t border-slate-800/80">
+            <span>Último Vencimiento Est.: <strong id="calc-vencimiento" class="text-white font-mono">—</strong></span>
+          </div>
+        </div>
+
+        <!-- SECCIÓN 4: PLAN DE PAGOS PROYECTADO -->
+        <div class="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5 space-y-3 shadow-xl flex-1">
+          <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+            <span>📅</span> Plan de Pagos Proyectado
+          </h2>
+
+          <!-- PC: Tabla Compacta -->
+          <div class="hidden sm:block rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden max-h-56 overflow-y-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-800/80 text-slate-400 uppercase font-bold text-[9px] tracking-wider sticky top-0">
+                <tr>
+                  <th class="p-2.5">#</th>
+                  <th class="p-2.5">Vencimiento</th>
+                  <th class="p-2.5 text-right">Valor Cuota</th>
+                  <th class="p-2.5 text-center">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-plan-pagos" class="divide-y divide-slate-800/60 text-slate-300">
+                <tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">Ingresa monto, cuotas y tasa para generar la proyección.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Móvil: Tarjetas Compactas -->
+          <div id="cards-plan-pagos" class="sm:hidden space-y-2 max-h-56 overflow-y-auto pr-1">
+            <p class="text-xs text-slate-500 text-center py-4">Ingresa monto, cuotas y tasa para ver el plan de pagos.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- SECCIÓN 6: BOTONES DE CONFIRMACIÓN -->
+    <div class="flex items-center gap-3 pt-2">
+      <a href="{{ url_for('prestamos_list') }}" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase text-center hover:bg-slate-700 transition-colors">
+        Cancelar
+      </a>
+      <button type="submit" class="flex-[2] py-3 rounded-xl bg-accent text-slate-900 font-black text-xs uppercase tracking-widest hover:bg-accent/90 transition-all shadow-lg shadow-accent/20">
+        Crear Crédito
+      </button>
+    </div>
+  </form>
+</div>
 
 <script>
 (function() {
-  var input = document.getElementById('buscador-cliente');
-  var resultados = document.getElementById('resultados-cliente');
-  var hiddenId = document.getElementById('cliente_id');
-  var label = document.getElementById('cliente-seleccionado');
-  var form = document.getElementById('form-prestamo');
-  var timeout = null;
+  const input = document.getElementById('buscador-cliente');
+  const resultados = document.getElementById('resultados-cliente');
+  const hiddenId = document.getElementById('cliente_id');
+  const tarjetaCliente = document.getElementById('tarjeta-cliente-seleccionado');
+  const nombreDisplay = document.getElementById('cliente-nombre-display');
+  const cedulaDisplay = document.getElementById('cliente-cedula-display');
+  const btnCambiar = document.getElementById('btn-cambiar-cliente');
+  const clienteError = document.getElementById('cliente-error');
+  const form = document.getElementById('form-prestamo');
+  let timeout = null;
 
   input.addEventListener('input', function() {
     clearTimeout(timeout);
-    var q = input.value.trim();
-    label.classList.add('hidden');
+    const q = input.value.trim();
     if (q.length < 2) {
       resultados.classList.add('hidden');
       resultados.innerHTML = '';
-      hiddenId.value = '';
       return;
     }
     timeout = setTimeout(function() {
       fetch('/api/buscar_clientes?q=' + encodeURIComponent(q))
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
+        .then(r => r.json())
+        .then(data => {
           if (!data.length) {
             resultados.innerHTML = '<div class="px-3 py-2 text-xs text-slate-500">Sin resultados</div>';
             resultados.classList.remove('hidden');
             return;
           }
-          resultados.innerHTML = data.map(function(c) {
-            return '<div class="px-3 py-2 text-sm cursor-pointer hover:bg-slate-700 border-b border-slate-700 last:border-0 cliente-item" data-id="' + c.id + '" data-nombre="' + c.nombre + '">' + c.nombre + ' — ' + c.identificacion + '</div>';
+          resultados.innerHTML = data.map(c => {
+            return `<div class="px-3 py-2.5 text-xs cursor-pointer hover:bg-slate-800 border-b border-slate-800 last:border-0 cliente-item flex justify-between items-center" data-id="${c.id}" data-nombre="${c.nombre}" data-cedula="${c.identificacion}" data-tel="${c.telefono || ''}">
+              <div>
+                <strong class="text-white uppercase">${c.nombre}</strong>
+                <span class="text-slate-400 block font-mono text-[10px]">Cédula: ${c.identificacion}</span>
+              </div>
+              <span class="text-[10px] text-accent font-bold">Seleccionar →</span>
+            </div>`;
           }).join('');
           resultados.classList.remove('hidden');
         });
@@ -94,13 +225,24 @@
   });
 
   resultados.addEventListener('click', function(e) {
-    var item = e.target.closest('.cliente-item');
+    const item = e.target.closest('.cliente-item');
     if (!item) return;
     hiddenId.value = item.dataset.id;
-    input.value = item.dataset.nombre;
-    label.textContent = 'Cliente seleccionado: ' + item.dataset.nombre;
-    label.classList.remove('hidden');
+    nombreDisplay.textContent = item.dataset.nombre;
+    cedulaDisplay.textContent = 'Cédula: ' + item.dataset.cedula + (item.dataset.tel ? ' · Tel: ' + item.dataset.tel : '');
+
+    tarjetaCliente.classList.remove('hidden');
+    input.parentElement.classList.add('hidden');
     resultados.classList.add('hidden');
+    clienteError.classList.add('hidden');
+  });
+
+  btnCambiar.addEventListener('click', function() {
+    hiddenId.value = '';
+    tarjetaCliente.classList.add('hidden');
+    input.parentElement.classList.remove('hidden');
+    input.value = '';
+    input.focus();
   });
 
   document.addEventListener('click', function(e) {
@@ -112,55 +254,93 @@
   form.addEventListener('submit', function(e) {
     if (!hiddenId.value) {
       e.preventDefault();
-      alert('Selecciona un cliente de la lista.');
+      clienteError.classList.remove('hidden');
       input.focus();
     }
   });
 
   function fmt(n) {
-    return '$' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(n);
+    return '$' + Math.max(0, n).toLocaleString('es-CO', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
   }
 
   function calcular() {
-    var monto = parseFloat(document.getElementById('campo-monto').value);
-    var tasa = parseFloat(document.getElementById('campo-tasa').value);
-    var cuotas = parseInt(document.getElementById('campo-cuotas').value, 10);
-    var fecha = document.getElementById('campo-fecha').value;
-    var frecuencia = document.getElementById('campo-frecuencia').value;
+    const monto = parseFloat(document.getElementById('campo-monto').value) || 0;
+    const tasa = parseFloat(document.getElementById('campo-tasa').value) || 0;
+    const cuotas = parseInt(document.getElementById('campo-cuotas').value, 10) || 1;
+    const fecha = document.getElementById('campo-fecha').value;
+    const frecuencia = document.getElementById('campo-frecuencia').value;
 
-    var elInteres = document.getElementById('calc-interes');
-    var elTotal = document.getElementById('calc-total');
-    var elCuota = document.getElementById('calc-cuota');
-    var elVenc = document.getElementById('calc-vencimiento');
+    const elMonto = document.getElementById('calc-monto');
+    const elInteres = document.getElementById('calc-interes');
+    const elTotal = document.getElementById('calc-total');
+    const elCuota = document.getElementById('calc-cuota');
+    const elVenc = document.getElementById('calc-vencimiento');
+    const tabla = document.getElementById('tabla-plan-pagos');
+    const cardsPlan = document.getElementById('cards-plan-pagos');
 
-    if (!Number.isFinite(monto) || monto <= 0 || !Number.isFinite(tasa) || tasa < 0 || !Number.isFinite(cuotas) || cuotas < 1 || !fecha) {
-      elInteres.textContent = '—';
-      elTotal.textContent = '—';
-      elCuota.textContent = '—';
+    elMonto.textContent = fmt(monto);
+    if (monto <= 0 || cuotas < 1) {
+      elInteres.textContent = '$0';
+      elTotal.textContent = '$0';
+      elCuota.textContent = '$0';
       elVenc.textContent = '—';
+      tabla.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">Ingresa monto, cuotas y tasa para generar la proyección.</td></tr>';
+      cardsPlan.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Ingresa monto, cuotas y tasa para ver el plan de pagos.</p>';
       return;
     }
 
-    var interes = monto * (tasa / 100);
-    var total = monto + interes;
-    var valorCuota = total / cuotas;
-
-    var diasPorFrec = { diaria: 1, semanal: 7, quincenal: 15, mensual: 30 };
-    var dias = diasPorFrec[frecuencia] || 30;
-    var vencDate = new Date(fecha + 'T00:00:00');
-    vencDate.setDate(vencDate.getDate() + dias * cuotas);
-    var vencStr = vencDate.toISOString().slice(0, 10);
+    const interes = monto * (tasa / 100);
+    const total = monto + interes;
+    const valorCuota = total / cuotas;
 
     elInteres.textContent = fmt(interes);
     elTotal.textContent = fmt(total);
     elCuota.textContent = fmt(valorCuota);
-    elVenc.textContent = vencStr;
+
+    let diasPorFrec = { diaria: 1, semanal: 7, quincenal: 15, mensual: 30 };
+    let dias = diasPorFrec[frecuencia] || 30;
+
+    let baseDate = fecha ? new Date(fecha + 'T00:00:00') : new Date();
+    let tablaHtml = '';
+    let cardsHtml = '';
+    let ultimaFechaStr = '—';
+
+    for (let i = 1; i <= cuotas; i++) {
+      let fCuota = new Date(baseDate);
+      fCuota.setDate(fCuota.getDate() + (dias * i));
+      let fStr = fCuota.toISOString().slice(0, 10);
+      ultimaFechaStr = fStr;
+
+      tablaHtml += `<tr class="hover:bg-slate-800/40 transition-colors">
+        <td class="p-2.5 font-bold text-accent">#${i}</td>
+        <td class="p-2.5 text-slate-200">${fStr}</td>
+        <td class="p-2.5 text-right font-bold text-white">${fmt(valorCuota)}</td>
+        <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-950/60 text-amber-400 border border-amber-800/40">PENDIENTE</span></td>
+      </tr>`;
+
+      cardsHtml += `<div class="bg-slate-900/60 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between text-xs">
+        <div>
+          <span class="font-bold text-accent">Cuota #${i}</span>
+          <p class="text-[10px] text-slate-400 mt-0.5">📅 ${fStr}</p>
+        </div>
+        <div class="text-right">
+          <strong class="text-white font-bold">${fmt(valorCuota)}</strong>
+          <span class="block text-[9px] text-amber-400 font-black uppercase">Pendiente</span>
+        </div>
+      </div>`;
+    }
+
+    elVenc.textContent = ultimaFechaStr;
+    tabla.innerHTML = tablaHtml;
+    cardsPlan.innerHTML = cardsHtml;
   }
 
-  var campos = ['campo-monto', 'campo-tasa', 'campo-cuotas', 'campo-fecha', 'campo-frecuencia'];
-  campos.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.addEventListener('input', calcular);
+  ['campo-monto', 'campo-tasa', 'campo-cuotas', 'campo-fecha', 'campo-frecuencia'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', calcular);
+      el.addEventListener('change', calcular);
+    }
   });
 
   calcular();
