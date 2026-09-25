@@ -41,8 +41,8 @@
     {% endfor %}
   </div>
 
-  <!-- Grid de Préstamos -->
-  <div id="grid-prestamos" class="space-y-4">
+  <!-- Grid de Préstamos (Responsive: 1 col móvil, 2 col tablet, 3 cols desktop) -->
+  <div id="grid-prestamos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for p in prestamos %}
     {% set progreso = (p.pagadas / p.cuotas * 100)|round|int if p.cuotas > 0 else 0 %}
     <div class="card-prestamo bg-panel border border-slate-800 rounded-[2rem] p-6 shadow-xl transition-all hover:border-slate-700 relative overflow-hidden group">

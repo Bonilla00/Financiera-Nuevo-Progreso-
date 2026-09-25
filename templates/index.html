@@ -13,90 +13,92 @@
     <p class="text-slate-400 text-sm mt-1 font-medium">Aquí tienes un resumen de hoy</p>
   </div>
 
-  <!-- Métricas Principales -->
-  <div class="grid grid-cols-2 gap-4 mb-6">
-    <div class="bg-slate-900/50 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center">
+  <!-- Métricas Principales (Responsive: 2 cols en móvil, 4 en tablet/desktop) -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-slate-900/50 border border-slate-800 p-4 md:p-5 rounded-3xl flex flex-col items-center text-center">
       <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-xl mb-2">👥</div>
-      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Clientes</p>
+      <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">Clientes</p>
       <h3 class="text-2xl font-black text-white mt-1">{{ stats_clientes.total }}</h3>
       <span class="text-[10px] text-slate-400 mt-1">Activos</span>
     </div>
 
-    <div class="bg-slate-900/50 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center">
+    <div class="bg-slate-900/50 border border-slate-800 p-4 md:p-5 rounded-3xl flex flex-col items-center text-center">
       <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-xl mb-2">💰</div>
-      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Préstamos</p>
+      <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">Préstamos</p>
       <h3 class="text-2xl font-black text-white mt-1">{{ stats_clientes.activos }}</h3>
       <span class="text-[10px] text-slate-400 mt-1">En curso</span>
     </div>
 
-    <div class="bg-emerald-950/20 border border-emerald-500/10 p-5 rounded-3xl flex flex-col items-center text-center">
+    <div class="bg-emerald-950/20 border border-emerald-500/10 p-4 md:p-5 rounded-3xl flex flex-col items-center text-center">
       <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-xl mb-2">📈</div>
-      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Pagos hoy</p>
-      <h3 class="text-lg font-black text-emerald-400 mt-1">{{ fmt_money(cuotas_hoy_valor) }}</h3>
+      <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">Pagos hoy</p>
+      <h3 class="text-lg md:text-xl font-black text-emerald-400 mt-1">{{ fmt_money(cuotas_hoy_valor) }}</h3>
       <span class="text-[10px] text-slate-400 mt-1">{{ cuotas_hoy_cantidad }} pagos</span>
     </div>
 
-    <div class="bg-rose-950/20 border border-rose-500/10 p-5 rounded-3xl flex flex-col items-center text-center">
+    <div class="bg-rose-950/20 border border-rose-500/10 p-4 md:p-5 rounded-3xl flex flex-col items-center text-center">
       <div class="w-10 h-10 rounded-2xl bg-rose-500/10 flex items-center justify-center text-xl mb-2">❗</div>
-      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Vencidos</p>
+      <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">Vencidos</p>
       <h3 class="text-2xl font-black text-white mt-1">{{ stats_clientes.mora }}</h3>
       <span class="text-[10px] text-slate-400 mt-1">Con mora</span>
     </div>
   </div>
 
-  <!-- Resumen de Cartera y Gráfico -->
-  <div class="rounded-[2.5rem] bg-panel p-6 border border-slate-800 shadow-2xl space-y-6">
-    <div class="flex items-center justify-between">
-      <h3 class="text-xs font-black text-white uppercase tracking-widest">Cartera Urgente</h3>
-      <a href="{{ url_for('cobro_hoy') }}" class="text-[9px] font-black text-accent uppercase tracking-widest">Ver Cobros →</a>
+  <!-- Resumen de Cartera y Gráfico en 2 columnas en Desktop -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="rounded-[2.5rem] bg-panel p-6 border border-slate-800 shadow-2xl space-y-6">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-black text-white uppercase tracking-widest">Cartera Urgente</h3>
+        <a href="{{ url_for('cobro_hoy') }}" class="text-[9px] font-black text-accent uppercase tracking-widest hover:underline">Ver Cobros →</a>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
+          <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Pendiente Hoy</p>
+          <p class="text-lg font-black text-emerald-400 leading-none">{{ fmt_money(cuotas_hoy_valor) }}</p>
+          <p class="text-[8px] text-slate-600 mt-2 font-bold">{{ cuotas_hoy_cantidad }} CUOTAS</p>
+        </div>
+        <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
+          <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Total Mora</p>
+          <p class="text-lg font-black text-rose-400 leading-none">{{ fmt_money(stats_clientes.mora_total_pesos) }}</p>
+          <p class="text-[8px] text-slate-600 mt-2 font-bold">{{ stats_clientes.mora }} ATRASADOS</p>
+        </div>
+      </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
-      <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
-        <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Pendiente Hoy</p>
-        <p class="text-lg font-black text-emerald-400 leading-none">{{ fmt_money(cuotas_hoy_valor) }}</p>
-        <p class="text-[8px] text-slate-600 mt-2 font-bold">{{ cuotas_hoy_cantidad }} CUOTAS</p>
+    <div class="rounded-[2.5rem] bg-panel p-6 border border-slate-800 shadow-2xl space-y-6">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-black text-white uppercase tracking-widest">Resumen Financiero</h3>
+        <select onchange="window.location.href='?periodo='+this.value" class="bg-slate-900 border border-slate-700 rounded-xl text-[9px] font-bold px-3 py-1.5 text-slate-400 outline-none">
+          <option value="hoy" {% if periodo == 'hoy' %}selected{% endif %}>Hoy</option>
+          <option value="ayer" {% if periodo == 'ayer' %}selected{% endif %}>Ayer</option>
+          <option value="7d" {% if periodo == '7d' %}selected{% endif %}>7 días</option>
+          <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Este mes</option>
+        </select>
       </div>
-      <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
-        <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Total Mora</p>
-        <p class="text-lg font-black text-rose-400 leading-none">{{ fmt_money(stats_clientes.mora_total_pesos) }}</p>
-        <p class="text-[8px] text-slate-600 mt-2 font-bold">{{ stats_clientes.mora }} ATRASADOS</p>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="space-y-1">
+          <p class="text-[9px] font-bold text-slate-500 uppercase">Prestado</p>
+          <p class="text-lg font-black text-white tracking-tighter">{{ fmt_money(total_prestado) }}</p>
+        </div>
+        <div class="space-y-1">
+          <p class="text-[9px] font-bold text-rose-500 uppercase">Mora Total</p>
+          <p class="text-lg font-black text-rose-400 tracking-tighter">{{ fmt_money(stats_clientes.mora_total_pesos) }}</p>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="relative h-44 w-full mt-2">
+        <canvas id="chartCartera"></canvas>
       </div>
     </div>
   </div>
 
-  <div class="rounded-[2.5rem] bg-panel p-6 border border-slate-800 shadow-2xl space-y-6">
-    <div class="flex items-center justify-between">
-      <h3 class="text-xs font-black text-white uppercase tracking-widest">Resumen Financiero</h3>
-      <select onchange="window.location.href='?periodo='+this.value" class="bg-slate-900 border border-slate-700 rounded-xl text-[9px] font-bold px-3 py-1.5 text-slate-400 outline-none">
-        <option value="hoy" {% if periodo == 'hoy' %}selected{% endif %}>Hoy</option>
-        <option value="ayer" {% if periodo == 'ayer' %}selected{% endif %}>Ayer</option>
-        <option value="7d" {% if periodo == '7d' %}selected{% endif %}>7 días</option>
-        <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Este mes</option>
-      </select>
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div class="space-y-1">
-        <p class="text-[9px] font-bold text-slate-500 uppercase">Prestado</p>
-        <p class="text-lg font-black text-white tracking-tighter">{{ fmt_money(total_prestado) }}</p>
-      </div>
-      <div class="space-y-1">
-        <p class="text-[9px] font-bold text-rose-500 uppercase">Mora Total</p>
-        <p class="text-lg font-black text-rose-400 tracking-tighter">{{ fmt_money(stats_clientes.mora_total_pesos) }}</p>
-      </div>
-    </div>
-
-    <!-- Chart -->
-    <div class="relative h-48 w-full mt-4">
-      <canvas id="chartCartera"></canvas>
-    </div>
-  </div>
-
-  <!-- Acciones Rápidas -->
+  <!-- Acciones Rápidas (2 cols en móvil, 4 cols en Tablet/Desktop) -->
   <div class="space-y-3">
     <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Acciones Rápidas</h3>
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <a href="{{ url_for('clientes_nuevo') }}" class="flex items-center gap-3 bg-panel border border-slate-800 p-4 rounded-2xl active:bg-slate-800 transition-colors shadow-lg">
         <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-lg">👤</div>
         <span class="text-[10px] font-black text-white uppercase">Nuevo Cliente</span>

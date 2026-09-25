@@ -7,7 +7,7 @@
   <a href="{{ url_for('cobro_hoy_print') }}" class="rounded-xl bg-panel2 border border-slate-600 px-3 py-1.5 text-xs text-slate-300 font-bold">🖨️ Imprimir</a>
 </div>
 
-<div class="space-y-3" id="lista-cobro">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="lista-cobro">
   {% for r in rows %}
   {% set mapas = url_maps(r[3], r[2]) %}
   {% set tel_h = url_tel(r[4]) %}

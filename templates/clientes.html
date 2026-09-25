@@ -61,8 +61,8 @@
     {% endfor %}
   </div>
 
-  <!-- Listado de Tarjetas -->
-  <div id="grid-clientes" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <!-- Listado de Tarjetas Responsive (1 col móvil, 2 col tablet, 3 cols desktop) -->
+  <div id="grid-clientes" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for c in clientes %}
     <div class="card-cliente bg-panel border border-slate-800 rounded-3xl p-5 shadow-xl transition-all hover:border-slate-700 relative overflow-hidden group">
 
