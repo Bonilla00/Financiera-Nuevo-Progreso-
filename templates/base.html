@@ -316,106 +316,145 @@
   {% endwith %}
 
   {% if session.user_id %}
-  <header class="sticky top-0 z-50 bg-[#0F172A]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3">
-    <div class="max-w-7xl mx-auto flex justify-between items-center gap-4">
-      <!-- Marca y Eslogan -->
-      <div class="flex items-center gap-3">
-        <a href="{{ url_for('inicio') }}" class="flex items-center gap-2.5 group">
-          <div class="w-2.5 h-7 bg-emerald-500 rounded-full group-hover:bg-emerald-400 transition-colors"></div>
-          <div class="flex flex-col">
-            <h1 class="text-sm md:text-base font-black leading-none tracking-tighter text-white">
-              FINANCIERA <span class="text-emerald-500">NUEVO PROGRESO</span>
-            </h1>
-            <p class="text-[8px] md:text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Tu progreso, nuestra prioridad</p>
-          </div>
-        </a>
+  <div class="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
+    <!-- SIDEBAR DE ESCRITORIO (Aparece en pantallas >= 1024px) -->
+    <aside class="hidden lg:flex flex-col bg-slate-900 border-r border-slate-800 p-4 sticky top-0 h-screen overflow-y-auto z-40 select-none">
+      <!-- Marca -->
+      <div class="flex items-center gap-3 px-2 py-3 mb-6 border-b border-slate-800/80">
+        <div class="w-2.5 h-7 bg-emerald-500 rounded-full"></div>
+        <div>
+          <h1 class="text-sm font-black leading-none tracking-tighter text-white">
+            FINANCIERA <span class="text-emerald-500">NP</span>
+          </h1>
+          <p class="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Gestión Financiera</p>
+        </div>
       </div>
 
-      <!-- Navegación Escritorio / Laptop (lg:flex) -->
-      <nav class="hidden lg:flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-slate-300">
-        <a href="{{ url_for('inicio') }}" class="px-3 py-2 rounded-xl transition-colors hover:bg-slate-800/60 hover:text-white {% if request.endpoint == 'inicio' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
-          🏠 Inicio
+      <!-- Enlaces del Sidebar -->
+      <nav class="flex-1 space-y-1 font-bold text-xs uppercase tracking-wider text-slate-300">
+        <a href="{{ url_for('inicio') }}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if request.endpoint == 'inicio' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
+          <span>🏠</span> Inicio
         </a>
-        <a href="{{ url_for('clientes_list') }}" class="px-3 py-2 rounded-xl transition-colors hover:bg-slate-800/60 hover:text-white {% if 'clientes' in (request.endpoint or '') %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
-          👥 Clientes
+        <a href="{{ url_for('clientes_list') }}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if 'clientes' in (request.endpoint or '') %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
+          <span>👥</span> Clientes
         </a>
-        <a href="{{ url_for('prestamos_list') }}" class="px-3 py-2 rounded-xl transition-colors hover:bg-slate-800/60 hover:text-white {% if 'prestamos' in (request.endpoint or '') %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
-          📄 Créditos
+        <a href="{{ url_for('prestamos_list') }}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if 'prestamos' in (request.endpoint or '') %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
+          <span>📄</span> Créditos
         </a>
-        <a href="{{ url_for('cobro_hoy') }}" class="px-3 py-2 rounded-xl transition-colors hover:bg-slate-800/60 hover:text-white {% if request.endpoint == 'cobro_hoy' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
-          💰 Cobro Hoy
+        <a href="{{ url_for('cobro_hoy') }}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if request.endpoint == 'cobro_hoy' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
+          <span>💰</span> Cobro Hoy
+        </a>
+        <a href="{{ url_for('notificaciones_centro') }}" class="flex items-center justify-between px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if request.endpoint == 'notificaciones_centro' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
+          <div class="flex items-center gap-3"><span>🔔</span> Notificaciones</div>
         </a>
         {% if is_admin %}
-        <a href="{{ url_for('reportes') }}" class="px-3 py-2 rounded-xl transition-colors hover:bg-slate-800/60 hover:text-white {% if request.endpoint == 'reportes' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
-          📊 Reportes
+        <div class="pt-4 pb-1">
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1">Administración</p>
+        </div>
+        <a href="{{ url_for('reportes') }}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if request.endpoint == 'reportes' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
+          <span>📊</span> Reportes
         </a>
-        <a href="{{ url_for('admin_usuarios') }}" class="px-3 py-2 rounded-xl transition-colors hover:bg-slate-800/60 hover:text-white {% if 'admin' in (request.endpoint or '') %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
-          🛡️ Admin
+        <a href="{{ url_for('admin_usuarios') }}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if 'admin' in (request.endpoint or '') %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
+          <span>🛡️</span> Admin Usuarios
         </a>
         {% endif %}
-      </nav>
-
-      <!-- Botones de Acción (Campana y Menú de usuario) -->
-      <div class="flex items-center gap-3">
-        <!-- Campana Notificaciones -->
-        <a href="{{ url_for('notificaciones_centro') }}" class="relative p-2 rounded-xl bg-slate-800/50 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Notificaciones">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-          <span id="notif-badge-top" class="hidden absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white border-2 border-[#0F172A]"></span>
-        </a>
-
-        <!-- Botón Tres Puntos / Menú Desplegable -->
-        <button id="btn-menu-toggle" class="p-2 rounded-xl bg-slate-800/50 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" aria-label="Abrir menú">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Menú Desplegable flotante -->
-    <div id="dropdown-menu" class="hidden absolute right-4 top-16 w-56 bg-[#1E293B] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden z-[60]">
-      <div class="py-2">
-        <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
-          <span>👤</span> Mi perfil
-        </a>
-        <a href="{{ url_for('notificaciones_centro') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
-          <div class="flex items-center gap-3"><span>🔔</span> Notificaciones</div>
-          <span id="notif-badge-menu" class="hidden h-5 w-5 flex items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white"></span>
-        </a>
-        <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors border-b border-slate-700/30">
+        <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl transition-colors hover:bg-slate-800/80 hover:text-white {% if request.endpoint == 'configuracion' %}text-emerald-400 bg-emerald-950/30 border border-emerald-800/40{% endif %}">
           <span>⚙️</span> Configuración
         </a>
+      </nav>
 
-        {% if is_admin %}
-        <a href="{{ url_for('admin_usuarios') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
-          <div class="flex items-center gap-3"><span>👥</span> Usuarios</div>
-          <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">ADMIN</span>
-        </a>
-        <a href="{{ url_for('reportes') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
-            <div class="flex items-center gap-3"><span>📊</span> Reportes</div>
-            <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">ADMIN</span>
-        </a>
-        <a href="{{ url_for('backup_sql') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors border-b border-slate-700/30">
-          <div class="flex items-center gap-3"><span>🗄️</span> Copias de seguridad</div>
-          <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">ADMIN</span>
-        </a>
-        {% endif %}
-
-        <a href="{{ url_for('logout') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors mt-1 font-bold">
+      <!-- Pie de Sidebar -->
+      <div class="pt-4 border-t border-slate-800/80">
+        <a href="{{ url_for('logout') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs text-rose-400 font-bold hover:bg-rose-500/10 transition-colors">
           <span>🚪</span> Cerrar sesión
         </a>
       </div>
-    </div>
-  </header>
-  {% endif %}
+    </aside>
 
-  <main class="max-w-md sm:max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 pt-3 pb-12">
-    <div id="page-content">
-      {% block content %}{% endblock %}
+    <!-- CONTENEDOR DERECHO (Header + Main) -->
+    <div class="flex flex-col min-w-0">
+      <header class="sticky top-0 z-50 bg-[#0F172A]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex justify-between items-center gap-4">
+          <!-- Marca en Móvil -->
+          <div class="flex items-center gap-3 lg:hidden">
+            <a href="{{ url_for('inicio') }}" class="flex items-center gap-2 group">
+              <div class="w-2.5 h-6 bg-emerald-500 rounded-full"></div>
+              <div class="flex flex-col">
+                <h1 class="text-sm font-black leading-none tracking-tighter text-white">
+                  FINANCIERA <span class="text-emerald-500">NP</span>
+                </h1>
+              </div>
+            </a>
+          </div>
+
+          <!-- Buscador Global Opcional o Saludo -->
+          <div class="hidden md:flex items-center gap-2 text-xs text-slate-400 font-semibold">
+            <span>👋 Hola, <strong class="text-white">{{ session.username.split(' ')[0]|capitalize }}</strong></span>
+          </div>
+
+          <!-- Acciones de Cabecera -->
+          <div class="flex items-center gap-3 ml-auto">
+            <!-- Campana Notificaciones -->
+            <a href="{{ url_for('notificaciones_centro') }}" class="relative p-2 rounded-xl bg-slate-800/50 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Notificaciones">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span id="notif-badge-top" class="hidden absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white border-2 border-[#0F172A]"></span>
+            </a>
+
+            <!-- Botón Menú / Tres Puntos (Móvil) -->
+            <button id="btn-menu-toggle" class="p-2 rounded-xl bg-slate-800/50 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors lg:hidden" aria-label="Abrir menú">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Menú Desplegable móvil (Tres Puntos) -->
+        <div id="dropdown-menu" class="hidden absolute right-4 top-16 w-56 bg-[#1E293B] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden z-[60] lg:hidden">
+          <div class="py-2">
+            <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
+              <span>👤</span> Mi perfil
+            </a>
+            <a href="{{ url_for('notificaciones_centro') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
+              <div class="flex items-center gap-3"><span>🔔</span> Notificaciones</div>
+              <span id="notif-badge-menu" class="hidden h-5 w-5 flex items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white"></span>
+            </a>
+            <a href="{{ url_for('configuracion') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors border-b border-slate-700/30">
+              <span>⚙️</span> Configuración
+            </a>
+
+            {% if is_admin %}
+            <a href="{{ url_for('admin_usuarios') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
+              <div class="flex items-center gap-3"><span>👥</span> Usuarios</div>
+              <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">ADMIN</span>
+            </a>
+            <a href="{{ url_for('reportes') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
+                <div class="flex items-center gap-3"><span>📊</span> Reportes</div>
+                <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">ADMIN</span>
+            </a>
+            <a href="{{ url_for('backup_sql') }}" class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors border-b border-slate-700/30">
+              <div class="flex items-center gap-3"><span>🗄️</span> Copias de seguridad</div>
+              <span class="text-[9px] bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">ADMIN</span>
+            </a>
+            {% endif %}
+
+            <a href="{{ url_for('logout') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors mt-1 font-bold">
+              <span>🚪</span> Cerrar sesión
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 px-3 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto w-full">
+        <div id="page-content">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
     </div>
-  </main>
+  </div>
+  {% endif %}
 
   {% if session.user_id %}
   <button type="button" id="fab-simulador" class="fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 text-white text-2xl font-bold shadow-lg shadow-cyan-500/30 active:scale-95 transition-transform" aria-label="Abrir simulador de crédito" title="Simulador de crédito">
