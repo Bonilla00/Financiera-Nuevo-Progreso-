@@ -1097,11 +1097,19 @@ def prestamos_list():
             where, params = "p.estado = %s", ("ACTIVO",)
         elif filtro == "pagados":
             where, params = "p.estado = %s", ("PAGADO",)
+        elif filtro == "renovados":
+            where, params = "p.estado = %s", ("RENOVADO",)
         elif filtro == "mora":
             where = "p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE"
             params = ()
+        elif filtro == "por_vencer":
+            where = "p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> '' AND (p.proximo_pago::date) IN (CURRENT_DATE, CURRENT_DATE + 1)"
+            params = ()
+        else:
+            where, params = "", ()
 
         rows = db.listar_prestamos(where, params, uid, is_admin)
+        stats = db.obtener_stats_prestamos(uid, is_admin)
         total = len(rows)
         start = (page - 1) * PER_PAGE
         end = start + PER_PAGE
@@ -1109,6 +1117,7 @@ def prestamos_list():
         return render_template(
             "prestamos.html",
             prestamos=paginated,
+            stats=stats,
             filtro=filtro,
             page=page,
             total_pages=(total + PER_PAGE - 1) // PER_PAGE,

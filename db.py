@@ -1063,6 +1063,29 @@ def sum_pagos_por_prestamo(prestamo_id: int, user_id: int, is_admin: bool) -> fl
         return float(cur.fetchone()[0] or 0)
 
 
+def obtener_stats_prestamos(user_id: int, is_admin: bool) -> dict:
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE p.estado = 'ACTIVO' {scope}", sparams)
+        activos = int(cur.fetchone()[0] or 0)
+        cur.execute(f"SELECT COUNT(*) FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND p.proximo_pago <> '' AND p.proximo_pago::date < CURRENT_DATE {scope}", sparams)
+        mora = int(cur.fetchone()[0] or 0)
+        cur.execute(f"SELECT COUNT(*) FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE p.estado = 'ACTIVO' AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> '' AND (p.proximo_pago::date) IN (CURRENT_DATE, CURRENT_DATE + 1) {scope}", sparams)
+        por_vencer = int(cur.fetchone()[0] or 0)
+        cur.execute(f"SELECT COUNT(*) FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE p.estado = 'RENOVADO' {scope}", sparams)
+        renovados = int(cur.fetchone()[0] or 0)
+        cur.execute(f"SELECT COUNT(*) FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE p.estado = 'PAGADO' {scope}", sparams)
+        pagados = int(cur.fetchone()[0] or 0)
+        return {
+            "activos": activos,
+            "mora": mora,
+            "por_vencer": por_vencer,
+            "renovados": renovados,
+            "pagados": pagados
+        }
+
+
 def obtener_prestamo(pid: int, user_id: int, is_admin: bool):
     extra, params = _filtro_owner("c", user_id, is_admin)
     with get_conn() as conn:
