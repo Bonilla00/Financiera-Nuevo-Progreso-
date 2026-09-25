@@ -32,6 +32,9 @@ _PRESTAMO_INDEX = {
     "notas": 16,
     "mora_activa": 17,
     "tasa_mora_diaria": 18,
+    "valor_mora_fijo_diario": 19,
+    "dias_gracia_mora": 20,
+    "telefono": 21,
 }
 
 

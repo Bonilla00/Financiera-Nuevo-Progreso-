@@ -68,18 +68,42 @@
     </div>
 
     <!-- Opción de descuento automático -->
-    <div class="rounded-xl bg-slate-800/50 border border-slate-700 p-3">
+    {% if prestamo.saldo_pendiente > 0 %}
+    <div class="rounded-xl bg-slate-800/50 border border-slate-700 p-4 space-y-3">
       <label class="flex items-start gap-3 cursor-pointer">
-        <input type="checkbox" name="descontar_ultima_cuota" class="mt-1 w-4 h-4 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
+        <input type="checkbox" name="descontar_ultima_cuota" id="checkbox_descontar" checked class="mt-1 w-4 h-4 rounded bg-slate-700 border-slate-600 text-accent focus:ring-accent">
         <div>
           <p class="text-sm font-bold text-white">Descontar automáticamente la última cuota pendiente</p>
-          <p class="text-xs text-slate-400 mt-1">
-            Se descontará {{ fmt_money(prestamo.saldo_pendiente) }} del nuevo préstamo. 
-            <span class="text-accent font-bold">Dinero a entregar: <span id="monto_entregar">{{ fmt_money(prestamo.saldo_pendiente) }}</span></span>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Se registrará como pago de la cuota #{{ prestamo.pagadas + 1 }} del préstamo anterior (#{{ pid }}).
           </p>
         </div>
       </label>
+
+      <!-- Resumen detallado de la renovación -->
+      <div class="border-t border-slate-700/60 pt-3 space-y-1.5 text-xs font-mono">
+        <div class="flex justify-between text-slate-300">
+          <span>MONTO NUEVO PRÉSTAMO:</span>
+          <span id="resumen_monto" class="font-bold text-white">$0</span>
+        </div>
+        <div class="flex justify-between text-slate-300">
+          <span>DESCUENTO ÚLTIMA CUOTA:</span>
+          <span id="resumen_descuento" class="font-bold text-rose-400">-$0</span>
+        </div>
+        <div class="flex justify-between text-sm border-t border-slate-700/80 pt-1.5 text-white font-bold">
+          <span>DINERO A ENTREGAR:</span>
+          <span id="resumen_entregar" class="text-accent">$0</span>
+        </div>
+      </div>
+      <div id="advertencia_monto" class="hidden text-xs font-bold text-rose-400 bg-rose-950/40 border border-rose-800 p-2 rounded-lg">
+        ⚠ No es posible descontar {{ fmt_money(prestamo.saldo_pendiente) }} de un nuevo préstamo menor a la deuda.
+      </div>
     </div>
+    {% else %}
+    <div class="rounded-xl bg-slate-800/30 border border-slate-700 p-3 text-xs text-slate-400">
+      El préstamo anterior no tiene saldo pendiente por descontar.
+    </div>
+    {% endif %}
 
     <!-- Configuración de mora -->
     <div class="border-t border-slate-700 pt-4">
@@ -94,7 +118,7 @@
     </div>
 
     <div class="flex gap-2 pt-2">
-      <button type="submit" class="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-slate-900 hover:bg-accent/90 transition-colors">
+      <button type="submit" id="btn_confirmar" class="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-slate-900 hover:bg-accent/90 transition-colors">
         Confirmar Renovación
       </button>
       <a href="{{ url_for('clientes_perfil', cid=prestamo.cliente_id) }}" class="px-4 py-3 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700 transition-colors">
@@ -110,23 +134,58 @@
     document.getElementById('mora_config').classList.toggle('hidden', !this.checked);
   });
 
-  // Calcular monto a entregar
-  const checkbox = document.querySelector('input[name="descontar_ultima_cuota"]');
+  // Calcular resumen y dinero a entregar
+  const checkbox = document.getElementById('checkbox_descontar');
   const montoInput = document.querySelector('input[name="nuevo_monto"]');
-  const montoEntregar = document.getElementById('monto_entregar');
+  const resumenMonto = document.getElementById('resumen_monto');
+  const resumenDescuento = document.getElementById('resumen_descuento');
+  const resumenEntregar = document.getElementById('resumen_entregar');
+  const advertenciaMonto = document.getElementById('advertencia_monto');
+  const btnConfirmar = document.getElementById('btn_confirmar');
   const saldoPendiente = {{ prestamo.saldo_pendiente }};
+
+  function fmtCOP(val) {
+    return '$' + Math.max(0, val).toLocaleString('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+  }
 
   function actualizarMonto() {
     const nuevoMonto = parseFloat(montoInput.value) || 0;
-    if (checkbox.checked) {
+    const descontar = checkbox ? checkbox.checked : false;
+
+    if (resumenMonto) resumenMonto.textContent = fmtCOP(nuevoMonto);
+
+    if (descontar) {
+      if (resumenDescuento) resumenDescuento.textContent = '-' + fmtCOP(saldoPendiente);
       const entregar = nuevoMonto - saldoPendiente;
-      montoEntregar.textContent = '$' + entregar.toLocaleString('es-CO', {minimumFractionDigits: 0});
+
+      if (nuevoMonto > 0 && nuevoMonto < saldoPendiente) {
+        if (advertenciaMonto) advertenciaMonto.classList.remove('hidden');
+        if (resumenEntregar) {
+          resumenEntregar.textContent = fmtCOP(entregar);
+          resumenEntregar.className = 'text-rose-400 font-bold';
+        }
+        if (btnConfirmar) btnConfirmar.disabled = true;
+      } else {
+        if (advertenciaMonto) advertenciaMonto.classList.add('hidden');
+        if (resumenEntregar) {
+          resumenEntregar.textContent = fmtCOP(entregar);
+          resumenEntregar.className = 'text-accent font-bold';
+        }
+        if (btnConfirmar) btnConfirmar.disabled = false;
+      }
     } else {
-      montoEntregar.textContent = '$' + nuevoMonto.toLocaleString('es-CO', {minimumFractionDigits: 0});
+      if (resumenDescuento) resumenDescuento.textContent = '$0';
+      if (advertenciaMonto) advertenciaMonto.classList.add('hidden');
+      if (resumenEntregar) {
+        resumenEntregar.textContent = fmtCOP(nuevoMonto);
+        resumenEntregar.className = 'text-accent font-bold';
+      }
+      if (btnConfirmar) btnConfirmar.disabled = false;
     }
   }
 
-  checkbox.addEventListener('change', actualizarMonto);
-  montoInput.addEventListener('input', actualizarMonto);
+  if (checkbox) checkbox.addEventListener('change', actualizarMonto);
+  if (montoInput) montoInput.addEventListener('input', actualizarMonto);
+  actualizarMonto();
 </script>
 {% endblock %}

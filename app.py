@@ -1282,7 +1282,7 @@ def prestamos_cobrar(pid):
     total_sugerido = round(valor_cuota + interes_mora, 2)
     pagadas = info[14] or 0
     num_cuota = int(pagadas) + 1
-    telefono = info[16] if len(info) > 16 else ""
+    telefono = info[21] if len(info) > 21 else ""
     return render_template(
         "prestamos_cobrar.html",
         pid=pid,
@@ -1320,7 +1320,11 @@ def prestamos_renovar(pid):
         if not puede:
             flash(mensaje, "error")
             return redirect(url_for("clientes_perfil", cid=info[1]))
-        
+
+        # Garantizar que descontar_ultima_cuota siempre quede definida como bool
+        raw_descontar = request.form.get("descontar_ultima_cuota")
+        descontar_ultima_cuota = str(raw_descontar).lower() in ("on", "1", "true", "yes", "si") if raw_descontar is not None else False
+
         try:
             nuevo_monto = float(request.form.get("nuevo_monto", "0"))
             nueva_tasa = float(request.form.get("nueva_tasa", "0"))
@@ -1337,6 +1341,11 @@ def prestamos_renovar(pid):
 
             if nuevo_monto <= 0:
                 raise ValueError("El monto debe ser mayor a 0.")
+            if descontar_ultima_cuota and nuevo_monto < datos['saldo_pendiente']:
+                raise ValueError(
+                    f"No es posible descontar {fmt_money(datos['saldo_pendiente'])} "
+                    f"de un nuevo préstamo de {fmt_money(nuevo_monto)}."
+                )
             if nuevas_cuotas < 1:
                 raise ValueError("Las cuotas deben ser al menos 1.")
             if nueva_tasa < 0:
@@ -1355,7 +1364,7 @@ def prestamos_renovar(pid):
                 descontar_ultima_cuota=descontar_ultima_cuota,
                 user_id=uid,
                 is_admin=is_admin,
-                mora_activa=mora_on_global if not mora_on else mora_on, # Priorizar form si está activo
+                mora_activa=mora_on_global if not mora_on else mora_on,
                 tasa_mora_diaria=tasa_mora,
                 valor_mora_fijo=mora_valor_global,
                 dias_gracia=mora_gracia_global,
@@ -1363,9 +1372,10 @@ def prestamos_renovar(pid):
             
             db.registrar_log(uid, f"Renovación: #{pid} -> #{nuevo_pid}. Monto: {fmt_money(nuevo_monto)}. Desembolsado: {fmt_money(monto_desembolsado)}")
             
+            msg_descuento = f"Se descontó {fmt_money(datos['saldo_pendiente'])} de la última cuota. " if descontar_ultima_cuota else ""
             flash(
                 f"Préstamo renovado exitosamente. Nuevo préstamo #{nuevo_pid}. " +
-                (f"Se descontó {fmt_money(datos['saldo_pendiente'])} de la última cuota. " if descontar_ultima_cuota else "") +
+                msg_descuento +
                 f"Dinero entregado al cliente: {fmt_money(monto_desembolsado)}.",
                 "ok"
             )

@@ -15,7 +15,7 @@
     <div class="flex items-center justify-between">
       <div>
         <p class="text-xs text-slate-500 uppercase font-bold">Préstamo Actual</p>
-        <p class="text-lg font-bold text-white">#{{ prestamo.id }}</p>
+        <p class="text-lg font-bold text-white">#{{ prestamo[0] }}</p>
       </div>
       <div class="text-right">
         <p class="text-xs text-slate-500 uppercase font-bold">Total Renovaciones</p>
@@ -27,7 +27,7 @@
   <!-- Línea de tiempo de renovaciones -->
   <div class="space-y-3">
     {% for p in historial %}
-    <div class="rounded-2xl border {% if p.id == prestamo.id %}border-accent bg-accent/10{% else %}border-slate-800 bg-panel{% endif %} p-4">
+    <div class="rounded-2xl border {% if p.id == prestamo[0] %}border-accent bg-accent/10{% else %}border-slate-800 bg-panel{% endif %} p-4">
       <div class="flex items-start justify-between">
         <div class="space-y-2 flex-1">
           <div class="flex items-center gap-2">

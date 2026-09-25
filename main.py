@@ -90,15 +90,26 @@ def prestamo_en_mora_desde_campos(estado: str, vencimiento, proximo_pago, hoy: d
     return ref < hoy if ref else False
 
 
-def prestamo_en_mora(row: tuple, hoy: datetime) -> bool:
-    if len(row) < 10:
-        return False
-    return prestamo_en_mora_desde_campos(
-        row[9],
-        row[8],
-        row[13] if len(row) > 13 else None,
-        hoy,
-    )
+def prestamo_en_mora(p, hoy: datetime) -> bool:
+    if isinstance(p, dict):
+        if 'en_mora' in p:
+            return bool(p['en_mora'])
+        return prestamo_en_mora_desde_campos(
+            p.get('estado', ''),
+            p.get('vencimiento'),
+            p.get('proximo_pago'),
+            hoy
+        )
+    if isinstance(p, (tuple, list)):
+        if len(p) < 10:
+            return False
+        return prestamo_en_mora_desde_campos(
+            p[9],
+            p[8],
+            p[13] if len(p) > 13 else None,
+            hoy,
+        )
+    return False
 
 
 def setup_ctk(app: ctk.CTk):
@@ -273,8 +284,11 @@ class App(ctk.CTk):
 
     def refresh_dashboard(self):
         prs = db.listar_prestamos()
-        activos = sum(1 for p in prs if p[9] == "ACTIVO")
-        pagados = sum(1 for p in prs if p[9] == "PAGADO")
+        def get_estado(p):
+            return p.get('estado', '') if isinstance(p, dict) else (p[9] if len(p) > 9 else '')
+
+        activos = sum(1 for p in prs if get_estado(p) == "ACTIVO")
+        pagados = sum(1 for p in prs if get_estado(p) == "PAGADO")
         hoy = datetime.strptime(today_str(), "%Y-%m-%d")
         mora = sum(1 for p in prs if prestamo_en_mora(p, hoy))
         self.lbl_total.value_lbl.configure(text=str(len(prs)))
@@ -326,7 +340,15 @@ class App(ctk.CTk):
     def refresh_prestamos(self):
         for i in self.tree.get_children(): self.tree.delete(i)
         for r in db.listar_prestamos():
-            self.tree.insert("", "end", values=(r[0], r[1], fmt_money(r[3]), r[9], r[8]))
+            if isinstance(r, dict):
+                pid = r['id']
+                cliente = r['nombre']
+                monto = fmt_money(r['monto'])
+                estado = r['estado']
+                venc = r['vencimiento']
+            else:
+                pid, cliente, monto, estado, venc = r[0], r[1], fmt_money(r[3]), r[9], r[8]
+            self.tree.insert("", "end", values=(pid, cliente, monto, estado, venc))
 
     def abonar(self):
         sel = self.tree.selection()
@@ -361,7 +383,11 @@ class App(ctk.CTk):
     def refresh_pagos(self):
         for i in self.tree_pagos.get_children(): self.tree_pagos.delete(i)
         for r in db.listar_pagos(None, _DESKTOP_USER_ID, _DESKTOP_IS_ADMIN):
-            self.tree_pagos.insert("", "end", values=(r[0], r[1], r[3], fmt_money(r[4])))
+            if isinstance(r, dict):
+                pago_id, cliente, fecha, valor = r['id'], r['nombre'], r['fecha'], fmt_money(r['valor'])
+            else:
+                pago_id, cliente, fecha, valor = r[0], r[1], r[3], fmt_money(r[4])
+            self.tree_pagos.insert("", "end", values=(pago_id, cliente, fecha, valor))
 
 
 if __name__ == "__main__":
