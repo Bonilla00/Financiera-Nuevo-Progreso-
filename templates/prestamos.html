@@ -1,102 +1,198 @@
 {% extends "base.html" %}
-{% block title %}Préstamos - Financiera NP{% endblock %}
+{% block title %}Créditos - Financiera NP{% endblock %}
 
 {% block content %}
-<div class="space-y-6 pb-6">
-  <!-- Encabezado -->
+<div class="space-y-5">
+  <!-- Encabezado Moderno -->
   <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-    <div class="text-center sm:text-left">
-      <h1 class="text-2xl font-black text-white uppercase tracking-tight">Préstamos</h1>
-      <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">Gestión de créditos activos y finalizados</p>
+    <div>
+      <h1 class="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Créditos</h1>
+      <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">Gestiona todos tus créditos y estados de cartera</p>
     </div>
     {% if rol != 'solo_lectura' %}
-    <a href="{{ url_for('prestamos_nuevo') }}" class="w-full sm:w-auto rounded-2xl bg-accent px-6 py-3 text-sm font-black text-slate-900 shadow-lg shadow-cyan-900/20 active:scale-95 transition-all text-center uppercase tracking-widest">
-      + Nuevo Préstamo
+    <a href="{{ url_for('prestamos_nuevo') }}" class="w-full sm:w-auto rounded-xl bg-accent px-5 py-2.5 text-xs font-black text-slate-900 shadow-lg shadow-cyan-900/20 active:scale-95 transition-all text-center uppercase tracking-widest">
+      + Nuevo Crédito
     </a>
     {% endif %}
   </div>
 
-  <!-- Buscador -->
-  <div class="relative group">
-    <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">🔍</span>
-    <input type="text" id="buscador-prestamos"
-           class="block w-full pl-11 pr-4 py-4 border border-slate-700 rounded-2xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all shadow-xl"
-           placeholder="Buscar por cliente o identificación...">
+  <!-- Tarjetas Indicadoras Compactas -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="rounded-2xl bg-panel p-3 border border-slate-800 shadow-md text-center">
+      <p class="text-[9px] font-black uppercase text-emerald-400 tracking-wider">Activos</p>
+      <p class="text-lg font-black text-white mt-0.5">{{ stats.activos|default(0) }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-3 border border-slate-800 shadow-md text-center">
+      <p class="text-[9px] font-black uppercase text-rose-400 tracking-wider">En Mora</p>
+      <p class="text-lg font-black text-white mt-0.5">{{ stats.mora|default(0) }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-3 border border-slate-800 shadow-md text-center">
+      <p class="text-[9px] font-black uppercase text-amber-400 tracking-wider">Por Vencer</p>
+      <p class="text-lg font-black text-white mt-0.5">{{ stats.por_vencer|default(0) }}</p>
+    </div>
+    <div class="rounded-2xl bg-panel p-3 border border-slate-800 shadow-md text-center">
+      <p class="text-[9px] font-black uppercase text-cyan-400 tracking-wider">Renovados</p>
+      <p class="text-lg font-black text-white mt-0.5">{{ stats.renovados|default(0) }}</p>
+    </div>
+    <div class="col-span-2 md:col-span-1 rounded-2xl bg-panel p-3 border border-slate-800 shadow-md text-center">
+      <p class="text-[9px] font-black uppercase text-slate-400 tracking-wider">Pagados</p>
+      <p class="text-lg font-black text-white mt-0.5">{{ stats.pagados|default(0) }}</p>
+    </div>
   </div>
 
-  <!-- Filtros Visuales -->
-  <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-    {% set items_filtro = [
-        ('activos', 'Activos', 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/20'),
-        ('mora', 'En Mora', 'bg-rose-900/30 text-rose-400 border border-rose-500/20'),
-        ('pagados', 'Finalizados', 'bg-slate-800 text-slate-400'),
-        ('todos', 'Todos', 'bg-slate-800 text-slate-400')
-    ] %}
-    {% for key, label, style in items_filtro %}
-    <a href="{{ url_for('prestamos_list', estado=key) }}"
-       class="whitespace-nowrap px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
-       {% if filtro == key %}bg-accent text-slate-900 shadow-lg shadow-cyan-900/40{% else %}{{ style }}{% endif %}">
-       {{ label }}
-    </a>
-    {% endfor %}
+  <!-- Buscador y Filtros -->
+  <div class="flex flex-col md:flex-row gap-3 items-center justify-between">
+    <div class="relative w-full md:w-96">
+      <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-xs">🔍</span>
+      <input type="text" id="buscador-prestamos"
+             class="block w-full pl-10 pr-4 py-2.5 border border-slate-700/80 rounded-xl bg-slate-900/70 text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all shadow-inner"
+             placeholder="Buscar por cliente, identificación o número de crédito...">
+    </div>
+
+    <!-- Filtros Visuales -->
+    <div class="flex gap-1.5 overflow-x-auto w-full md:w-auto pb-1 scrollbar-hide">
+      {% set items_filtro = [
+          ('todos', 'Todos', 'bg-slate-800 text-slate-300'),
+          ('activos', 'Activos', 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40'),
+          ('mora', 'En Mora', 'bg-rose-950/40 text-rose-400 border border-rose-800/40'),
+          ('por_vencer', 'Por Vencer', 'bg-amber-950/40 text-amber-400 border border-amber-800/40'),
+          ('renovados', 'Renovados', 'bg-cyan-950/40 text-cyan-400 border border-cyan-800/40'),
+          ('pagados', 'Pagados', 'bg-slate-800 text-slate-300')
+      ] %}
+      {% for key, label, style in items_filtro %}
+      <a href="{{ url_for('prestamos_list', estado=key) }}"
+         class="whitespace-nowrap px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95
+         {% if filtro == key %}bg-accent text-slate-900 shadow-md shadow-accent/20{% else %}{{ style }}{% endif %}">
+         {{ label }}
+      </a>
+      {% endfor %}
+    </div>
   </div>
 
-  <!-- Grid de Préstamos (Responsive: 1 col móvil, 2 col tablet, 3 cols desktop) -->
-  <div id="grid-prestamos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <!-- VISTA PC / TABLET: TABLA COMPACTA (lg:block) -->
+  <div class="hidden lg:block rounded-2xl border border-slate-800 bg-panel overflow-hidden shadow-2xl">
+    <table class="w-full text-left text-xs">
+      <thead class="bg-slate-900/90 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-800">
+        <tr>
+          <th class="p-3.5">Cliente</th>
+          <th class="p-3.5">Crédito</th>
+          <th class="p-3.5">Monto Total</th>
+          <th class="p-3.5">Cuotas</th>
+          <th class="p-3.5">Próximo Pago</th>
+          <th class="p-3.5">Saldo / Cuota</th>
+          <th class="p-3.5">Estado</th>
+          <th class="p-3.5 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-prestamos-body" class="divide-y divide-slate-800/60 text-slate-200">
+        {% for p in prestamos %}
+        {% set progreso = (p.pagadas / p.cuotas * 100)|round|int if p.cuotas > 0 else 0 %}
+        <tr class="row-prestamo hover:bg-slate-800/40 transition-colors">
+          <td class="p-3.5">
+            <a href="{{ url_for('clientes_perfil', cid=p.cid) }}" class="font-bold text-white uppercase hover:text-accent transition-colors block truncate max-w-[180px]">
+              {{ p.nombre }}
+            </a>
+            <span class="text-[10px] text-slate-500 font-mono">{{ p.identificacion|default('') }}</span>
+          </td>
+          <td class="p-3.5 font-mono font-bold text-accent">#{{ "%04d"|format(p.id) }}</td>
+          <td class="p-3.5 font-bold text-white">{{ fmt_money(p.total_pagar) }}</td>
+          <td class="p-3.5">
+            <span class="font-semibold text-white">{{ p.pagadas }} / {{ p.cuotas }}</span>
+            <div class="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+              <div class="h-full bg-accent rounded-full" style="width: {{ progreso }}%"></div>
+            </div>
+          </td>
+          <td class="p-3.5">
+            <span class="font-semibold {% if p.en_mora %}text-rose-400{% else %}text-slate-300{% endif %}">
+              {{ fecha_proximo_pago_texto(p.proximo_pago) or 'Completado' }}
+            </span>
+          </td>
+          <td class="p-3.5 font-bold text-white">{{ fmt_money(p.valor_cuota) }}</td>
+          <td class="p-3.5">
+            <span class="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight
+                {% if p.en_mora %}bg-rose-950/60 text-rose-400 border border-rose-800/40
+                {% elif p.estado == 'ACTIVO' %}bg-emerald-950/60 text-emerald-400 border border-emerald-800/40
+                {% elif p.estado == 'RENOVADO' %}bg-cyan-950/60 text-cyan-400 border border-cyan-800/40
+                {% else %}bg-slate-800 text-slate-400{% endif %}">
+                {{ p.estado }}
+            </span>
+          </td>
+          <td class="p-3.5 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <a href="{{ url_for('prestamos_cobrar', pid=p.id) }}" class="px-2 py-1.5 rounded-lg bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 font-bold transition-colors border border-emerald-800/40" title="Cobrar cuota">
+                💰 Cobrar
+              </a>
+              {% if p.estado == 'ACTIVO' and (p.pagadas + 1 == p.cuotas) and rol != 'solo_lectura' %}
+              <a href="{{ url_for('prestamos_renovar', pid=p.id) }}" class="px-2 py-1.5 rounded-lg bg-cyan-950/60 text-cyan-400 hover:bg-cyan-900 font-bold transition-colors border border-cyan-800/40" title="Renovar">
+                🔄 Renovar
+              </a>
+              {% endif %}
+              <a href="{{ url_for('clientes_perfil', cid=p.cid) }}" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition-colors" title="Ver Perfil">
+                👁
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- VISTA MÓVIL / TABLET: TARJETAS COMPACTAS (lg:hidden) -->
+  <div id="grid-prestamos" class="grid grid-cols-1 md:grid-cols-2 lg:hidden gap-3">
     {% for p in prestamos %}
     {% set progreso = (p.pagadas / p.cuotas * 100)|round|int if p.cuotas > 0 else 0 %}
-    <div class="card-prestamo bg-panel border border-slate-800 rounded-[2rem] p-6 shadow-xl transition-all hover:border-slate-700 relative overflow-hidden group">
-
+    <div class="card-prestamo bg-panel border border-slate-800 rounded-2xl p-4 shadow-lg transition-all hover:border-slate-700 relative overflow-hidden group">
       <!-- ID y Estado -->
-      <div class="flex justify-between items-start mb-4">
+      <div class="flex justify-between items-start mb-3">
         <div>
-          <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Crédito #{{ "%06d"|format(p.id) }}</p>
-          <h3 class="text-lg font-black text-white uppercase tracking-tighter mt-1">{{ p.nombre }}</h3>
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Crédito #{{ "%04d"|format(p.id) }}</p>
+          <h3 class="text-sm font-black text-white uppercase tracking-tight mt-0.5 truncate max-w-[200px]">{{ p.nombre }}</h3>
         </div>
-        <div class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter
-            {% if p.en_mora %}bg-rose-500/10 text-rose-500 border border-rose-500/20
-            {% elif p.estado == 'ACTIVO' %}bg-emerald-500/10 text-emerald-500 border border-emerald-500/20
+        <span class="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight
+            {% if p.en_mora %}bg-rose-500 text-white
+            {% elif p.estado == 'ACTIVO' %}bg-emerald-500 text-white
+            {% elif p.estado == 'RENOVADO' %}bg-cyan-500 text-white
             {% else %}bg-slate-700 text-slate-300{% endif %}">
             {{ p.estado }}
-        </div>
+        </span>
       </div>
 
-      <!-- Métricas del Crédito -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
-        <div class="space-y-0.5">
-          <p class="text-[9px] font-bold text-slate-500 uppercase">Monto Total</p>
-          <p class="text-base font-black text-white tracking-tighter">{{ fmt_money(p.total_pagar) }}</p>
+      <!-- Métricas -->
+      <div class="grid grid-cols-2 gap-2 text-xs mb-3 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/60">
+        <div>
+          <span class="text-[9px] text-slate-500 font-bold uppercase block">Monto Total</span>
+          <strong class="text-white font-black">{{ fmt_money(p.total_pagar) }}</strong>
         </div>
-        <div class="space-y-0.5 text-right">
-          <p class="text-[9px] font-bold text-slate-500 uppercase">Próximo Pago</p>
-          <p class="text-sm font-black {% if p.en_mora %}text-rose-400{% else %}text-white{% endif %}">
-            {{ fecha_proximo_pago_texto(p.proximo_pago) or 'Completado' }}
-          </p>
+        <div class="text-right">
+          <span class="text-[9px] text-slate-500 font-bold uppercase block">Próximo Pago</span>
+          <strong class="{% if p.en_mora %}text-rose-400{% else %}text-emerald-400{% endif %} font-black">{{ fecha_proximo_pago_texto(p.proximo_pago) or 'Completado' }}</strong>
         </div>
       </div>
 
       <!-- Barra de Progreso -->
-      <div class="space-y-2">
-        <div class="flex justify-between items-end">
-          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Progreso de Pago</p>
-          <p class="text-xs font-black text-accent">{{ p.pagadas }} / {{ p.cuotas }} <span class="text-[9px] text-slate-500 font-bold">Cuotas</span></p>
+      <div class="space-y-1.5 mb-3">
+        <div class="flex justify-between items-end text-[10px]">
+          <span class="text-slate-500 font-bold uppercase">Cuotas</span>
+          <span class="font-black text-accent">{{ p.pagadas }} / {{ p.cuotas }} ({{ progreso }}%)</span>
         </div>
-        <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
-          <div class="h-full bg-gradient-to-r from-accent to-accent2 rounded-full transition-all duration-1000" style="width: {{ progreso }}%"></div>
+        <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+          <div class="h-full bg-accent rounded-full" style="width: {{ progreso }}%"></div>
         </div>
       </div>
 
-      <!-- Acciones Rápidas -->
-      <div class="mt-6 pt-4 border-t border-slate-800/50 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-xs">
-            {% if p.frecuencia|lower == 'diaria' %}📅{% elif p.frecuencia|lower == 'semanal' %}📆{% else %}🏢{% endif %}
-          </div>
-          <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">{{ p.frecuencia }}</span>
-        </div>
-
-        <a href="{{ url_for('clientes_perfil', cid=p.cid) }}" class="flex items-center gap-1 text-[10px] font-black uppercase text-accent hover:text-white transition-all tracking-widest group-hover:translate-x-1">
-          Gestionar Crédito <span class="text-xs">→</span>
+      <!-- Acciones Móvil -->
+      <div class="pt-3 border-t border-slate-800/60 flex items-center justify-between gap-2">
+        <a href="{{ url_for('prestamos_cobrar', pid=p.id) }}" class="flex-1 py-2 rounded-xl bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 text-xs font-bold text-center border border-emerald-800/40 transition-colors">
+          💰 Cobrar
+        </a>
+        {% if p.estado == 'ACTIVO' and (p.pagadas + 1 == p.cuotas) and rol != 'solo_lectura' %}
+        <a href="{{ url_for('prestamos_renovar', pid=p.id) }}" class="flex-1 py-2 rounded-xl bg-cyan-950/60 text-cyan-400 hover:bg-cyan-900 text-xs font-bold text-center border border-cyan-800/40 transition-colors">
+          🔄 Renovar
+        </a>
+        {% endif %}
+        <a href="{{ url_for('clientes_perfil', cid=p.cid) }}" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-colors" title="Ver Perfil">
+          👁
         </a>
       </div>
     </div>
@@ -104,22 +200,32 @@
   </div>
 
   <!-- Pantalla Vacía -->
-  <div id="empty-state" class="hidden py-20 text-center">
-    <span class="text-6xl opacity-10">📋</span>
-    <p class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-xs">No se encontraron préstamos</p>
+  <div id="empty-state" class="hidden py-16 text-center">
+    <span class="text-5xl opacity-20">📋</span>
+    <p class="mt-3 text-slate-500 font-bold uppercase tracking-widest text-xs">No se encontraron créditos</p>
   </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const input = document.getElementById('buscador-prestamos');
-    const grid = document.getElementById('grid-prestamos');
-    const empty = document.getElementById('empty-state');
+    const rows = document.querySelectorAll('.row-prestamo');
     const cards = document.querySelectorAll('.card-prestamo');
+    const empty = document.getElementById('empty-state');
 
     input.addEventListener('input', function(e) {
         const q = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         let visibleCount = 0;
+
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (text.includes(q)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
 
         cards.forEach(card => {
             const text = card.innerText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -132,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
-        if (grid) grid.style.display = visibleCount === 0 ? 'none' : 'block';
     });
 });
 </script>
