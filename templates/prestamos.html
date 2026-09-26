@@ -147,7 +147,9 @@
       <div class="flex justify-between items-start mb-3">
         <div>
           <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Crédito #{{ "%04d"|format(p.id) }}</p>
-          <h3 class="text-sm font-black text-white uppercase tracking-tight mt-0.5 truncate max-w-[200px]">{{ p.nombre }}</h3>
+          <h3 class="text-sm font-black text-white uppercase tracking-tight mt-0.5 truncate max-w-[200px]">
+            <a href="{{ url_for('clientes_perfil', cid=p.cid) }}" class="hover:text-accent transition-colors">{{ p.nombre }}</a>
+          </h3>
         </div>
         <span class="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight
             {% if p.en_mora %}bg-rose-500 text-white
@@ -191,7 +193,7 @@
           🔄 Renovar
         </a>
         {% endif %}
-        <a href="{{ url_for('prestamo_detalle', pid=p.id) }}" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-colors" title="Ver Detalle">
+        <a href="{{ url_for('clientes_perfil', cid=p.cid) }}" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-colors" title="Ver Perfil">
           👁
         </a>
       </div>
