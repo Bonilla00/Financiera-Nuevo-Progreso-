@@ -1438,6 +1438,8 @@ def prestamo_detalle(pid):
         abort(404)
 
     cliente = db.obtener_cliente(info[1], uid, is_admin)
+    if not cliente:
+        cliente = (info[1], info[2] or "Cliente", info[3] or "", "", "", "", "")
     plan_pagos = db.proyectar_plan_pagos(info[4], info[5], info[6], info[7], info[8])
     pagos = db.listar_pagos(pid, uid, is_admin)
     cobrado_real = db.sum_pagos_por_prestamo(pid, uid, is_admin)
