@@ -446,20 +446,17 @@
           </div>
         </div>
       </header>
+  {% endif %}
 
-      <main class="flex-1 px-3 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto w-full">
+      <main class="{% if session.user_id %}flex-1 px-3 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto w-full{% else %}max-w-md mx-auto px-4 py-12 min-h-screen flex flex-col justify-center{% endif %}">
         <div id="page-content">
           {% block content %}{% endblock %}
         </div>
       </main>
-    </div>
-  </div>
-  {% else %}
-  <main class="max-w-md mx-auto px-4 py-12">
-    <div id="login-page-content">
-      {% block content %}{% endblock %}
-    </div>
-  </main>
+
+  {% if session.user_id %}
+    </div> <!-- fin flex flex-col min-w-0 -->
+  </div> <!-- fin min-h-screen lg:grid -->
   {% endif %}
 
   {% if session.user_id %}
