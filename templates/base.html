@@ -454,6 +454,12 @@
       </main>
     </div>
   </div>
+  {% else %}
+  <main class="max-w-md mx-auto px-4 py-12">
+    <div id="login-page-content">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
   {% endif %}
 
   {% if session.user_id %}
