@@ -52,6 +52,7 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS interes_mora DOUBLE PRECISION NOT NULL DEFAULT 0",
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS nota TEXT",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto TEXT",
+        "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS notas TEXT",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS owner_user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE",
         "CREATE INDEX IF NOT EXISTS idx_clientes_owner ON clientes(owner_user_id)",
         "ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check",
@@ -471,7 +472,7 @@ def obtener_cliente(cid: int, user_id: int, is_admin: bool):
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto, c.notas
             FROM clientes c WHERE c.id = %s {extra}
             """,
             (cid,) + params,
@@ -671,6 +672,7 @@ def actualizar_cliente(
     telefono: str,
     barrio: str,
     direccion: str,
+    notas: str,
     user_id: int,
     is_admin: bool,
 ) -> bool:
@@ -682,10 +684,10 @@ def actualizar_cliente(
         cur = conn.cursor()
         cur.execute(
             f"""
-            UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s
+            UPDATE clientes SET nombre=%s, identificacion=%s, telefono=%s, barrio=%s, direccion=%s, notas=%s
             WHERE id=%s {extra}
             """,
-            (nombre, identificacion, telefono, barrio, direccion, cid) + params,
+            (nombre, identificacion, telefono, barrio, direccion, notas, cid) + params,
         )
         return cur.rowcount > 0
 

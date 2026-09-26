@@ -915,6 +915,7 @@ def clientes_perfil(cid):
                 request.form.get("telefono", "").strip(),
                 request.form.get("barrio", "").strip(),
                 request.form.get("direccion", "").strip(),
+                request.form.get("notas", "").strip(),
                 uid,
                 is_admin,
             )
@@ -999,6 +1000,7 @@ def clientes_editar(cid):
             request.form.get("telefono", "").strip(),
             request.form.get("barrio", "").strip(),
             request.form.get("direccion", "").strip(),
+            request.form.get("notas", "").strip(),
             uid,
             is_admin,
         )

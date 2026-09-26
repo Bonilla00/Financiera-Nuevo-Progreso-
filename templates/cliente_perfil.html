@@ -74,6 +74,10 @@ if (document.getElementById('input-foto')) {
       <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Dirección</label>
       <input name="direccion" placeholder="Dirección" value="{{ cliente[5] or '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
     </div>
+    <div class="space-y-1">
+      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Observaciones / Notas adicionales del cliente</label>
+      <textarea name="notas" rows="3" placeholder="Información adicional o notas sobre el cliente..." class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>{{ cliente[7] or '' }}</textarea>
+    </div>
 
     {% if rol != 'solo_lectura' %}
     <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold shadow-lg active:scale-95 transition-transform">Guardar cambios</button>
@@ -163,7 +167,6 @@ if (document.getElementById('input-foto')) {
       </div>
 
       <div class="flex flex-col gap-2 mt-4">
-        <a href="{{ url_for('prestamo_detalle', pid=pr.id) }}" class="block text-center py-2.5 rounded-xl bg-cyan-950/60 text-cyan-400 border border-cyan-800/50 text-xs font-bold uppercase tracking-widest hover:bg-cyan-900 transition-colors">👁 Ver Detalle Completo del Crédito</a>
         <a href="{{ url_for('pagos_list', prestamo_id=pr.id) }}" class="block text-center py-2 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold uppercase tracking-widest">Ver Historial de Pagos</a>
 
         {% if pr.estado == 'ACTIVO' and rol != 'solo_lectura' %}
