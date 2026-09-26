@@ -1445,6 +1445,14 @@ def prestamo_detalle(pid):
     saldo_pendiente = max(0.0, round(total_pagar - cobrado_real, 2))
     notas = db.listar_notas_prestamo(pid, uid, is_admin)
 
+    en_mora = False
+    if info[13] == 'ACTIVO' and info[15] and info[15].strip():
+        try:
+            prox_date = datetime.strptime(info[15][:10], "%Y-%m-%d").date()
+            en_mora = prox_date < date.today()
+        except Exception:
+            pass
+
     return render_template(
         "prestamo_detalle.html",
         pid=pid,
@@ -1455,6 +1463,7 @@ def prestamo_detalle(pid):
         cobrado_real=cobrado_real,
         saldo_pendiente=saldo_pendiente,
         notas=notas,
+        en_mora=en_mora,
     )
 
 

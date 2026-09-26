@@ -14,7 +14,7 @@
         <div class="flex items-center gap-2">
           <h1 class="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Crédito #{{ "%04d"|format(pid) }}</h1>
           <span class="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tight
-              {% if prestamo.en_mora %}bg-rose-500 text-white
+              {% if en_mora %}bg-rose-500 text-white
               {% elif prestamo[13] == 'ACTIVO' %}bg-emerald-500 text-white
               {% elif prestamo[13] == 'RENOVADO' %}bg-cyan-500 text-white
               {% else %}bg-slate-700 text-slate-300{% endif %}">
@@ -88,7 +88,7 @@
           </div>
           <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
             <span class="text-[9px] font-bold text-slate-500 uppercase block">Próximo Vencimiento</span>
-            <strong class="{% if prestamo.en_mora %}text-rose-400{% else %}text-emerald-400{% endif %} font-bold">{{ fecha_proximo_pago_texto(prestamo[15]) or '—' }}</strong>
+            <strong class="{% if en_mora %}text-rose-400{% else %}text-emerald-400{% endif %} font-bold">{{ fecha_proximo_pago_texto(prestamo[15]) or '—' }}</strong>
           </div>
           <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
             <span class="text-[9px] font-bold text-slate-500 uppercase block">Frecuencia / Tasa</span>
