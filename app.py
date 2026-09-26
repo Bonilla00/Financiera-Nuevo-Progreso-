@@ -1429,6 +1429,73 @@ def prestamos_historial_renovaciones(pid):
     )
 
 
+@app.route("/prestamos/<int:pid>")
+@login_required
+def prestamo_detalle(pid):
+    uid, _, is_admin, _, _ = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+
+    cliente = db.obtener_cliente(info[1], uid, is_admin)
+    plan_pagos = db.proyectar_plan_pagos(info[4], info[5], info[6], info[7], info[8])
+    pagos = db.listar_pagos(pid, uid, is_admin)
+    cobrado_real = db.sum_pagos_por_prestamo(pid, uid, is_admin)
+    total_pagar = float(info[10])
+    saldo_pendiente = max(0.0, round(total_pagar - cobrado_real, 2))
+    notas = db.listar_notas_prestamo(pid, uid, is_admin)
+
+    return render_template(
+        "prestamo_detalle.html",
+        pid=pid,
+        prestamo=info,
+        cliente=cliente,
+        plan_pagos=plan_pagos,
+        pagos=pagos,
+        cobrado_real=cobrado_real,
+        saldo_pendiente=saldo_pendiente,
+        notas=notas,
+    )
+
+
+@app.route("/prestamos/<int:pid>/notas/nuevo", methods=["POST"])
+@require_role(['admin', 'cobrador'])
+def prestamo_nota_crear(pid):
+    uid, _, is_admin, _, _ = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+    content = request.form.get("content", "").strip()
+    if content:
+        db.crear_nota_prestamo(pid, uid, content)
+        flash("Nota agregada correctamente.", "ok")
+    else:
+        flash("La nota no puede estar vacía.", "error")
+    return redirect(url_for("prestamo_detalle", pid=pid))
+
+
+@app.route("/prestamos/<int:pid>/notas/<int:nid>/editar", methods=["POST"])
+@require_role(['admin', 'cobrador'])
+def prestamo_nota_editar(pid, nid):
+    uid, _, is_admin, _, _ = ctx_user()
+    content = request.form.get("content", "").strip()
+    if content:
+        db.actualizar_nota_prestamo(nid, uid, content, is_admin)
+        flash("Nota actualizada.", "ok")
+    else:
+        flash("El contenido no puede estar vacío.", "error")
+    return redirect(url_for("prestamo_detalle", pid=pid))
+
+
+@app.route("/prestamos/<int:pid>/notas/<int:nid>/eliminar", methods=["POST"])
+@require_role(['admin', 'cobrador'])
+def prestamo_nota_eliminar(pid, nid):
+    uid, _, is_admin, _, _ = ctx_user()
+    db.eliminar_nota_prestamo(nid, uid, is_admin)
+    flash("Nota eliminada.", "ok")
+    return redirect(url_for("prestamo_detalle", pid=pid))
+
+
 @app.route("/prestamos/<int:pid>/pago", methods=["POST"])
 @require_role(['admin', 'cobrador'])
 def prestamos_pago(pid):

@@ -86,6 +86,8 @@ def ensure_schema_migrations() -> None:
         "CREATE TABLE IF NOT EXISTS notificaciones_log (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE, tipo VARCHAR(30), titulo TEXT, mensaje TEXT, url TEXT, leida BOOLEAN DEFAULT FALSE, clave_unica TEXT UNIQUE, fecha TIMESTAMPTZ DEFAULT NOW())",
         "CREATE INDEX IF NOT EXISTS idx_notificaciones_user ON notificaciones_log(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_notificaciones_leida ON notificaciones_log(leida)",
+        "CREATE TABLE IF NOT EXISTS prestamo_notas (id SERIAL PRIMARY KEY, prestamo_id INTEGER REFERENCES prestamos(id) ON DELETE CASCADE, user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())",
+        "CREATE INDEX IF NOT EXISTS idx_prestamo_notas_pid ON prestamo_notas(prestamo_id)",
     ]
     for s in stmts:
         try:
@@ -2331,3 +2333,72 @@ def restore_user_data(user_id, data):
         except Exception as e:
             conn.rollback()
             raise e
+
+
+# ---------- notas de crédito ----------
+def listar_notas_prestamo(pid: int, user_id: int, is_admin: bool) -> list[dict]:
+    """Lista las notas asociadas a un préstamo específico, validando el acceso del usuario."""
+    if not obtener_prestamo(pid, user_id, is_admin):
+        return []
+    with get_conn() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """
+            SELECT n.id, n.prestamo_id, n.user_id, n.content, n.created_at, n.updated_at,
+                   COALESCE(u.username, 'Sistema') as autor
+            FROM prestamo_notas n
+            LEFT JOIN usuarios u ON u.id = n.user_id
+            WHERE n.prestamo_id = %s
+            ORDER BY n.created_at DESC
+            """,
+            (pid,)
+        )
+        return cur.fetchall()
+
+
+def crear_nota_prestamo(pid: int, user_id: int, content: str) -> int:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO prestamo_notas (prestamo_id, user_id, content)
+            VALUES (%s, %s, %s)
+            RETURNING id
+            """,
+            (pid, user_id, content.strip())
+        )
+        return int(cur.fetchone()[0])
+
+
+def actualizar_nota_prestamo(nota_id: int, user_id: int, content: str, is_admin: bool) -> bool:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        if is_admin:
+            cur.execute(
+                """
+                UPDATE prestamo_notas
+                SET content = %s, updated_at = NOW()
+                WHERE id = %s
+                """,
+                (content.strip(), nota_id)
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE prestamo_notas
+                SET content = %s, updated_at = NOW()
+                WHERE id = %s AND user_id = %s
+                """,
+                (content.strip(), nota_id, user_id)
+            )
+        return cur.rowcount > 0
+
+
+def eliminar_nota_prestamo(nota_id: int, user_id: int, is_admin: bool) -> bool:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        if is_admin:
+            cur.execute("DELETE FROM prestamo_notas WHERE id = %s", (nota_id,))
+        else:
+            cur.execute("DELETE FROM prestamo_notas WHERE id = %s AND user_id = %s", (nota_id, user_id))
+        return cur.rowcount > 0
