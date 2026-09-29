@@ -47,8 +47,8 @@ def obtener_credenciales_google(user_id: int) -> Credentials | None:
     try:
         token_json_str = descifrar_token(row["token_data"])
         t_info = json.loads(token_json_str)
-        client_id = os.environ.get("GOOGLE_CLIENT_ID")
-        client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+        client_id = (os.environ.get("GOOGLE_CLIENT_ID") or "").strip().strip('"').strip("'")
+        client_secret = (os.environ.get("GOOGLE_CLIENT_SECRET") or "").strip().strip('"').strip("'")
         
         creds = Credentials(
             token=t_info.get("token"),
@@ -65,8 +65,8 @@ def obtener_credenciales_google(user_id: int) -> Credentials | None:
 
 
 def crear_flow_oauth(redirect_uri: str) -> Flow:
-    client_id = os.environ.get("GOOGLE_CLIENT_ID")
-    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+    client_id = (os.environ.get("GOOGLE_CLIENT_ID") or "").strip().strip('"').strip("'")
+    client_secret = (os.environ.get("GOOGLE_CLIENT_SECRET") or "").strip().strip('"').strip("'")
     
     client_config = {
         "web": {
@@ -74,6 +74,7 @@ def crear_flow_oauth(redirect_uri: str) -> Flow:
             "client_secret": client_secret,
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [redirect_uri]
         }
     }
     
