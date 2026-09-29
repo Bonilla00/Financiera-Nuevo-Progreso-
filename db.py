@@ -1133,7 +1133,7 @@ def actualizar_prestamo(
     is_admin: bool,
     *,
     mora_activa: bool | None = None,
-    tasa_mora_diaria: float | None = None,
+    valor_mora_fijo: float | None = None,
 ) -> bool:
     """
     Actualiza un préstamo ACTIVO y recalcula montos. No borra pagos.
@@ -1164,7 +1164,7 @@ def actualizar_prestamo(
     nuevo_estado = "PAGADO" if pagadas >= cuotas_i or saldo <= 1 else "ACTIVO"
 
     mora_a = bool(info[17]) if mora_activa is None else bool(mora_activa)
-    mora_t = float(info[18] or 0) if tasa_mora_diaria is None else float(tasa_mora_diaria or 0)
+    mora_f = float(info[19] or 0) if valor_mora_fijo is None else float(valor_mora_fijo or 0)
 
     extra, params = _filtro_owner("c", user_id, is_admin)
     cambios = []
@@ -1188,7 +1188,7 @@ def actualizar_prestamo(
             UPDATE prestamos AS p SET
                 fecha=%s, frecuencia=%s, cuotas=%s, monto=%s, tasa=%s,
                 interes_total=%s, total_pagar=%s, valor_cuota=%s, vencimiento=%s, proximo_pago=%s,
-                estado=%s, mora_activa=%s, tasa_mora_diaria=%s
+                estado=%s, mora_activa=%s, valor_mora_fijo_diario=%s
             FROM clientes c
             WHERE p.cliente_id = c.id AND p.id = %s {extra}
             """,
@@ -1205,7 +1205,7 @@ def actualizar_prestamo(
                 prox,
                 nuevo_estado,
                 mora_a,
-                mora_t,
+                mora_f,
                 pid,
             )
             + params,
@@ -1228,7 +1228,7 @@ def editar_prestamo_inteligente(
     is_admin: bool,
     *,
     mora_activa: bool | None = None,
-    tasa_mora_diaria: float | None = None,
+    valor_mora_fijo: float | None = None,
 ) -> bool:
     """
     Edición inteligente de préstamo: si no hay pagos, edita normal.
@@ -1252,7 +1252,7 @@ def editar_prestamo_inteligente(
     if total_pagado <= 0:
         return actualizar_prestamo(
             pid, fecha, frecuencia, cuotas, monto, tasa, vencimiento,
-            user_id, is_admin, mora_activa=mora_activa, tasa_mora_diaria=tasa_mora_diaria
+            user_id, is_admin, mora_activa=mora_activa, valor_mora_fijo=valor_mora_fijo
         )
 
     # Si hay pagos, ajustar sobre saldo restante
@@ -1274,7 +1274,7 @@ def editar_prestamo_inteligente(
     nuevo_estado = "PAGADO" if pagadas >= cuotas_i else "ACTIVO"
 
     mora_a = bool(info[17]) if mora_activa is None else bool(mora_activa)
-    mora_t = float(info[18] or 0) if tasa_mora_diaria is None else float(tasa_mora_diaria or 0)
+    mora_f = float(info[19] or 0) if valor_mora_fijo is None else float(valor_mora_fijo or 0)
 
     extra, params = _filtro_owner("c", user_id, is_admin)
     cambios = [
@@ -1294,7 +1294,7 @@ def editar_prestamo_inteligente(
             UPDATE prestamos AS p SET
                 fecha=%s, frecuencia=%s, cuotas=%s, monto=%s, tasa=%s,
                 interes_total=%s, total_pagar=%s, valor_cuota=%s, vencimiento=%s, proximo_pago=%s,
-                estado=%s, mora_activa=%s, tasa_mora_diaria=%s
+                estado=%s, mora_activa=%s, valor_mora_fijo_diario=%s
             FROM clientes c
             WHERE p.cliente_id = c.id AND p.id = %s {extra}
             """,
@@ -1311,7 +1311,7 @@ def editar_prestamo_inteligente(
                 prox,
                 nuevo_estado,
                 mora_a,
-                mora_t,
+                mora_f,
                 pid,
             )
             + params,

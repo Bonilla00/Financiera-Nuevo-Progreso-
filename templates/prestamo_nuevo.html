@@ -94,10 +94,10 @@
             <span class="font-bold">Habilitar interés por mora para este crédito</span>
           </label>
           <div class="mt-2">
-            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tasa de mora diaria (%) — Opcional</label>
-            <input name="tasa_mora_diaria" type="number" min="0" step="0.01" value="0" placeholder="0" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
+            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Valor de mora fijo diario ($) — Opcional</label>
+            <input name="valor_mora_fijo" type="number" min="0" step="0.01" value="" placeholder="Ej: 5 (Vacío para usar global)" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
           </div>
-          <p class="text-[10px] text-slate-500">Al cobrar con retraso, se calculará automáticamente la mora acumulada.</p>
+          <p class="text-[10px] text-slate-500">Se cobrará esta cantidad fija en dinero por cada día de retraso.</p>
         </div>
 
       </div>

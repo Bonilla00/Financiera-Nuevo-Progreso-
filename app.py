@@ -1156,9 +1156,14 @@ def prestamos_nuevo():
             venc = add_days(fecha, dias * cuotas)
 
             # Obtener configuración global de mora
+            mora_on = request.form.get("mora_activa") == "on"
+            valor_mora_form = request.form.get("valor_mora_fijo", "").strip()
+
             mora_on_global = db.obtener_configuracion("mora_activa")
-            mora_valor_global = db.obtener_configuracion("mora_valor_diario")
-            mora_gracia_global = db.obtener_configuracion("mora_dias_gracia")
+            mora_valor_global = float(db.obtener_configuracion("mora_valor_diario") or 0)
+            mora_gracia_global = int(db.obtener_configuracion("mora_dias_gracia") or 0)
+
+            v_mora = float(valor_mora_form) if valor_mora_form != "" else mora_valor_global
 
             pid = db.nuevo_prestamo(
                 cid,
@@ -1173,9 +1178,9 @@ def prestamos_nuevo():
                 venc,
                 uid,
                 is_admin,
-                mora_activa=mora_on_global,
+                mora_activa=mora_on if mora_on else mora_on_global,
                 tasa_mora_diaria=0,
-                valor_mora_fijo=mora_valor_global,
+                valor_mora_fijo=v_mora,
                 dias_gracia=mora_gracia_global,
             )
             cliente_nombre = next((c[1] for c in clientes if c[0] == cid), "desconocido")
@@ -1214,9 +1219,9 @@ def prestamos_editar(pid):
             if monto <= 0 or cuotas < 1:
                 raise ValueError("Monto y cuotas deben ser válidos.")
             mora_on = request.form.get("mora_activa") == "on"
-            tasa_mora = float(request.form.get("tasa_mora_diaria", "0") or 0)
-            if mora_on and tasa_mora < 0:
-                raise ValueError("La tasa de mora no puede ser negativa.")
+            valor_mora = float(request.form.get("valor_mora_fijo", "0") or 0)
+            if mora_on and valor_mora < 0:
+                raise ValueError("El valor de mora no puede ser negativo.")
             ok = db.editar_prestamo_inteligente(
                 pid,
                 fecha,
@@ -1228,7 +1233,8 @@ def prestamos_editar(pid):
                 uid,
                 is_admin,
                 mora_activa=mora_on,
-                tasa_mora_diaria=tasa_mora,
+                tasa_mora_diaria=0,
+                valor_mora_fijo=valor_mora,
             )
             if not ok:
                 flash("No se pudo actualizar el préstamo.", "error")

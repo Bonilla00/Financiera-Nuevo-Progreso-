@@ -29,7 +29,8 @@
     <input type="checkbox" name="mora_activa" value="on" class="rounded border-slate-600" {% if form_data is not none %}{% if form_data.get('mora_activa') == 'on' %}checked{% endif %}{% elif p[17] %}checked{% endif %}>
     <span>Mora activa</span>
   </label>
-  <input name="tasa_mora_diaria" type="number" step="0.01" min="0" placeholder="% mora diario (sobre la cuota)" value="{{ fd.get('tasa_mora_diaria', p[18] or '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
+  <label class="block text-sm text-slate-400">Valor de mora fijo diario ($)</label>
+  <input name="valor_mora_fijo" type="number" step="0.01" min="0" placeholder="Mora fija diaria en dinero" value="{{ fd.get('valor_mora_fijo', p[18] or '') }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white">
   <p class="text-xs text-slate-500">Cuotas ya pagadas: <strong class="text-white">{{ p[14] }}</strong> (no puedes bajar el número de cuotas por debajo de este valor).</p>
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold">Guardar cambios</button>
 </form>
