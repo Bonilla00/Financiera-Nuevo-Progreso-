@@ -67,13 +67,14 @@ def obtener_credenciales_google(user_id: int) -> Credentials | None:
 def crear_flow_oauth(redirect_uri: str) -> Flow:
     client_id = (os.environ.get("GOOGLE_CLIENT_ID") or "").strip().strip('"').strip("'")
     client_secret = (os.environ.get("GOOGLE_CLIENT_SECRET") or "").strip().strip('"').strip("'")
-    
+    logger.info(f"Google OAuth Flow init: client_id length={len(client_id)}, prefix={client_id[:10] if client_id else 'EMPTY'}")
     client_config = {
         "web": {
             "client_id": client_id,
             "client_secret": client_secret,
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
             "redirect_uris": [redirect_uri]
         }
     }
