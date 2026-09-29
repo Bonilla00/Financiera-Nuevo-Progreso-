@@ -1841,14 +1841,9 @@ def configuracion():
                     flash("Clave actualizada.", "ok")
                     return redirect(url_for("configuracion"))
     row = db.obtener_usuario_por_id(uid)
-    t_row = db.obtener_google_token(uid)
-    gdrive_conectado = bool(t_row and t_row.get("token_data"))
-    gdrive_email = t_row.get("email") if t_row else None
     return render_template(
         "configuracion.html",
         username_actual=username,
-        gdrive_conectado=gdrive_conectado,
-        gdrive_email=gdrive_email,
     )
 
 
