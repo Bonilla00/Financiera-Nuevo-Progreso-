@@ -59,8 +59,10 @@
         <tbody class="divide-y divide-slate-300">
           {% for r in rows %}
           {% set dias_mora = r[12] or 0 %}
-          {% set mora_val = (float(r[5] or 0) * (float(r[8] or 0) / 100) * dias_mora) if (r[7] and dias_mora > 0 and r[8]) else 0 %}
-          {% set total_cli = float(r[5] or 0) + mora_val %}
+          {% set v_cuota = (r[5] or 0)|float %}
+          {% set t_mora = (r[8] or 0)|float %}
+          {% set mora_val = (v_cuota * (t_mora / 100) * dias_mora) if (r[7] and dias_mora > 0 and r[8]) else 0 %}
+          {% set total_cli = v_cuota + mora_val %}
           <tr class="break-inside-avoid hover:bg-slate-50">
             <td class="border border-slate-400 p-2 text-center font-bold">{{ loop.index }}</td>
             <td class="border border-slate-400 p-2">
