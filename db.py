@@ -944,9 +944,13 @@ def listar_cuotas_vencer(user_id: int, is_admin: bool) -> list[tuple]:
         return cur.fetchall()
 
 
-def listar_cobro_hoy(user_id: int, is_admin: bool) -> list[tuple]:
-    """Préstamos con próximo_pago hoy o vencido, ordenados por urgencia y luego por barrio."""
+def listar_cobro_por_fecha(user_id: int, is_admin: bool, fecha_str: str, incluir_vencidos: bool = False) -> list[tuple]:
     scope, sparams = _filtro_owner("c", user_id, is_admin)
+    if incluir_vencidos:
+        cond = "p.proximo_pago::date <= %s::date"
+    else:
+        cond = "p.proximo_pago::date = %s::date"
+
     q = f"""
         SELECT p.id, c.nombre, c.barrio, c.direccion, c.telefono,
                p.valor_cuota, p.proximo_pago, p.mora_activa, p.tasa_mora_diaria,
@@ -956,7 +960,7 @@ def listar_cobro_hoy(user_id: int, is_admin: bool) -> list[tuple]:
         JOIN clientes c ON c.id = p.cliente_id
         WHERE p.estado = 'ACTIVO'
           AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
-          AND (p.proximo_pago::date) <= CURRENT_DATE
+          AND {cond}
           {scope}
         ORDER BY 
             CASE WHEN GREATEST(0, (CURRENT_DATE - (p.proximo_pago::date)))::int > 0 THEN 0 ELSE 1 END,
@@ -966,8 +970,13 @@ def listar_cobro_hoy(user_id: int, is_admin: bool) -> list[tuple]:
     """
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(q, tuple(sparams))
+        cur.execute(q, (fecha_str,) + tuple(sparams))
         return cur.fetchall()
+
+
+def listar_cobro_hoy(user_id: int, is_admin: bool) -> list[tuple]:
+    """Préstamos con próximo_pago hoy o vencido, ordenados por urgencia y luego por barrio."""
+    return listar_cobro_por_fecha(user_id, is_admin, datetime.now().strftime("%Y-%m-%d"), incluir_vencidos=True)
 
 
 def sum_saldo_restante_total(user_id: int, is_admin: bool) -> float:

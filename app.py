@@ -1991,11 +1991,45 @@ def descargar_recibo(pid, pago_id):
 @app.route("/cobro/hoy/print")
 @login_required
 def cobro_hoy_print():
-    """Vista de impresión para la ruta de cobro."""
-    uid, _, is_admin, _, _ = ctx_user()
-    rows = db.listar_cobro_hoy(uid, is_admin)
-    total = sum(float(r[5] or 0) for r in rows)
-    return render_template("cobro_hoy_print.html", rows=rows, total=total, count=len(rows), hoy=today_str())
+    """Vista de impresión compacta y profesional para la ruta de cobro."""
+    uid, username, is_admin, _, _ = ctx_user()
+    modo = request.args.get("fecha", "hoy")
+    hoy = datetime.now().date()
+
+    if modo == "manana":
+        target_date = (hoy + timedelta(days=1)).strftime("%Y-%m-%d")
+        incluir_vencidos = False
+        etiqueta_fecha = f"Mañana ({target_date})"
+    elif modo == "hoy":
+        target_date = hoy.strftime("%Y-%m-%d")
+        incluir_vencidos = True
+        etiqueta_fecha = f"Hoy ({target_date})"
+    else:
+        target_date = request.args.get("custom_fecha", hoy.strftime("%Y-%m-%d"))
+        incluir_vencidos = False
+        etiqueta_fecha = f"Fecha: {target_date}"
+
+    rows = db.listar_cobro_por_fecha(uid, is_admin, target_date, incluir_vencidos)
+
+    total_cuota = sum(float(r[5] or 0) for r in rows)
+    total_mora = 0
+    for r in rows:
+        dias = r[12] or 0
+        if r[7] and dias > 0 and r[8]:
+            total_mora += float(r[5] or 0) * (float(r[8]) / 100) * dias
+
+    return render_template(
+        "cobro_hoy_print.html",
+        rows=rows,
+        total_cuota=total_cuota,
+        total_mora=total_mora,
+        total_general=total_cuota + total_mora,
+        count=len(rows),
+        fecha_ruta=target_date,
+        etiqueta_fecha=etiqueta_fecha,
+        modo=modo,
+        cobrador=username or "Asesor"
+    )
 
 
 @app.route("/cobro/hoy")
