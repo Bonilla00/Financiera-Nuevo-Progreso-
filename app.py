@@ -12,8 +12,6 @@ from itertools import groupby
 import psycopg2
 import requests
 import bleach
-from googleapiclient.discovery import build
-import gdrive_service
 from flask import (
     Flask,
     abort,
@@ -1513,64 +1511,6 @@ def prestamo_nota_eliminar(pid, nid):
     return redirect(url_for("prestamo_detalle", pid=pid))
 
 
-@app.route("/ajustes/gdrive/conectar")
-@login_required
-def gdrive_conectar():
-    uid, _, _, _, _ = ctx_user()
-    redirect_uri = url_for("gdrive_callback", _external=True)
-    flow = gdrive_service.crear_flow_oauth(redirect_uri)
-    auth_url, _ = flow.authorization_url(prompt='consent', include_granted_scopes='true')
-    return redirect(auth_url)
-
-
-@app.route("/auth/google/callback")
-@login_required
-def gdrive_callback():
-    uid, _, _, _, _ = ctx_user()
-    code = request.args.get("code")
-    if not code:
-        flash("No se pudo autorizar con Google Drive.", "error")
-        return redirect(url_for("configuracion"))
-
-    try:
-        redirect_uri = url_for("gdrive_callback", _external=True)
-        flow = gdrive_service.crear_flow_oauth(redirect_uri)
-        flow.fetch_token(code=code)
-        creds = flow.credentials
-
-        service_oauth = build('oauth2', 'v2', credentials=creds)
-        user_info = service_oauth.userinfo().get().execute()
-        email = user_info.get('email', 'cuenta@gmail.com')
-
-        t_info = {
-            "token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "scopes": creds.scopes
-        }
-        token_json_str = json.dumps(t_info)
-        token_encriptado = gdrive_service.encriptar_token(token_json_str)
-
-        db.guardar_google_token(uid, token_encriptado, email)
-        flash(f"Google Drive conectado correctamente ({email}).", "ok")
-    except Exception as e:
-        logger.error(f"Error en callback Google OAuth: {e}")
-        flash("Error al conectar Google Drive.", "error")
-
-    return redirect(url_for("configuracion"))
-
-
-@app.route("/ajustes/gdrive/desconectar")
-@login_required
-def gdrive_desconectar():
-    uid, _, _, _, _ = ctx_user()
-    db.eliminar_google_token(uid)
-    flash("Cuenta de Google Drive desconectada.", "ok")
-    return redirect(url_for("configuracion"))
-
-
 @app.route("/prestamos/<int:pid>/evidencia/subir", methods=["POST"])
 @require_role(['admin', 'cobrador'])
 def prestamo_subir_evidencia(pid):
@@ -1584,34 +1524,23 @@ def prestamo_subir_evidencia(pid):
         flash("Selecciona un archivo de video válido.", "error")
         return redirect(url_for("prestamo_detalle", pid=pid))
 
-    t_row = db.obtener_google_token(uid)
-    if not t_row or not t_row.get("token_data"):
-        flash("Google Drive no está conectado. Conecta tu cuenta en Ajustes para subir evidencias.", "error")
-        return redirect(url_for("configuracion"))
-
     try:
-        cliente_id = info[1]
-        cliente_nombre = info[2]
-        cliente_identificacion = info[3] or "S/C"
+        upload_dir = os.path.join(app.root_path, "static", "uploads", "videos")
+        os.makedirs(upload_dir, exist_ok=True)
 
-        folder_id = gdrive_service.obtener_carpeta_credito_en_drive(uid, cliente_id, cliente_nombre, cliente_identificacion, pid)
-        if not folder_id:
-            raise RuntimeError("No se pudo crear o acceder a la carpeta en Google Drive.")
+        ext = os.path.splitext(file.filename)[1] or ".mp4"
+        filename = f"evidencia_credito_{pid}_{int(time.time())}{ext}"
+        filepath = os.path.join(upload_dir, filename)
+        file.save(filepath)
 
-        file_stream = BytesIO(file.read())
-        file_name = f"Evidencia_Credito_{pid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-        mime_type = file.mimetype or "video/mp4"
-        size_bytes = file_stream.getbuffer().nbytes
+        rel_path = f"static/uploads/videos/{filename}"
+        size_bytes = os.path.getsize(filepath)
 
-        res = gdrive_service.subir_archivo_a_drive(uid, folder_id, file_stream, file_name, mime_type)
-        if not res:
-            raise RuntimeError("Error al subir el archivo a Google Drive.")
-
-        db.crear_evidencia_prestamo(pid, uid, res["file_id"], res["file_name"], res["mime_type"], res["size_bytes"])
-        db.registrar_log(uid, f"Video de evidencia subido para crédito #{pid}")
-        flash("Video de evidencia subido a Google Drive exitosamente.", "ok")
+        db.crear_evidencia_prestamo(pid, uid, file.filename, rel_path, file.mimetype or "video/mp4", size_bytes)
+        db.registrar_log(uid, f"Video de evidencia subido al servidor para crédito #{pid}")
+        flash("Video de evidencia subido exitosamente.", "ok")
     except Exception as e:
-        logger.error(f"Error subiendo evidencia para crédito {pid}: {e}")
+        logger.error(f"Error subiendo evidencia local para crédito {pid}: {e}")
         flash(f"No se pudo subir la evidencia: {e}", "error")
 
     return redirect(url_for("prestamo_detalle", pid=pid))
@@ -1626,12 +1555,15 @@ def prestamo_eliminar_evidencia(pid, eid):
         abort(404)
 
     try:
-        gdrive_service.eliminar_archivo_de_drive(uid, evidencia["file_id"])
+        if evidencia.get("file_path"):
+            full_path = os.path.join(app.root_path, evidencia["file_path"])
+            if os.path.exists(full_path):
+                os.remove(full_path)
         db.eliminar_evidencia_prestamo(eid)
         db.registrar_log(uid, f"Evidencia eliminada del crédito #{pid}")
         flash("Evidencia eliminada correctamente.", "ok")
     except Exception as e:
-        logger.error(f"Error eliminando evidencia {eid}: {e}")
+        logger.error(f"Error eliminando evidencia local {eid}: {e}")
         flash("Error al eliminar la evidencia.", "error")
 
     return redirect(url_for("prestamo_detalle", pid=pid))

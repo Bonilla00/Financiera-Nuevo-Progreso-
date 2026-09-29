@@ -258,33 +258,38 @@
         </div>
       </div>
 
-      <!-- EVIDENCIA DEL CRÉDITO (GOOGLE DRIVE) -->
+      <!-- EVIDENCIA DEL CRÉDITO -->
       <div class="rounded-2xl border border-slate-800 bg-panel p-5 space-y-4 shadow-xl">
         <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
-          <span>🎥</span> Evidencia del Crédito (Google Drive)
+          <span>🎥</span> Evidencia del Crédito
         </h2>
 
         {% if evidencias %}
-        <div class="space-y-3">
+        <div class="space-y-4">
           {% for ev in evidencias %}
-          <div class="bg-slate-900/80 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between text-xs">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center text-lg shrink-0">🎬</div>
-              <div class="min-w-0">
-                <p class="font-bold text-white truncate">{{ ev.file_name }}</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Subido: {{ ev.created_at.strftime('%d/%m/%Y %H:%M') if ev.created_at else '' }}</p>
+          <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl space-y-3 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center text-lg shrink-0">🎬</div>
+                <div class="min-w-0">
+                  <p class="font-bold text-white truncate">{{ ev.file_name }}</p>
+                  <p class="text-[10px] text-slate-400 mt-0.5">Subido: {{ ev.created_at.strftime('%d/%m/%Y %H:%M') if ev.created_at else '' }}</p>
+                </div>
               </div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <a href="https://drive.google.com/file/d/{{ ev.file_id }}/view" target="_blank" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] uppercase transition-colors">
-                ▶ Ver en Drive
-              </a>
               {% if rol != 'solo_lectura' %}
               <form action="{{ url_for('prestamo_eliminar_evidencia', pid=pid, eid=ev.id) }}" method="POST" onsubmit="return confirm('¿Deseas eliminar este video de evidencia?');" class="inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="px-2.5 py-1.5 rounded-xl bg-rose-600/20 text-rose-400 hover:bg-rose-600/30 text-[10px] font-bold transition-colors border border-rose-500/30">Eliminar</button>
               </form>
               {% endif %}
+            </div>
+
+            <!-- Reproductor de video local -->
+            <div class="overflow-hidden rounded-xl bg-black border border-slate-800">
+              <video controls class="w-full max-h-64 object-contain">
+                <source src="{{ url_for('static', filename=ev.file_path.replace('static/', '')) }}" type="{{ ev.mime_type or 'video/mp4' }}">
+                Tu navegador no soporta la reproducción de video.
+              </video>
             </div>
           </div>
           {% endfor %}
@@ -293,6 +298,12 @@
         <div class="py-6 text-center bg-slate-900/30 rounded-2xl border border-dashed border-slate-800 space-y-2">
           <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">No hay video de evidencia cargado</p>
           {% if rol != 'solo_lectura' %}
+          <button type="button" onclick="document.getElementById('modal-subir-evidencia').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase shadow hover:bg-accent/90 transition-colors">
+            + Subir Video de Evidencia
+          </button>
+          {% endif %}
+        </div>
+        {% endif %}
           <button type="button" onclick="document.getElementById('modal-subir-evidencia').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase shadow hover:bg-accent/90 transition-colors">
             + Subir Video de Evidencia
           </button>
