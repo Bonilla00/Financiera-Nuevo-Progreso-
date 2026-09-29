@@ -89,6 +89,10 @@ def ensure_schema_migrations() -> None:
         "CREATE INDEX IF NOT EXISTS idx_notificaciones_leida ON notificaciones_log(leida)",
         "CREATE TABLE IF NOT EXISTS prestamo_notas (id SERIAL PRIMARY KEY, prestamo_id INTEGER REFERENCES prestamos(id) ON DELETE CASCADE, user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())",
         "CREATE INDEX IF NOT EXISTS idx_prestamo_notas_pid ON prestamo_notas(prestamo_id)",
+        "CREATE TABLE IF NOT EXISTS google_oauth_tokens (user_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE, token_data TEXT NOT NULL, email VARCHAR(255), updated_at TIMESTAMPTZ DEFAULT NOW())",
+        "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS drive_folder_id TEXT",
+        "CREATE TABLE IF NOT EXISTS prestamo_evidencias (id SERIAL PRIMARY KEY, prestamo_id INTEGER REFERENCES prestamos(id) ON DELETE CASCADE, user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL, file_id VARCHAR(255) NOT NULL, file_name VARCHAR(255) NOT NULL, mime_type VARCHAR(100), size_bytes BIGINT, created_at TIMESTAMPTZ DEFAULT NOW())",
+        "CREATE INDEX IF NOT EXISTS idx_prestamo_evidencias_pid ON prestamo_evidencias(prestamo_id)",
     ]
     for s in stmts:
         try:
@@ -2429,3 +2433,108 @@ def eliminar_nota_prestamo(nota_id: int, user_id: int, is_admin: bool) -> bool:
     except Exception as e:
         logger.error(f"Error al eliminar nota: {e}")
         return False
+
+
+# ---------- google drive oauth y evidencias ----------
+def guardar_google_token(user_id: int, token_data: str, email: str) -> None:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO google_oauth_tokens (user_id, token_data, email, updated_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (user_id) DO UPDATE
+            SET token_data = EXCLUDED.token_data, email = EXCLUDED.email, updated_at = NOW()
+            """,
+            (user_id, token_data, email)
+        )
+
+
+def obtener_google_token(user_id: int) -> dict | None:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT token_data, email FROM google_oauth_tokens WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception as e:
+        logger.info(f"Token no disponible: {e}")
+        return None
+
+
+def eliminar_google_token(user_id: int) -> bool:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM google_oauth_tokens WHERE user_id = %s", (user_id,))
+            return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"Error al eliminar token: {e}")
+        return False
+
+
+def guardar_cliente_drive_folder(cliente_id: int, folder_id: str) -> None:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE clientes SET drive_folder_id = %s WHERE id = %s", (folder_id, cliente_id))
+
+
+def obtener_cliente_drive_folder(cliente_id: int) -> str | None:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT drive_folder_id FROM clientes WHERE id = %s", (cliente_id,))
+            row = cur.fetchone()
+            return row[0] if row and row[0] else None
+    except Exception:
+        return None
+
+
+def listar_evidencias_prestamo(pid: int) -> list[dict]:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(
+                """
+                SELECT id, prestamo_id, user_id, file_id, file_name, mime_type, size_bytes, created_at
+                FROM prestamo_evidencias
+                WHERE prestamo_id = %s
+                ORDER BY created_at DESC
+                """,
+                (pid,)
+            )
+            return cur.fetchall()
+    except Exception:
+        return []
+
+
+def crear_evidencia_prestamo(pid: int, user_id: int, file_id: str, file_name: str, mime_type: str, size_bytes: int) -> int:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO prestamo_evidencias (prestamo_id, user_id, file_id, file_name, mime_type, size_bytes)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (pid, user_id, file_id, file_name, mime_type, size_bytes)
+        )
+        return int(cur.fetchone()[0])
+
+
+def obtener_evidencia(evidencia_id: int) -> dict | None:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT id, prestamo_id, user_id, file_id, file_name, mime_type, size_bytes FROM prestamo_evidencias WHERE id = %s", (evidencia_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception:
+        return None
+
+
+def eliminar_evidencia_prestamo(evidencia_id: int) -> bool:
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM prestamo_evidencias WHERE id = %s", (evidencia_id,))
+        return cur.rowcount > 0

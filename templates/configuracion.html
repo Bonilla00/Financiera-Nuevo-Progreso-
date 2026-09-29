@@ -4,6 +4,33 @@
 <h1 class="text-xl font-bold mb-4">Más / Configuración</h1>
 <p class="text-slate-400 text-sm mb-4">Usuario: <span class="text-white">{{ session.username }}</span></p>
 
+<!-- Google Drive Card -->
+<div class="bg-panel rounded-2xl border border-slate-700 p-5 mb-6 space-y-3">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-lg">☁️</div>
+    <h2 class="font-bold text-white text-base">Google Drive (Evidencias)</h2>
+  </div>
+  <p class="text-xs text-slate-400">Conecta tu cuenta de Google Drive para almacenar los videos de evidencia de los créditos de forma segura en tu nube personal.</p>
+
+  <div class="p-3.5 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-center justify-between">
+    <div>
+      <p class="text-[10px] uppercase font-bold text-slate-400">Estado de Conexión</p>
+      {% if gdrive_conectado %}
+      <p class="text-xs font-bold text-emerald-400 mt-0.5">✓ Conectado ({{ gdrive_email }})</p>
+      {% else %}
+      <p class="text-xs font-bold text-rose-400 mt-0.5">❌ No conectado</p>
+      {% endif %}
+    </div>
+    <div>
+      {% if gdrive_conectado %}
+      <a href="{{ url_for('gdrive_desconectar') }}" onclick="return confirm('¿Deseas desconectar tu cuenta de Google Drive?')" class="px-3 py-2 rounded-xl bg-rose-600/20 text-rose-400 text-xs font-bold border border-rose-500/30 hover:bg-rose-600/30 transition-colors">Desconectar</a>
+      {% else %}
+      <a href="{{ url_for('gdrive_conectar') }}" class="px-4 py-2 rounded-xl bg-accent text-slate-900 text-xs font-bold shadow hover:bg-accent/90 transition-colors">Conectar Google Drive</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 <div class="space-y-2 mb-6">
   <h2 class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza</h2>
   <a href="{{ url_for('cobro_hoy') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Ruta de cobro</a>

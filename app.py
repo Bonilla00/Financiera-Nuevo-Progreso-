@@ -12,6 +12,8 @@ from itertools import groupby
 import psycopg2
 import requests
 import bleach
+from googleapiclient.discovery import build
+import gdrive_service
 from flask import (
     Flask,
     abort,
@@ -1448,6 +1450,7 @@ def prestamo_detalle(pid):
     total_pagar = float(info[10])
     saldo_pendiente = max(0.0, round(total_pagar - cobrado_real, 2))
     notas = db.listar_notas_prestamo(pid, uid, is_admin)
+    evidencias = db.listar_evidencias_prestamo(pid)
 
     en_mora = False
     if info[13] == 'ACTIVO' and info[15] and info[15].strip():
@@ -1468,6 +1471,7 @@ def prestamo_detalle(pid):
         saldo_pendiente=saldo_pendiente,
         notas=notas,
         en_mora=en_mora,
+        evidencias=evidencias,
     )
 
 
@@ -1506,6 +1510,130 @@ def prestamo_nota_eliminar(pid, nid):
     uid, _, is_admin, _, _ = ctx_user()
     db.eliminar_nota_prestamo(nid, uid, is_admin)
     flash("Nota eliminada.", "ok")
+    return redirect(url_for("prestamo_detalle", pid=pid))
+
+
+@app.route("/ajustes/gdrive/conectar")
+@login_required
+def gdrive_conectar():
+    uid, _, _, _, _ = ctx_user()
+    redirect_uri = url_for("gdrive_callback", _external=True)
+    flow = gdrive_service.crear_flow_oauth(redirect_uri)
+    auth_url, _ = flow.authorization_url(prompt='consent', include_granted_scopes='true')
+    return redirect(auth_url)
+
+
+@app.route("/auth/google/callback")
+@login_required
+def gdrive_callback():
+    uid, _, _, _, _ = ctx_user()
+    code = request.args.get("code")
+    if not code:
+        flash("No se pudo autorizar con Google Drive.", "error")
+        return redirect(url_for("configuracion"))
+
+    try:
+        redirect_uri = url_for("gdrive_callback", _external=True)
+        flow = gdrive_service.crear_flow_oauth(redirect_uri)
+        flow.fetch_token(code=code)
+        creds = flow.credentials
+
+        service_oauth = build('oauth2', 'v2', credentials=creds)
+        user_info = service_oauth.userinfo().get().execute()
+        email = user_info.get('email', 'cuenta@gmail.com')
+
+        t_info = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": creds.scopes
+        }
+        token_json_str = json.dumps(t_info)
+        token_encriptado = gdrive_service.encriptar_token(token_json_str)
+
+        db.guardar_google_token(uid, token_encriptado, email)
+        flash(f"Google Drive conectado correctamente ({email}).", "ok")
+    except Exception as e:
+        logger.error(f"Error en callback Google OAuth: {e}")
+        flash("Error al conectar Google Drive.", "error")
+
+    return redirect(url_for("configuracion"))
+
+
+@app.route("/ajustes/gdrive/desconectar")
+@login_required
+def gdrive_desconectar():
+    uid, _, _, _, _ = ctx_user()
+    db.eliminar_google_token(uid)
+    flash("Cuenta de Google Drive desconectada.", "ok")
+    return redirect(url_for("configuracion"))
+
+
+@app.route("/prestamos/<int:pid>/evidencia/subir", methods=["POST"])
+@require_role(['admin', 'cobrador'])
+def prestamo_subir_evidencia(pid):
+    uid, _, is_admin, _, _ = ctx_user()
+    info = db.obtener_prestamo(pid, uid, is_admin)
+    if not info:
+        abort(404)
+
+    file = request.files.get("video_file")
+    if not file or not file.filename:
+        flash("Selecciona un archivo de video válido.", "error")
+        return redirect(url_for("prestamo_detalle", pid=pid))
+
+    t_row = db.obtener_google_token(uid)
+    if not t_row or not t_row.get("token_data"):
+        flash("Google Drive no está conectado. Conecta tu cuenta en Ajustes para subir evidencias.", "error")
+        return redirect(url_for("configuracion"))
+
+    try:
+        cliente_id = info[1]
+        cliente_nombre = info[2]
+        cliente_identificacion = info[3] or "S/C"
+
+        folder_id = gdrive_service.obtener_carpeta_credito_en_drive(uid, cliente_id, cliente_nombre, cliente_identificacion, pid)
+        if not folder_id:
+            raise RuntimeError("No se pudo crear o acceder a la carpeta en Google Drive.")
+
+        file_stream = BytesIO(file.read())
+        file_name = f"Evidencia_Credito_{pid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+        mime_type = file.mimetype or "video/mp4"
+        size_bytes = file_stream.getbuffer().nbytes
+
+        res = gdrive_service.subir_archivo_a_drive(uid, folder_id, file_stream, file_name, mime_type)
+        if not res:
+            raise RuntimeError("Error al subir el archivo a Google Drive.")
+
+        db.crear_evidencia_prestamo(pid, uid, res["file_id"], res["file_name"], res["mime_type"], res["size_bytes"])
+        db.registrar_log(uid, f"Video de evidencia subido para crédito #{pid}")
+        flash("Video de evidencia subido a Google Drive exitosamente.", "ok")
+    except Exception as e:
+        logger.error(f"Error subiendo evidencia para crédito {pid}: {e}")
+        flash(f"No se pudo subir la evidencia: {e}", "error")
+
+    return redirect(url_for("prestamo_detalle", pid=pid))
+
+
+@app.route("/prestamos/<int:pid>/evidencia/<int:eid>/eliminar", methods=["POST"])
+@require_role(['admin', 'cobrador'])
+def prestamo_eliminar_evidencia(pid, eid):
+    uid, _, is_admin, _, _ = ctx_user()
+    evidencia = db.obtener_evidencia(eid)
+    if not evidencia or evidencia["prestamo_id"] != pid:
+        abort(404)
+
+    try:
+        gdrive_service.eliminar_archivo_de_drive(uid, evidencia["file_id"])
+        db.eliminar_evidencia_prestamo(eid)
+        db.registrar_log(uid, f"Evidencia eliminada del crédito #{pid}")
+        flash("Evidencia eliminada correctamente.", "ok")
+    except Exception as e:
+        logger.error(f"Error eliminando evidencia {eid}: {e}")
+        flash("Error al eliminar la evidencia.", "error")
+
     return redirect(url_for("prestamo_detalle", pid=pid))
 
 
@@ -1781,7 +1909,15 @@ def configuracion():
                     flash("Clave actualizada.", "ok")
                     return redirect(url_for("configuracion"))
     row = db.obtener_usuario_por_id(uid)
-    return render_template("configuracion.html", username_actual=username)
+    t_row = db.obtener_google_token(uid)
+    gdrive_conectado = bool(t_row and t_row.get("token_data"))
+    gdrive_email = t_row.get("email") if t_row else None
+    return render_template(
+        "configuracion.html",
+        username_actual=username,
+        gdrive_conectado=gdrive_conectado,
+        gdrive_email=gdrive_email,
+    )
 
 
 @app.route("/admin/usuarios", methods=["GET", "POST"])

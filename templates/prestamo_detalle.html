@@ -258,6 +258,57 @@
         </div>
       </div>
 
+      <!-- EVIDENCIA DEL CRÉDITO (GOOGLE DRIVE) -->
+      <div class="rounded-2xl border border-slate-800 bg-panel p-5 space-y-4 shadow-xl">
+        <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
+          <span>🎥</span> Evidencia del Crédito (Google Drive)
+        </h2>
+
+        {% if evidencias %}
+        <div class="space-y-3">
+          {% for ev in evidencias %}
+          <div class="bg-slate-900/80 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between text-xs">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center text-lg shrink-0">🎬</div>
+              <div class="min-w-0">
+                <p class="font-bold text-white truncate">{{ ev.file_name }}</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Subido: {{ ev.created_at.strftime('%d/%m/%Y %H:%M') if ev.created_at else '' }}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <a href="https://drive.google.com/file/d/{{ ev.file_id }}/view" target="_blank" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] uppercase transition-colors">
+                ▶ Ver en Drive
+              </a>
+              {% if rol != 'solo_lectura' %}
+              <form action="{{ url_for('prestamo_eliminar_evidencia', pid=pid, eid=ev.id) }}" method="POST" onsubmit="return confirm('¿Deseas eliminar este video de evidencia?');" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="px-2.5 py-1.5 rounded-xl bg-rose-600/20 text-rose-400 hover:bg-rose-600/30 text-[10px] font-bold transition-colors border border-rose-500/30">Eliminar</button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="py-6 text-center bg-slate-900/30 rounded-2xl border border-dashed border-slate-800 space-y-2">
+          <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">No hay video de evidencia cargado</p>
+          {% if rol != 'solo_lectura' %}
+          <button type="button" onclick="document.getElementById('modal-subir-evidencia').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase shadow hover:bg-accent/90 transition-colors">
+            + Subir Video de Evidencia
+          </button>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if evidencias and rol != 'solo_lectura' %}
+        <div class="pt-2">
+          <button type="button" onclick="document.getElementById('modal-subir-evidencia').classList.remove('hidden')" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase transition-colors border border-slate-700">
+            + Subir Otro Video
+          </button>
+        </div>
+        {% endif %}
+      </div>
+
       <!-- NOTAS DEL CRÉDITO -->
       <div class="rounded-2xl border border-slate-800 bg-panel p-5 space-y-4 shadow-xl">
         <div class="flex items-center justify-between">
@@ -335,6 +386,28 @@
       <div class="flex gap-2">
         <button type="button" onclick="document.getElementById('modal-editar-nota').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase">Cancelar</button>
         <button type="submit" class="flex-1 py-2.5 rounded-xl bg-accent text-slate-900 font-black text-xs uppercase shadow">Actualizar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL SUBIR EVIDENCIA -->
+<div id="modal-subir-evidencia" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-panel border border-slate-700 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white uppercase tracking-wider">Subir Video de Evidencia</h3>
+      <button type="button" onclick="document.getElementById('modal-subir-evidencia').classList.add('hidden')" class="text-slate-400 hover:text-white text-xl">&times;</button>
+    </div>
+    <form action="{{ url_for('prestamo_subir_evidencia', pid=pid) }}" method="POST" enctype="multipart/form-data" class="space-y-4" data-loading-submit data-loading-label="Subiendo a Google Drive…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div>
+        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Seleccionar Video (MP4, MOV, etc.)</label>
+        <input type="file" name="video_file" accept="video/*" required class="w-full rounded-xl bg-slate-900 border border-slate-700 p-2.5 text-white text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-accent file:text-slate-900 hover:file:bg-accent/95">
+      </div>
+      <p class="text-[10px] text-slate-400">El video se subirá directamente a tu Google Drive conectado y no consumirá almacenamiento permanente del servidor.</p>
+      <div class="flex gap-2">
+        <button type="button" onclick="document.getElementById('modal-subir-evidencia').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase">Cancelar</button>
+        <button type="submit" class="flex-1 py-2.5 rounded-xl bg-accent text-slate-900 font-black text-xs uppercase shadow">Subir Video</button>
       </div>
     </form>
   </div>
