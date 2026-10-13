@@ -740,11 +740,14 @@ def inicio():
             "puntos": [round(interes_cobrado, 0), round(capital_cobrado, 0), round(mora_cobrada, 0)],
         }
 
+        saldo_restante_total = db.sum_saldo_restante_total(uid, is_admin)
+
         context = {
             "stats_clientes": stats_clientes,
             "total_prestado": total_prestado,
             "total_cobrado": total_cobrado,
             "ganancia_neta": ganancia_neta,
+            "saldo_restante_total": saldo_restante_total,
             "activos": activos,
             "en_mora": en_mora,
             "cuotas_hoy_valor": cuotas_hoy_valor,
