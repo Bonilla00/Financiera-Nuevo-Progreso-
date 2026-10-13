@@ -4,6 +4,23 @@
 <h1 class="text-xl font-bold mb-4">Más / Configuración</h1>
 <p class="text-slate-400 text-sm mb-4">Usuario: <span class="text-white">{{ session.username }}</span></p>
 
+<!-- Formulario de Marca Blanca (Nombre de Negocio) -->
+<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6" data-loading-submit data-loading-label="Guardando…">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="accion" value="cambiar_negocio">
+  <h2 class="font-semibold text-accent text-sm">🏢 Nombre de tu Negocio (Marca Blanca)</h2>
+  <p class="text-xs text-slate-400">Personaliza el nombre de tu negocio para que aparezca en tus recibos impresos, PDF y planillas de cobro.</p>
+  <div class="space-y-1">
+    <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Nombre del Negocio</label>
+    <input type="text" name="nombre_negocio" value="{{ negocio.nombre_negocio }}" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs">
+  </div>
+  <div class="space-y-1">
+    <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Teléfono de contacto</label>
+    <input type="text" name="telefono_negocio" value="{{ negocio.telefono_negocio }}" placeholder="Ej: 3001234567" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs">
+  </div>
+  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase shadow">Guardar Negocio</button>
+</form>
+
 <div class="space-y-2 mb-6">
   <h2 class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza</h2>
   <a href="{{ url_for('cobro_hoy') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Ruta de cobro</a>

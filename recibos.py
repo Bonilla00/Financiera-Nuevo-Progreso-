@@ -148,7 +148,9 @@ def generar_recibo_imagen(
         font_footer = ImageFont.load_default()
 
     # Título
-    draw.text((width/2, 50), "FINANCIERA NUEVO PROGRESO", font=font_title, fill=dark_blue, anchor="mm")
+    negocio = db.obtener_negocio_usuario(user_id)
+    nombre_empresa = negocio["nombre_negocio"]
+    draw.text((width/2, 50), nombre_empresa, font=font_title, fill=dark_blue, anchor="mm")
     draw.line((50, 80, 550, 80), fill=cyan, width=4)
 
     # Subtítulo
@@ -236,9 +238,11 @@ def generar_recibo_pdf(
     cyan = (34, 211, 238)
 
     # —— Encabezado marca ——
+    negocio = db.obtener_negocio_usuario(user_id)
+    nombre_empresa = negocio["nombre_negocio"]
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(15, 23, 42)
-    pdf.cell(epw, 10, "FINANCIERA NUEVO PROGRESO", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(epw, 10, nombre_empresa, align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
     pdf.set_draw_color(*cyan)
     pdf.set_line_width(0.6)
@@ -397,6 +401,7 @@ def generar_reporte_vision_pdf(
     activos: int,
     en_mora: int,
     pagos: list[tuple],
+    user_id: int = 1,
 ) -> BytesIO:
     """Reporte Visión general / período (fpdf2)."""
     pdf = FPDF()
@@ -407,9 +412,12 @@ def generar_reporte_vision_pdf(
     cyan = (34, 211, 238)
     dark = (15, 23, 42)
 
+    negocio = db.obtener_negocio_usuario(user_id)
+    nombre_empresa = negocio["nombre_negocio"]
+
     pdf.set_font("Helvetica", "B", 15)
     pdf.set_text_color(*dark)
-    pdf.cell(epw, 9, "FINANCIERA NUEVO PROGRESO", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(epw, 9, nombre_empresa, align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "B", 12)
     pdf.set_text_color(51, 65, 85)
     pdf.cell(epw, 8, "Vision general / Reporte", align="C", new_x="LMARGIN", new_y="NEXT")

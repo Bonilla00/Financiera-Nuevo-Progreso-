@@ -1716,6 +1716,7 @@ def reportes_pdf():
         activos,
         en_mora,
         pagos_detalle,
+        user_id=uid,
     )
     safe = f"{f_ini}_{f_fin}".replace("/", "-")
     return send_file(
@@ -1829,6 +1830,15 @@ def configuracion():
                     session["username"] = nuevo
                     flash("Usuario actualizado.", "ok")
                     return redirect(url_for("configuracion"))
+        elif action == "cambiar_negocio":
+            nombre = request.form.get("nombre_negocio", "").strip()
+            telefono = request.form.get("telefono_negocio", "").strip()
+            if not nombre:
+                flash("El nombre del negocio es obligatorio.", "error")
+            else:
+                db.actualizar_negocio_usuario(uid, nombre, telefono)
+                flash("Nombre del negocio actualizado.", "ok")
+                return redirect(url_for("configuracion"))
         elif action == "cambiar_password":
             actual = request.form.get("password_actual", "")
             n1 = request.form.get("password_nueva", "")
@@ -1849,9 +1859,11 @@ def configuracion():
                     flash("Clave actualizada.", "ok")
                     return redirect(url_for("configuracion"))
     row = db.obtener_usuario_por_id(uid)
+    negocio = db.obtener_negocio_usuario(uid)
     return render_template(
         "configuracion.html",
         username_actual=username,
+        negocio=negocio,
     )
 
 
@@ -2089,6 +2101,7 @@ def cobro_hoy_print():
         if r[7] and dias > 0 and r[8]:
             total_mora += float(r[5] or 0) * (float(r[8]) / 100) * dias
 
+    negocio = db.obtener_negocio_usuario(uid)
     return render_template(
         "cobro_hoy_print.html",
         rows=rows,
@@ -2099,7 +2112,8 @@ def cobro_hoy_print():
         fecha_ruta=target_date,
         etiqueta_fecha=etiqueta_fecha,
         modo=modo,
-        cobrador=username or "Asesor"
+        cobrador=username or "Asesor",
+        negocio=negocio,
     )
 
 

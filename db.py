@@ -59,6 +59,9 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cobrador', 'solo_lectura', 'usuario'))",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT TRUE",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_negocio VARCHAR(150) DEFAULT 'Financiera Nuevo Progreso'",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono_negocio VARCHAR(50)",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS logo_negocio TEXT",
         "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, user_id INT, accion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
         "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL",
@@ -2482,3 +2485,35 @@ def eliminar_evidencia_prestamo(evidencia_id: int) -> bool:
         cur = conn.cursor()
         cur.execute("DELETE FROM prestamo_evidencias WHERE id = %s", (evidencia_id,))
         return cur.rowcount > 0
+
+
+# ---------- configuración de negocio por usuario (puestos/marca blanca) ----------
+def obtener_negocio_usuario(user_id: int) -> dict:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT nombre_negocio, telefono_negocio, logo_negocio FROM usuarios WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            if row:
+                return {
+                    "nombre_negocio": row["nombre_negocio"] or "Financiera Nuevo Progreso",
+                    "telefono_negocio": row["telefono_negocio"] or "",
+                    "logo_negocio": row["logo_negocio"] or ""
+                }
+    except Exception:
+        pass
+    return {"nombre_negocio": "Financiera Nuevo Progreso", "telefono_negocio": "", "logo_negocio": ""}
+
+
+def actualizar_negocio_usuario(user_id: int, nombre_negocio: str, telefono_negocio: str) -> bool:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE usuarios SET nombre_negocio = %s, telefono_negocio = %s WHERE id = %s",
+                (nombre_negocio.strip() or "Financiera Nuevo Progreso", telefono_negocio.strip(), user_id)
+            )
+            return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"Error actualizando negocio de usuario {user_id}: {e}")
+        return False
