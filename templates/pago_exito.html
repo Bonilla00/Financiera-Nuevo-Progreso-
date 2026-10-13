@@ -1,28 +1,40 @@
 {% extends "base.html" %}
 {% block title %}Pago registrado{% endblock %}
 {% block content %}
-<div class="bg-panel rounded-2xl border border-slate-700 p-6 text-center mb-4">
-  <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-900/50 flex items-center justify-center">
-    <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+<div class="max-w-md mx-auto space-y-4">
+  <div class="bg-panel rounded-2xl border border-slate-700 p-5 text-center">
+    <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-900/50 flex items-center justify-center">
+      <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <h1 class="text-lg font-bold text-white mb-1">¡Pago registrado con éxito!</h1>
+    <p class="text-slate-400 text-xs">{{ nombre }} · Cuota #{{ num_cuota }} · <strong class="text-accent">{{ fmt_money(valor) }}</strong></p>
   </div>
-  <h1 class="text-xl font-bold text-white mb-2">Pago registrado</h1>
-  <p class="text-slate-400 text-sm mb-4">{{ nombre }} · Cuota #{{ num_cuota }}</p>
-  <p class="text-2xl font-bold text-accent">{{ fmt_money(valor) }}</p>
-</div>
 
-<div class="space-y-3">
-  <a href="{{ img_url }}" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase shadow">
-    <span>🖼️</span> Descargar Recibo en Imagen (PNG)
-  </a>
-  <a href="{{ pdf_url }}" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase border border-slate-700 hover:bg-slate-700">
-    <span>📄</span> Descargar Recibo en PDF
-  </a>
-  {% if telefono and wa_url %}
-  <a href="{{ wa_url }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs uppercase shadow">
-    <span>💬</span> Enviar por WhatsApp
-  </a>
-  {% endif %}
-</div>
+  <!-- Vista previa directa del recibo (para tomar captura de pantalla) -->
+  <div class="bg-white rounded-2xl p-3 shadow-2xl overflow-hidden border border-slate-300">
+    <p class="text-[10px] font-bold text-center text-slate-600 uppercase tracking-widest mb-2">📸 Captura este recibo o compártelo</p>
+    <div class="overflow-x-auto flex justify-center">
+      <img src="{{ img_url }}" alt="Recibo de pago" class="rounded-xl shadow-md max-w-full h-auto max-h-[420px] object-contain border border-slate-200">
+    </div>
+  </div>
 
-<a href="{{ url_for('prestamos_list') }}" class="block text-center mt-4 text-sm text-slate-400">← Volver a préstamos</a>
+  <!-- Acciones -->
+  <div class="space-y-2">
+    {% if telefono and wa_url %}
+    <a href="{{ wa_url }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase shadow">
+      <span>💬</span> Enviar por WhatsApp
+    </a>
+    {% endif %}
+    <div class="grid grid-cols-2 gap-2">
+      <a href="{{ img_url }}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] uppercase shadow">
+        <span>🖼️</span> Descargar Imagen
+      </a>
+      <a href="{{ pdf_url }}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-[10px] uppercase border border-slate-700 hover:bg-slate-700">
+        <span>📄</span> Descargar PDF
+      </a>
+    </div>
+  </div>
+
+  <a href="{{ url_for('prestamos_list') }}" class="block text-center mt-3 text-xs text-slate-400 hover:text-white">← Volver a préstamos</a>
+</div>
 {% endblock %}
