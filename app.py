@@ -1236,7 +1236,6 @@ def prestamos_editar(pid):
                 uid,
                 is_admin,
                 mora_activa=mora_on,
-                tasa_mora_diaria=0,
                 valor_mora_fijo=valor_mora,
             )
             if not ok:
