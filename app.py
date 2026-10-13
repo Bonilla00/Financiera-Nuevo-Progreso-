@@ -1628,7 +1628,8 @@ def prestamos_pago(pid):
             wa_url=wa_url,
             valor=valor,
             num_cuota=num_cuota,
-            pdf_url=url_for("descargar_recibo", pid=pid, pago_id=pago_id),
+            img_url=url_for("descargar_recibo", pid=pid, pago_id=pago_id),
+            pdf_url=url_for("descargar_recibo_pdf", pid=pid, pago_id=pago_id),
         )
     except Exception as e:
         flash(str(e), "error")
@@ -2068,6 +2069,41 @@ def descargar_recibo(pid, pago_id):
         )
     except Exception as e:
         flash(f"No se pudo generar el recibo: {e}", "error")
+        return redirect(url_for("pagos_list", prestamo_id=pid))
+
+
+@app.route("/prestamos/<int:pid>/recibo/<int:pago_id>/pdf")
+@login_required
+def descargar_recibo_pdf(pid, pago_id):
+    uid, _, is_admin, _, _ = ctx_user()
+    try:
+        pago = db.obtener_pago_para_recibo(pid, pago_id, uid, is_admin)
+        if not pago:
+            flash("El pago solicitado no existe o no tienes permiso para verlo.", "error")
+            return redirect(url_for("pagos_list"))
+
+        buf = generar_recibo_pdf(
+            pago["nombre_cliente"] or "Cliente",
+            pid,
+            int(pago["cuota"] or 1),
+            float(pago["valor"] or 0),
+            str(pago["fecha"] or today_str()),
+            uid,
+            is_admin,
+            valor_cuota_base=float(pago["valor_cuota_base"] or 0),
+            interes_mora=float(pago["interes_mora"] or 0),
+        )
+        if not buf:
+            raise ValueError("No se pudo generar el recibo PDF.")
+        buf.seek(0)
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=f"recibo_{pid}_{pago_id}.pdf",
+            mimetype="application/pdf",
+        )
+    except Exception as e:
+        flash(f"No se pudo generar el recibo PDF: {e}", "error")
         return redirect(url_for("pagos_list", prestamo_id=pid))
 
 
