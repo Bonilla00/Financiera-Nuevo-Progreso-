@@ -1,88 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Pago registrado{% endblock %}
 {% block content %}
-<div class="max-w-md mx-auto space-y-4">
-  <div class="bg-panel rounded-2xl border border-slate-700 p-5 text-center">
-    <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-900/50 flex items-center justify-center">
-      <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+<div class="max-w-md mx-auto space-y-4 text-center">
+  <div class="bg-panel rounded-2xl border border-slate-700 p-4">
+    <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-900/50 flex items-center justify-center">
+      <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
     </div>
-    <h1 class="text-lg font-bold text-white mb-1">¡Pago registrado con éxito!</h1>
+    <h1 class="text-base font-bold text-white mb-0.5">¡Pago registrado!</h1>
     <p class="text-slate-400 text-xs">{{ nombre }} · Cuota #{{ num_cuota }} · <strong class="text-accent">{{ fmt_money(valor) }}</strong></p>
   </div>
 
-  <!-- Vista previa directa del recibo (para tomar captura de pantalla) -->
+  <!-- Vista previa directa del recibo limpia para captura -->
   <div class="bg-white rounded-2xl p-3 shadow-2xl overflow-hidden border border-slate-300">
-    <p class="text-[10px] font-bold text-center text-slate-600 uppercase tracking-widest mb-2">📸 Captura este recibo o compártelo</p>
+    <p class="text-[10px] font-bold text-center text-slate-500 uppercase tracking-widest mb-2">📸 Toma captura de este recibo</p>
     <div class="overflow-x-auto flex justify-center">
-      <img src="{{ img_url }}" alt="Recibo de pago" class="rounded-xl shadow-md max-w-full h-auto max-h-[420px] object-contain border border-slate-200">
+      <img src="{{ img_url }}" alt="Recibo de pago" class="rounded-xl shadow-md max-w-full h-auto max-h-[500px] object-contain border border-slate-200">
     </div>
   </div>
 
-  <!-- Acciones -->
-  <div class="space-y-2">
-    <button type="button" onclick="compartirRecibo()" class="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg">
-      <span>📤</span> Compartir Imagen de Recibo (WhatsApp)
-    </button>
-
-    {% if telefono and wa_url %}
-    <a href="{{ wa_url }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase border border-slate-700">
-      <span>💬</span> Enviar Mensaje WhatsApp
-    </a>
-    {% endif %}
-
-    <div class="grid grid-cols-2 gap-2">
-      <a href="{{ img_url }}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] uppercase shadow">
-        <span>🖼️</span> Descargar Imagen
-      </a>
-      <a href="{{ pdf_url }}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-[10px] uppercase border border-slate-700 hover:bg-slate-700">
-        <span>📄</span> Descargar PDF
-      </a>
-    </div>
-  </div>
-
-  <a href="{{ url_for('prestamos_list') }}" class="block text-center mt-3 text-xs text-slate-400 hover:text-white">← Volver a préstamos</a>
+  <a href="{{ url_for('prestamos_list') }}" class="inline-block mt-2 text-xs font-bold text-accent hover:underline">← Volver a préstamos</a>
 </div>
-
-<script>
-async function compartirRecibo() {
-  const imgUrl = "{{ img_url }}";
-  const clienteNombre = "{{ nombre }}";
-  const valorPago = "{{ fmt_money(valor) }}";
-
-  if (navigator.canShare && navigator.canShare({ files: [] })) {
-    try {
-      const response = await fetch(imgUrl);
-      const blob = await response.blob();
-      const file = new File([blob], "recibo_pago.png", { type: "image/png" });
-
-      await navigator.share({
-        title: 'Recibo de Pago',
-        text: `Hola ${clienteNombre}, aquí tienes tu recibo de pago por ${valorPago}. ¡Gracias por tu pago!`,
-        files: [file]
-      });
-      return;
-    } catch (err) {
-      console.log('Error sharing file, falling back', err);
-    }
-  }
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: 'Recibo de Pago',
-        text: `Hola ${clienteNombre}, aquí tienes tu recibo de pago por ${valorPago}.`,
-        url: window.location.origin + imgUrl
-      });
-      return;
-    } catch (err) {}
-  }
-
-  // Fallback a WhatsApp
-  {% if telefono and wa_url %}
-  window.open("{{ wa_url }}", "_blank");
-  {% else %}
-  alert("Tu navegador no soporta compartir archivos directamente. Puedes usar el botón de Descargar Imagen.");
-  {% endif %}
-}
-</script>
 {% endblock %}
