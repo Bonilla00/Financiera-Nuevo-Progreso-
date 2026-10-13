@@ -21,6 +21,15 @@
   <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase shadow">Guardar Negocio</button>
 </form>
 
+<!-- Copia de seguridad personal -->
+<div class="bg-panel rounded-2xl border border-slate-700 p-4 mb-6 space-y-3">
+  <h2 class="font-semibold text-accent text-sm">📦 Copia de Seguridad Personal</h2>
+  <p class="text-xs text-slate-400">Descarga un archivo JSON con todos tus clientes, créditos y pagos registrados en tu cuenta.</p>
+  <a href="{{ url_for('mi_backup') }}" class="block text-center py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider border border-slate-700">
+    📥 Descargar Mi Respaldo (JSON)
+  </a>
+</div>
+
 <div class="space-y-2 mb-6">
   <h2 class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza</h2>
   <a href="{{ url_for('cobro_hoy') }}" class="block text-center py-3 rounded-xl bg-panel2 border border-cyan-600/40 text-accent text-sm font-bold">Ruta de cobro</a>

@@ -1975,6 +1975,22 @@ def admin_usuario_eliminar(uid):
     return redirect(url_for('admin_usuarios'))
 
 
+@app.route("/mi-backup.json")
+@login_required
+def mi_backup():
+    """Permite a cualquier usuario (cobrador o admin) descargar su propio respaldo personal en JSON."""
+    uid, username, _, _, _ = ctx_user()
+    data = db.export_user_data(uid)
+    buf = BytesIO(json.dumps(data, indent=2, default=str).encode("utf-8"))
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"backup_cartera_{username}_{today_str()}.json",
+        mimetype="application/json",
+    )
+
+
 @app.route("/backup.sql")
 @admin_required
 def backup_sql():
