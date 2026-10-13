@@ -20,11 +20,16 @@
 
   <!-- Acciones -->
   <div class="space-y-2">
+    <button type="button" onclick="compartirRecibo()" class="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg">
+      <span>📤</span> Compartir Imagen de Recibo (WhatsApp)
+    </button>
+
     {% if telefono and wa_url %}
-    <a href="{{ wa_url }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase shadow">
-      <span>💬</span> Enviar por WhatsApp
+    <a href="{{ wa_url }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase border border-slate-700">
+      <span>💬</span> Enviar Mensaje WhatsApp
     </a>
     {% endif %}
+
     <div class="grid grid-cols-2 gap-2">
       <a href="{{ img_url }}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] uppercase shadow">
         <span>🖼️</span> Descargar Imagen
@@ -37,4 +42,47 @@
 
   <a href="{{ url_for('prestamos_list') }}" class="block text-center mt-3 text-xs text-slate-400 hover:text-white">← Volver a préstamos</a>
 </div>
+
+<script>
+async function compartirRecibo() {
+  const imgUrl = "{{ img_url }}";
+  const clienteNombre = "{{ nombre }}";
+  const valorPago = "{{ fmt_money(valor) }}";
+
+  if (navigator.canShare && navigator.canShare({ files: [] })) {
+    try {
+      const response = await fetch(imgUrl);
+      const blob = await response.blob();
+      const file = new File([blob], "recibo_pago.png", { type: "image/png" });
+
+      await navigator.share({
+        title: 'Recibo de Pago',
+        text: `Hola ${clienteNombre}, aquí tienes tu recibo de pago por ${valorPago}. ¡Gracias por tu pago!`,
+        files: [file]
+      });
+      return;
+    } catch (err) {
+      console.log('Error sharing file, falling back', err);
+    }
+  }
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Recibo de Pago',
+        text: `Hola ${clienteNombre}, aquí tienes tu recibo de pago por ${valorPago}.`,
+        url: window.location.origin + imgUrl
+      });
+      return;
+    } catch (err) {}
+  }
+
+  // Fallback a WhatsApp
+  {% if telefono and wa_url %}
+  window.open("{{ wa_url }}", "_blank");
+  {% else %}
+  alert("Tu navegador no soporta compartir archivos directamente. Puedes usar el botón de Descargar Imagen.");
+  {% endif %}
+}
+</script>
 {% endblock %}
