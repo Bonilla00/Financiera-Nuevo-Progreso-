@@ -100,8 +100,14 @@ def ensure_schema_migrations() -> None:
             with get_conn() as conn:
                 cur = conn.cursor()
                 cur.execute(s)
+        except psycopg2.Error as pe:
+            msg = str(pe).lower()
+            if "already exists" in msg or "duplicate" in msg:
+                logger.debug(f"Migración omitida (ya existe): {s[:40]}...")
+            else:
+                logger.warning(f"Aviso en migración SQL: {pe} - Sentencia: {s[:50]}")
         except Exception as e:
-            logger.info(f"Info migración: {e}")
+            logger.error(f"Error inesperado en migración de esquema: {e}")
 
     inicializar_configuracion_defecto()
     ensure_auditoria_table()
