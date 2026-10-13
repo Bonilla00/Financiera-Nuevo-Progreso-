@@ -1,46 +1,112 @@
 {% extends "base_admin.html" %}
-{% block title %}Monitoreo Admin - Financiera NP{% endblock %}
+{% block title %}Panel Maestro del Administrador - Financiera NP{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold text-white">Monitoreo Global</h1>
-    <a href="{{ url_for('admin_usuarios_list') }}" class="text-xs text-accent font-bold uppercase tracking-widest hover:underline">Gestionar Usuarios →</a>
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-black text-white">Panel Maestro del Administrador 🛡️</h1>
+      <p class="text-slate-400 text-xs mt-0.5">Control global de toda la plataforma, dinero en la calle y puestos de cobradores.</p>
+    </div>
+    <a href="{{ url_for('admin_usuarios') }}" class="px-4 py-2.5 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase tracking-wider shadow">Gestionar Puestos / Usuarios →</a>
   </div>
 
-  <!-- Métricas Globales -->
+  <!-- BANNER MASTER DE DINERO GLOBAL EN LA CALLE -->
+  <div class="rounded-[2.5rem] bg-gradient-to-r from-emerald-950/60 via-slate-900 to-cyan-950/60 p-6 border border-emerald-500/30 shadow-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+      <p class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Cartera Global en la Calle</p>
+      <h3 class="text-2xl font-black text-white tracking-tight mt-1">{{ fmt_money(stats.cartera_global) }}</h3>
+      <p class="text-[10px] text-slate-400 mt-1">Saldo pendiente total</p>
+    </div>
+    <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+      <p class="text-[10px] font-black text-amber-400 uppercase tracking-widest">Capital Colocado</p>
+      <h3 class="text-2xl font-black text-white tracking-tight mt-1">{{ fmt_money(stats.prestado_global) }}</h3>
+      <p class="text-[10px] text-slate-400 mt-1">Total histórico prestado</p>
+    </div>
+    <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+      <p class="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Total Recaudado</p>
+      <h3 class="text-2xl font-black text-white tracking-tight mt-1">{{ fmt_money(stats.recaudado_global) }}</h3>
+      <p class="text-[10px] text-slate-400 mt-1">Ingresos históricos de pagos</p>
+    </div>
+    <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+      <p class="text-[10px] font-black text-purple-400 uppercase tracking-widest">Ganancia Proyectada</p>
+      <h3 class="text-2xl font-black text-white tracking-tight mt-1">{{ fmt_money(stats.ganancia_global) }}</h3>
+      <p class="text-[10px] text-slate-400 mt-1">Intereses y mora estimados</p>
+    </div>
+  </div>
+
+  <!-- Métricas Generales del Sistema -->
   <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
-      <p class="text-[10px] font-bold uppercase text-slate-500">Usuarios</p>
-      <p class="text-xl font-bold text-white">{{ stats.usuarios }}</p>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 text-center">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Puestos / Usuarios</p>
+      <p class="text-xl font-bold text-white mt-1">{{ stats.usuarios }}</p>
     </div>
-    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
-      <p class="text-[10px] font-bold uppercase text-slate-500">Clientes</p>
-      <p class="text-xl font-bold text-accent">{{ stats.clientes }}</p>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 text-center">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Clientes Totales</p>
+      <p class="text-xl font-bold text-accent mt-1">{{ stats.clientes }}</p>
     </div>
-    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
-      <p class="text-[10px] font-bold uppercase text-slate-500">Préstamos</p>
-      <p class="text-xl font-bold text-white">{{ stats.prestamos }}</p>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 text-center">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Préstamos Totales</p>
+      <p class="text-xl font-bold text-white mt-1">{{ stats.prestamos }}</p>
     </div>
-    <div class="rounded-2xl bg-panel p-4 border border-slate-800">
-      <p class="text-[10px] font-bold uppercase text-slate-500">Pagos</p>
-      <p class="text-xl font-bold text-emerald-400">{{ stats.pagos }}</p>
+    <div class="rounded-2xl bg-panel p-4 border border-slate-800 text-center">
+      <p class="text-[10px] font-bold uppercase text-slate-500">Pagos Registrados</p>
+      <p class="text-xl font-bold text-emerald-400 mt-1">{{ stats.pagos }}</p>
+    </div>
+  </div>
+
+  <!-- DESGLOSE POR PUESTO / COBRADOR -->
+  <div class="rounded-2xl bg-panel border border-slate-800 overflow-hidden shadow-xl">
+    <div class="px-5 py-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
+      <h2 class="text-xs font-black text-white uppercase tracking-widest">💼 Rendimiento por Puesto / Cobrador</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead class="bg-slate-900/40 text-slate-400 uppercase font-bold text-[10px]">
+          <tr>
+            <th class="p-3.5">Puesto / Usuario</th>
+            <th class="p-3.5">Rol</th>
+            <th class="p-3.5 text-center">Clientes</th>
+            <th class="p-3.5 text-center">Créditos Activos</th>
+            <th class="p-3.5 text-right">Cartera Activa en la Calle</th>
+            <th class="p-3.5 text-center">Estado</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800">
+          {% for u in usuarios_stats %}
+          <tr class="hover:bg-slate-800/40">
+            <td class="p-3.5 font-bold text-white uppercase flex items-center gap-2">
+              <span>👤</span> {{ u.username }}
+            </td>
+            <td class="p-3.5 uppercase font-bold text-[10px] text-slate-400">{{ u.rol }}</td>
+            <td class="p-3.5 text-center font-mono font-bold text-accent">{{ u.num_clientes }}</td>
+            <td class="p-3.5 text-center font-mono font-bold text-white">{{ u.num_activos }}</td>
+            <td class="p-3.5 text-right font-mono font-black text-emerald-400">{{ fmt_money(u.cartera_activa) }}</td>
+            <td class="p-3.5 text-center">
+              <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded {% if u.activo %}bg-emerald-950/60 text-emerald-400 border border-emerald-800/40{% else %}bg-rose-950/60 text-rose-400 border border-rose-800/40{% endif %}">
+                {{ 'Activo' if u.activo else 'Inactivo' }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 
   <!-- Logs Recientes -->
-  <div class="rounded-2xl bg-panel border border-slate-800 overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-800 bg-slate-900/50">
-      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Actividad Reciente</h2>
+  <div class="rounded-2xl bg-panel border border-slate-800 overflow-hidden shadow-xl">
+    <div class="px-5 py-4 border-b border-slate-800 bg-slate-900/60">
+      <h2 class="text-xs font-black text-white uppercase tracking-widest">📋 Actividad Reciente del Sistema</h2>
     </div>
     <div class="divide-y divide-slate-800">
       {% for log in logs %}
-      <div class="px-4 py-3 flex justify-between items-center text-xs">
+      <div class="px-5 py-3 flex justify-between items-center text-xs">
         <div class="space-y-1">
           <p class="text-white font-medium">{{ log.accion }}</p>
-          <p class="text-slate-500">{{ log.username or 'Sistema' }} · {{ log.fecha.strftime('%H:%M:%S') }}</p>
+          <p class="text-slate-500 font-semibold">{{ log.username or 'Sistema' }} · {{ log.fecha.strftime('%H:%M:%S') }}</p>
         </div>
-        <span class="text-slate-600 font-mono text-[10px]">{{ log.fecha.strftime('%d/%m/%Y') }}</span>
+        <span class="text-slate-500 font-mono text-[10px]">{{ log.fecha.strftime('%d/%m/%Y') }}</span>
       </div>
       {% else %}
       <div class="p-8 text-center text-slate-600 text-sm italic">

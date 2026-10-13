@@ -558,7 +558,7 @@ def login():
                     flash("Debes cambiar tu contraseña inicial por seguridad.", "error")
                     return redirect(url_for("cambiar_password"))
 
-                nxt = request.args.get("next") or url_for("inicio")
+                nxt = request.args.get("next") or (url_for("admin_dashboard") if session["is_admin"] else url_for("inicio"))
                 return redirect(nxt)
         except Exception as e:
             logger.error(f"Error en login: {e}")
@@ -572,8 +572,9 @@ def login():
 @admin_required
 def admin_dashboard():
     stats = db.obtener_metricas_globales()
+    usuarios_stats = db.listar_usuarios_con_estadisticas()
     logs = db.obtener_logs_recientes(20)
-    return render_template("admin_dashboard.html", stats=stats, logs=logs)
+    return render_template("admin_dashboard.html", stats=stats, usuarios_stats=usuarios_stats, logs=logs)
 
 
 @app.route("/admin/usuarios_full")

@@ -199,14 +199,41 @@ def obtener_metricas_globales():
         pr = cur.fetchone()['total']
         cur.execute("SELECT COUNT(*) as total FROM pagos")
         pa = cur.fetchone()['total']
-        return {"usuarios": u, "clientes": c, "prestamos": pr, "pagos": pa}
+
+        cur.execute("SELECT COALESCE(SUM(p.total_pagar - (p.pagadas * p.valor_cuota)), 0) as total FROM prestamos p WHERE p.estado = 'ACTIVO'")
+        cartera_global = cur.fetchone()['total']
+
+        cur.execute("SELECT COALESCE(SUM(monto), 0) as total FROM prestamos")
+        prestado_global = cur.fetchone()['total']
+
+        cur.execute("SELECT COALESCE(SUM(valor), 0) as total FROM pagos")
+        recaudado_global = cur.fetchone()['total']
+
+        cur.execute("SELECT COALESCE(SUM(interes_total), 0) as total FROM prestamos")
+        interes_global = cur.fetchone()['total']
+
+        cur.execute("SELECT COALESCE(SUM(interes_mora), 0) as total FROM pagos")
+        mora_cobrada_global = cur.fetchone()['total']
+
+        return {
+            "usuarios": u,
+            "clientes": c,
+            "prestamos": pr,
+            "pagos": pa,
+            "cartera_global": float(cartera_global),
+            "prestado_global": float(prestado_global),
+            "recaudado_global": float(recaudado_global),
+            "ganancia_global": float(interes_global) + float(mora_cobrada_global)
+        }
 
 
 def listar_usuarios_con_estadisticas():
-    """Lista usuarios con su conteo de clientes asociados."""
+    """Lista usuarios con su conteo de clientes, préstamos activos y cartera total."""
     query = """
         SELECT u.id, u.username, u.rol, u.activo,
-               (SELECT COUNT(*) FROM clientes WHERE owner_user_id = u.id) as num_clientes
+               (SELECT COUNT(*) FROM clientes WHERE owner_user_id = u.id) as num_clientes,
+               (SELECT COUNT(*) FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE c.owner_user_id = u.id AND p.estado = 'ACTIVO') as num_activos,
+               (SELECT COALESCE(SUM(p.total_pagar - (p.pagadas * p.valor_cuota)), 0) FROM prestamos p JOIN clientes c ON c.id = p.cliente_id WHERE c.owner_user_id = u.id AND p.estado = 'ACTIVO') as cartera_activa
         FROM usuarios u
         ORDER BY u.username ASC
     """
