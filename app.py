@@ -1458,6 +1458,7 @@ def prestamo_detalle(pid):
     saldo_pendiente = max(0.0, round(total_pagar - cobrado_real, 2))
     notas = db.listar_notas_prestamo(pid, uid, is_admin)
     evidencias = db.listar_evidencias_prestamo(pid)
+    auditoria = db.listar_auditoria_prestamo(pid, uid, is_admin)
 
     en_mora = False
     if info[13] == 'ACTIVO' and info[15] and info[15].strip():
@@ -1479,6 +1480,7 @@ def prestamo_detalle(pid):
         notas=notas,
         en_mora=en_mora,
         evidencias=evidencias,
+        auditoria=auditoria,
     )
 
 

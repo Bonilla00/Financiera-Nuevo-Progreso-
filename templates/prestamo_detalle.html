@@ -38,6 +38,11 @@
         ✏️ Editar
       </a>
       {% endif %}
+      {% if cliente[3] %}
+      <button type="button" onclick="document.getElementById('modal-plantillas-wa').classList.remove('hidden')" class="px-3.5 py-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900 text-emerald-400 font-bold text-xs uppercase transition-colors border border-emerald-800/50 flex items-center gap-1.5" title="Plantillas WhatsApp">
+        <span>💬</span> Plantillas WA
+      </button>
+      {% endif %}
       <a href="{{ url_for('prestamos_historial_renovaciones', pid=pid) }}" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase transition-colors" title="Historial">
         📋 Historial
       </a>
@@ -256,6 +261,29 @@
         </div>
       </div>
 
+      <!-- HISTORIAL DE AUDITORÍA Y CAMBIOS -->
+      {% if auditoria %}
+      <div class="rounded-2xl border border-slate-800 bg-panel p-5 space-y-3 shadow-xl">
+        <h2 class="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+          <span>📋</span> Historial de Ediciones y Auditoría
+        </h2>
+        <div class="space-y-2 text-xs">
+          {% for a in auditoria %}
+          <div class="bg-slate-900/60 border border-slate-800/80 p-3 rounded-xl space-y-1">
+            <div class="flex justify-between items-center text-[10px] text-slate-400">
+              <span class="font-bold text-white uppercase">👤 {{ a[4] or 'Usuario' }}</span>
+              <span class="font-mono">{{ a[0].strftime('%d/%m/%Y %H:%M') if a[0] else '' }}</span>
+            </div>
+            <p class="text-slate-300">
+              Campo <strong class="text-amber-300 uppercase">{{ a[1] }}</strong>:
+              <span class="line-through text-rose-400">{{ a[2] }}</span> ➔ <strong class="text-emerald-400">{{ a[3] }}</strong>
+            </p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
       <!-- EVIDENCIA DEL CRÉDITO -->
       <div class="rounded-2xl border border-slate-800 bg-panel p-5 space-y-4 shadow-xl">
         <h2 class="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-2">
@@ -430,4 +458,55 @@ function abrirEditarNota(nid, content) {
   document.getElementById('modal-editar-nota').classList.remove('hidden');
 }
 </script>
+
+<!-- MODAL PLANTILLAS WHATSAPP -->
+{% set tel_clean = (cliente[3] or '').replace('+', '').replace(' ', '').replace('-', '') %}
+{% if not tel_clean.startswith('57') and tel_clean|length == 10 %}
+  {% set tel_clean = '57' ~ tel_clean %}
+{% endif %}
+
+<div id="modal-plantillas-wa" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-panel border border-slate-700 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+        <span>💬</span> Plantillas de WhatsApp
+      </h3>
+      <button type="button" onclick="document.getElementById('modal-plantillas-wa').classList.add('hidden')" class="text-slate-400 hover:text-white text-xl">&times;</button>
+    </div>
+
+    <p class="text-xs text-slate-400">Cliente: <strong class="text-white">{{ cliente[1] }}</strong> ({{ cliente[3] or 'Sin teléfono' }})</p>
+
+    <div class="space-y-2.5">
+      <!-- Plantilla 1: Recordatorio hoy -->
+      {% set msg_recordatorio = "Hola " ~ cliente[1] ~ ", te saludamos de " ~ (session.username or 'Financiera') ~ ". Te recordamos que hoy vence tu cuota del crédito #" ~ pid ~ " por " ~ fmt_money(prestamo[11]) ~ ". ¡Quedamos atentos a tu pago!" %}
+      <a href="https://wa.me/{{ tel_clean }}?text={{ msg_recordatorio|urlencode }}" target="_blank" class="block p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 transition-colors">
+        <p class="text-xs font-bold text-emerald-400 uppercase">📌 Recordatorio de Pago del Día</p>
+        <p class="text-[10px] text-slate-400 mt-1 line-clamp-2">{{ msg_recordatorio }}</p>
+      </a>
+
+      <!-- Plantilla 2: Cuota Vencida / Mora -->
+      {% set msg_mora = "Hola " ~ cliente[1] ~ ", tu cuota del crédito #" ~ pid ~ " por " ~ fmt_money(prestamo[11]) ~ " se encuentra actualmente vencida. Tu saldo pendiente es " ~ fmt_money(saldo_pendiente) ~ ". Agradecemos ponerte al día a la brevedad." %}
+      <a href="https://wa.me/{{ tel_clean }}?text={{ msg_mora|urlencode }}" target="_blank" class="block p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 transition-colors">
+        <p class="text-xs font-bold text-rose-400 uppercase">⚠️ Aviso de Cuota Vencida / Mora</p>
+        <p class="text-[10px] text-slate-400 mt-1 line-clamp-2">{{ msg_mora }}</p>
+      </a>
+
+      <!-- Plantilla 3: Renovación -->
+      {% set msg_renovacion = "Hola " ~ cliente[1] ~ ", ¡excelente noticia! Tu crédito #" ~ pid ~ " en " ~ (session.username or 'Financiera') ~ " se encuentra disponible para renovación. ¡Contáctanos para realizar la renovación hoy!" %}
+      <a href="https://wa.me/{{ tel_clean }}?text={{ msg_renovacion|urlencode }}" target="_blank" class="block p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 transition-colors">
+        <p class="text-xs font-bold text-cyan-400 uppercase">🔄 Oferta / Notificación de Renovación</p>
+        <p class="text-[10px] text-slate-400 mt-1 line-clamp-2">{{ msg_renovacion }}</p>
+      </a>
+
+      <!-- Plantilla 4: Estado General -->
+      {% set msg_estado = "Hola " ~ cliente[1] ~ ", el saldo pendiente actual de tu crédito #" ~ pid ~ " es " ~ fmt_money(saldo_pendiente) ~ " (llevas " ~ prestamo[14] ~ " de " ~ prestamo[6] ~ " cuotas pagadas)." %}
+      <a href="https://wa.me/{{ tel_clean }}?text={{ msg_estado|urlencode }}" target="_blank" class="block p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition-colors">
+        <p class="text-xs font-bold text-amber-400 uppercase">✅ Resumen de Saldo General</p>
+        <p class="text-[10px] text-slate-400 mt-1 line-clamp-2">{{ msg_estado }}</p>
+      </a>
+    </div>
+
+    <button type="button" onclick="document.getElementById('modal-plantillas-wa').classList.add('hidden')" class="w-full py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase mt-2">Cerrar</button>
+  </div>
+</div>
 {% endblock %}
