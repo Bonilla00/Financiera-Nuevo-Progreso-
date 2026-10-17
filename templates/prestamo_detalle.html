@@ -31,11 +31,9 @@
       <a href="{{ url_for('prestamos_cobrar', pid=pid) }}" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase shadow-md transition-all flex items-center gap-1.5">
         <span>💰</span> Cobrar
       </a>
-      {% if prestamo[14] + 1 == prestamo[6] %}
       <a href="{{ url_for('prestamos_renovar', pid=pid) }}" class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase shadow-md transition-all flex items-center gap-1.5">
         <span>🔄</span> Renovar
       </a>
-      {% endif %}
       <a href="{{ url_for('prestamos_editar', pid=pid) }}" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase transition-colors">
         ✏️ Editar
       </a>

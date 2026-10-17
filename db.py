@@ -1392,9 +1392,6 @@ def puede_renovar_prestamo(pid: int, user_id: int, is_admin: bool) -> tuple[bool
     if pagadas >= cuotas:
         return False, "El préstamo ya está completamente pagado.", None
 
-    if pagadas + 1 != cuotas:
-        return False, f"Solo se puede renovar cuando falta 1 cuota por pagar. Lleva {pagadas} de {cuotas} cuotas pagadas.", None
-
     total_pagar = float(info[10])
     cobrado_real = sum_pagos_por_prestamo(pid, user_id, is_admin)
     saldo_pendiente = max(0.0, round(total_pagar - cobrado_real, 2))

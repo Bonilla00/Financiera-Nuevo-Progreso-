@@ -122,7 +122,7 @@
               <a href="{{ url_for('prestamos_cobrar', pid=p.id) }}" class="px-2 py-1.5 rounded-lg bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 font-bold transition-colors border border-emerald-800/40" title="Cobrar cuota">
                 💰 Cobrar
               </a>
-              {% if p.estado == 'ACTIVO' and (p.pagadas + 1 == p.cuotas) and rol != 'solo_lectura' %}
+              {% if p.estado == 'ACTIVO' and rol != 'solo_lectura' %}
               <a href="{{ url_for('prestamos_renovar', pid=p.id) }}" class="px-2 py-1.5 rounded-lg bg-cyan-950/60 text-cyan-400 hover:bg-cyan-900 font-bold transition-colors border border-cyan-800/40" title="Renovar">
                 🔄 Renovar
               </a>
@@ -188,7 +188,7 @@
         <a href="{{ url_for('prestamos_cobrar', pid=p.id) }}" class="flex-1 py-2 rounded-xl bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 text-xs font-bold text-center border border-emerald-800/40 transition-colors">
           💰 Cobrar
         </a>
-        {% if p.estado == 'ACTIVO' and (p.pagadas + 1 == p.cuotas) and rol != 'solo_lectura' %}
+        {% if p.estado == 'ACTIVO' and rol != 'solo_lectura' %}
         <a href="{{ url_for('prestamos_renovar', pid=p.id) }}" class="flex-1 py-2 rounded-xl bg-cyan-950/60 text-cyan-400 hover:bg-cyan-900 text-xs font-bold text-center border border-cyan-800/40 transition-colors">
           🔄 Renovar
         </a>

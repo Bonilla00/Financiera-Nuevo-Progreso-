@@ -179,14 +179,14 @@ if (document.getElementById('input-foto')) {
         </a>
         {% endif %}
 
-        <!-- Botón Renovar Préstamo: solo visible si falta 1 cuota -->
-        {% if pr.estado == 'ACTIVO' and (is_admin or rol == 'cobrador') and pr.pagadas == pr.cuotas - 1 %}
+        <!-- Botón Renovar Préstamo: visible para cualquier crédito activo -->
+        {% if pr.estado == 'ACTIVO' and (is_admin or rol == 'cobrador') %}
         <div class="relative">
           <a href="{{ url_for('prestamos_renovar', pid=pr.id) }}" class="block text-center py-2 rounded-xl bg-purple-600 text-white text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-purple-700 transition-colors">
               Renovar Préstamo
           </a>
           <p class="text-[9px] text-slate-500 text-center mt-1">
-            Faltan {{ pr.cuotas - pr.pagadas }} cuota(s) por pagar
+            Lleva {{ pr.pagadas }} de {{ pr.cuotas }} cuotas pagadas ({{ pr.cuotas - pr.pagadas }} restantes)
           </p>
         </div>
         {% endif %}
