@@ -47,9 +47,28 @@
   </div>
 
   <div class="space-y-3">
+    <!-- Selección Rápida de Montos (Chips) -->
+    <div class="space-y-1">
+      <span class="text-[10px] font-bold text-slate-400 uppercase ml-1">Selección Rápida de Monto (1 Toque):</span>
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+        <button type="button" onclick="setMonto({{ total_sugerido }})" class="px-3.5 py-2 rounded-xl bg-accent text-slate-900 text-xs font-black shrink-0 shadow active:scale-95 transition-transform">
+          Sugerido: {{ fmt_money(total_sugerido) }}
+        </button>
+        {% if valor_cuota != total_sugerido %}
+        <button type="button" onclick="setMonto({{ valor_cuota }})" class="px-3 py-2 rounded-xl bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 text-xs font-bold shrink-0 hover:bg-cyan-900 active:scale-95 transition-transform">
+          Solo Cuota: {{ fmt_money(valor_cuota) }}
+        </button>
+        {% endif %}
+        <button type="button" onclick="setMonto(10000)" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$10,000</button>
+        <button type="button" onclick="setMonto(20000)" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$20,000</button>
+        <button type="button" onclick="setMonto(50000)" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$50,000</button>
+        <button type="button" onclick="setMonto(100000)" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$100,000</button>
+      </div>
+    </div>
+
     <label class="block">
       <span class="text-xs uppercase font-bold text-slate-500 ml-1">Monto a cobrar</span>
-      <input type="number" name="valor" step="0.01" value="{{ total_sugerido }}" required class="w-full rounded-xl bg-panel border border-slate-600 px-4 py-3 text-white text-lg font-bold focus:border-cyan-500 outline-none">
+      <input type="number" id="input-monto-cobrar" name="valor" step="0.01" value="{{ total_sugerido }}" required class="w-full rounded-xl bg-panel border border-slate-600 px-4 py-3 text-white text-lg font-bold focus:border-cyan-500 outline-none">
     </label>
 
     <label class="block">
@@ -76,4 +95,14 @@
 </div>
 {% endif %}
 <a href="{{ url_for('prestamos_list') }}" class="block text-center mt-4 text-sm text-slate-400">← Volver a préstamos</a>
+
+<script>
+function setMonto(val) {
+  const inp = document.getElementById('input-monto-cobrar');
+  if (inp) {
+    inp.value = val;
+    inp.focus();
+  }
+}
+</script>
 {% endblock %}
