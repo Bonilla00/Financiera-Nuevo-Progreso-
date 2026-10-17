@@ -53,6 +53,7 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE pagos ADD COLUMN IF NOT EXISTS nota TEXT",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto TEXT",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS notas TEXT",
+        "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS nivel_riesgo VARCHAR(20) DEFAULT 'excelente'",
         "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS owner_user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE",
         "CREATE INDEX IF NOT EXISTS idx_clientes_owner ON clientes(owner_user_id)",
         "ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check",
@@ -510,7 +511,7 @@ def obtener_cliente(cid: int, user_id: int, is_admin: bool):
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto, c.notas
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto, c.notas, c.nivel_riesgo
             FROM clientes c WHERE c.id = %s {extra}
             """,
             (cid,) + params,
@@ -663,7 +664,7 @@ def listar_clientes_filtrado(filtro: str, user_id: int, is_admin: bool) -> list[
     # Query optimizada que trae el estado del crédito de una vez
     q = f"""
         SELECT
-            c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto,
+            c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto, c.nivel_riesgo,
             (SELECT COUNT(*) FROM prestamos p WHERE p.cliente_id = c.id AND p.estado = 'ACTIVO') > 0 as tiene_credito,
             EXISTS (
                 SELECT 1 FROM prestamos p
@@ -2515,6 +2516,60 @@ def eliminar_evidencia_prestamo(evidencia_id: int) -> bool:
         cur = conn.cursor()
         cur.execute("DELETE FROM prestamo_evidencias WHERE id = %s", (evidencia_id,))
         return cur.rowcount > 0
+
+
+def actualizar_nivel_riesgo_cliente(cliente_id: int, nivel_riesgo: str, user_id: int, is_admin: bool) -> bool:
+    if is_admin:
+        extra, params = "", ()
+    else:
+        extra, params = " AND owner_user_id = %s", (user_id,)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE clientes SET nivel_riesgo = %s WHERE id = %s {extra}",
+            (nivel_riesgo.lower().strip(), cliente_id) + params,
+        )
+        return cur.rowcount > 0
+
+
+def obtener_progreso_ruta_hoy(user_id: int, is_admin: bool) -> dict:
+    scope, sparams = _filtro_owner("c", user_id, is_admin)
+    with get_conn() as conn:
+        cur = conn.cursor()
+
+        q_tot = f"""
+            SELECT COUNT(DISTINCT p.id)
+            FROM prestamos p
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE p.estado = 'ACTIVO'
+              AND p.proximo_pago IS NOT NULL AND TRIM(p.proximo_pago) <> ''
+              AND (p.proximo_pago::date) <= CURRENT_DATE
+              {scope}
+        """
+        cur.execute(q_tot, tuple(sparams))
+        total_programados = cur.fetchone()[0] or 0
+
+        q_cob = f"""
+            SELECT COUNT(DISTINCT pg.prestamo_id), COALESCE(SUM(pg.valor), 0)
+            FROM pagos pg
+            JOIN prestamos p ON p.id = pg.prestamo_id
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE pg.fecha::date = CURRENT_DATE
+              {scope}
+        """
+        cur.execute(q_cob, tuple(sparams))
+        row_cob = cur.fetchone()
+        cobrados_hoy = row_cob[0] or 0
+        recaudado_hoy = float(row_cob[1] or 0)
+
+        porcentaje = min(100, round((cobrados_hoy / total_programados) * 100)) if total_programados > 0 else (100 if cobrados_hoy > 0 else 0)
+
+        return {
+            "total_programados": total_programados,
+            "cobrados_hoy": cobrados_hoy,
+            "recaudado_hoy": recaudado_hoy,
+            "porcentaje": porcentaje
+        }
 
 
 # ---------- configuración de negocio por usuario (puestos/marca blanca) ----------

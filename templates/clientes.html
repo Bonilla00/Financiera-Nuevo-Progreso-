@@ -93,6 +93,10 @@
                 <a href="{{ url_for('clientes_perfil', cid=c.id) }}" class="font-bold text-white uppercase hover:text-accent transition-colors">
                   {{ c.nombre }}
                 </a>
+                {% set r_val = (c.nivel_riesgo or 'excelente')|lower %}
+                <span class="inline-block text-[9px] font-bold px-1.5 py-0.2 rounded ml-1.5 {% if r_val == 'riesgo' %}bg-rose-950/60 text-rose-400 border border-rose-800/40{% elif r_val == 'regular' %}bg-amber-950/60 text-amber-400 border border-amber-800/40{% else %}bg-emerald-950/60 text-emerald-400 border border-emerald-800/40{% endif %}">
+                  {{ '🔴 Riesgo' if r_val == 'riesgo' else ('🟡 Regular' if r_val == 'regular' else '🟢 Excelente') }}
+                </span>
               </div>
             </div>
           </td>

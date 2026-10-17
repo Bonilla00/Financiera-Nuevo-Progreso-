@@ -742,6 +742,7 @@ def inicio():
         }
 
         saldo_restante_total = db.sum_saldo_restante_total(uid, is_admin)
+        progreso_ruta = db.obtener_progreso_ruta_hoy(uid, is_admin)
 
         context = {
             "stats_clientes": stats_clientes,
@@ -749,6 +750,7 @@ def inicio():
             "total_cobrado": total_cobrado,
             "ganancia_neta": ganancia_neta,
             "saldo_restante_total": saldo_restante_total,
+            "progreso_ruta": progreso_ruta,
             "activos": activos,
             "en_mora": en_mora,
             "cuotas_hoy_valor": cuotas_hoy_valor,
@@ -923,6 +925,8 @@ def clientes_perfil(cid):
                 uid,
                 is_admin,
             )
+            nivel_r = request.form.get("nivel_riesgo", "excelente").strip()
+            db.actualizar_nivel_riesgo_cliente(cid, nivel_r, uid, is_admin)
             flash("Información personal actualizada.", "ok")
         except Exception as e:
             logger.error(f"Error actualizando cliente {cid}: {e}")
@@ -2186,7 +2190,8 @@ def cobro_hoy():
                 valor_cuota = float(r[5] or 0)
                 tasa = float(r[8] or 0)
                 mora_total += valor_cuota * (tasa / 100) * dias
-    return render_template("cobro_hoy.html", rows=rows, total=total, mora_total=mora_total, count=len(rows))
+    progreso_ruta = db.obtener_progreso_ruta_hoy(uid, is_admin)
+    return render_template("cobro_hoy.html", rows=rows, total=total, mora_total=mora_total, count=len(rows), progreso_ruta=progreso_ruta)
 
 
 # ---------- WhatsApp / Evolution API ----------

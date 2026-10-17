@@ -78,6 +78,15 @@ if (document.getElementById('input-foto')) {
       <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Observaciones / Notas adicionales del cliente</label>
       <textarea name="notas" rows="3" placeholder="Información adicional o notas sobre el cliente..." class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>{{ cliente[7] or '' }}</textarea>
     </div>
+    <div class="space-y-1">
+      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Semáforo de Riesgo de Pago</label>
+      {% set r_nivel = (cliente[8] or 'excelente')|lower %}
+      <select name="nivel_riesgo" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs font-bold outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}">
+        <option value="excelente" {% if r_nivel == 'excelente' %}selected{% endif %}>🟢 Cliente Excelente (Puntual / Sin riesgo)</option>
+        <option value="regular" {% if r_nivel == 'regular' %}selected{% endif %}>🟡 Cliente Regular (Atrasos leves)</option>
+        <option value="riesgo" {% if r_nivel == 'riesgo' %}selected{% endif %}>🔴 Cliente de Riesgo / Moroso (Alta precaución)</option>
+      </select>
+    </div>
 
     {% if rol != 'solo_lectura' %}
     <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold shadow-lg active:scale-95 transition-transform">Guardar cambios</button>

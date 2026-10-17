@@ -5,6 +5,22 @@
 <h1 class="text-xl font-black text-white mb-1">Ruta de Cobro</h1>
 <p class="text-slate-400 text-xs mb-3">{{ count }} por cobrar · {{ fmt_money(total) }} total{% if mora_total > 0 %} · {{ fmt_money(mora_total) }} mora{% endif %}</p>
 
+<!-- BARRA DE CUMPLIMIENTO DE LA RUTA DE COBRO -->
+{% if progreso_ruta %}
+<div class="rounded-2xl bg-panel border border-slate-800 p-4 mb-4 shadow-xl space-y-2">
+  <div class="flex justify-between items-center text-xs font-bold flex-wrap gap-2">
+    <span class="text-white uppercase tracking-wider flex items-center gap-1.5">
+      <span>📊</span> Avance de la Ruta:
+      <strong class="text-accent">{{ progreso_ruta.cobrados_hoy }} de {{ progreso_ruta.total_programados }} cobros ({{ progreso_ruta.porcentaje }}%)</strong>
+    </span>
+    <span class="text-emerald-400 font-mono text-xs sm:text-sm font-black">Recaudado Hoy: {{ fmt_money(progreso_ruta.recaudado_hoy) }}</span>
+  </div>
+  <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+    <div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full transition-all duration-500" style="width: {{ progreso_ruta.porcentaje }}%"></div>
+  </div>
+</div>
+{% endif %}
+
 <!-- BÚSQUEDA Y ORDENACIÓN DE RUTA (POR BARRIO / URGENCIA / NOMBRE) -->
 <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
   <div class="relative flex-1">
