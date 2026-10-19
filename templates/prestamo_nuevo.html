@@ -38,13 +38,16 @@
           </div>
 
           <!-- Tarjeta de Cliente Seleccionado -->
-          <div id="tarjeta-cliente-seleccionado" class="hidden rounded-xl bg-emerald-950/20 border border-emerald-500/30 p-3 flex items-center justify-between">
-            <div class="min-w-0">
-              <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Cliente Seleccionado</p>
-              <p id="cliente-nombre-display" class="text-xs font-black text-white truncate mt-0.5">—</p>
-              <p id="cliente-cedula-display" class="text-[10px] text-slate-400 font-mono mt-0.5">—</p>
+          <div id="tarjeta-cliente-seleccionado" class="hidden rounded-xl bg-emerald-950/20 border border-emerald-500/30 p-3.5 space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="min-w-0">
+                <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Cliente Seleccionado</p>
+                <p id="cliente-nombre-display" class="text-xs font-black text-white truncate mt-0.5">—</p>
+                <p id="cliente-cedula-display" class="text-[10px] text-slate-400 font-mono mt-0.5">—</p>
+              </div>
+              <button type="button" id="btn-cambiar-cliente" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold hover:bg-slate-700">Cambiar</button>
             </div>
-            <button type="button" id="btn-cambiar-cliente" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold hover:bg-slate-700">Cambiar</button>
+            <div id="cliente-riesgo-banner" class="hidden p-2 rounded-lg text-[10px] font-bold border"></div>
           </div>
           <p id="cliente-error" class="hidden text-[11px] text-rose-400 font-bold">⚠ Por favor selecciona un cliente de la lista.</p>
         </div>

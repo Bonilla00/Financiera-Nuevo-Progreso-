@@ -505,16 +505,63 @@ def get_or_create_cliente(
         return int(cur.fetchone()[0])
 
 
+def calcular_riesgo_cliente_automatico(cliente_id: int) -> str:
+    """Calcula automáticamente el riesgo del cliente basado en la puntualidad de sus cuotas y créditos."""
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            # 1. Verificar si tiene mora grave activa (atraso > 5 días)
+            cur.execute(
+                """
+                SELECT COUNT(*) as num_mora
+                FROM prestamos
+                WHERE cliente_id = %s AND estado = 'ACTIVO'
+                  AND proximo_pago IS NOT NULL AND TRIM(proximo_pago) <> ''
+                  AND (proximo_pago::date) < CURRENT_DATE - INTERVAL '5 days'
+                """,
+                (cliente_id,)
+            )
+            if cur.fetchone()['num_mora'] > 0:
+                return "riesgo"
+
+            # 2. Verificar si tiene mora leve activa (atraso de 1 a 5 días)
+            cur.execute(
+                """
+                SELECT COUNT(*) as num_mora_leve
+                FROM prestamos
+                WHERE cliente_id = %s AND estado = 'ACTIVO'
+                  AND proximo_pago IS NOT NULL AND TRIM(proximo_pago) <> ''
+                  AND (proximo_pago::date) < CURRENT_DATE
+                """,
+                (cliente_id,)
+            )
+            if cur.fetchone()['num_mora_leve'] > 0:
+                return "regular"
+
+            # 3. Si no tiene mora activa, verificar si tiene calificación guardada
+            cur.execute("SELECT nivel_riesgo FROM clientes WHERE id = %s", (cliente_id,))
+            row = cur.fetchone()
+            if row and row['nivel_riesgo']:
+                return str(row['nivel_riesgo']).lower().strip()
+
+            return "excelente"
+    except Exception as e:
+        logger.error(f"Error calculando riesgo automático para cliente {cliente_id}: {e}")
+        return "excelente"
+
+
 def obtener_cliente(cid: int, user_id: int, is_admin: bool):
     extra, params = _filtro_owner("c", user_id, is_admin)
+    riesgo_auto = calcular_riesgo_cliente_automatico(cid)
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto, c.notas, c.nivel_riesgo
+            SELECT c.id, c.nombre, c.identificacion, c.telefono, c.barrio, c.direccion, c.foto, c.notas, %s as nivel_riesgo
             FROM clientes c WHERE c.id = %s {extra}
             """,
-            (cid,) + params,
+            (riesgo_auto, cid) + params,
         )
         return cur.fetchone()
 

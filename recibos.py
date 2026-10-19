@@ -53,6 +53,14 @@ def _money(v: float) -> str:
     return f"${float(v):,.2f}"
 
 
+def _now_colombia() -> datetime:
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Bogota"))
+    except Exception:
+        return datetime.now()
+
+
 def _fecha_recibo(fecha) -> str:
     raw = str(fecha or "").strip()
     dt = None
@@ -68,9 +76,9 @@ def _fecha_recibo(fecha) -> str:
         except ValueError:
             continue
     if dt is None:
-        dt = datetime.now()
+        dt = _now_colombia()
     if len(raw) <= 10:
-        now = datetime.now()
+        now = _now_colombia()
         dt = dt.replace(hour=now.hour, minute=now.minute)
     ampm = "am" if dt.hour < 12 else "pm"
     hour = dt.hour % 12 or 12

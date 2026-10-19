@@ -377,8 +377,16 @@ def fmt_money(valor):
         return "$0"
 
 
+def now_colombia() -> datetime:
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Bogota"))
+    except Exception:
+        return datetime.now()
+
+
 def today_str():
-    return datetime.now().strftime("%Y-%m-%d")
+    return now_colombia().strftime("%Y-%m-%d")
 
 
 def _parse_fecha_iso(val):
