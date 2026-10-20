@@ -72,8 +72,17 @@
                 <option value="mensual" selected>Mensual</option>
               </select>
             </div>
-            <div>
+            <div class="sm:col-span-2">
               <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Monto a Prestar ($)</label>
+              <!-- Selección Rápida de Montos para Nuevo Crédito -->
+              <div class="flex items-center gap-2 overflow-x-auto pb-1 mb-1.5 custom-scrollbar">
+                <button type="button" onclick="setMontoNuevo(50000)" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$50,000</button>
+                <button type="button" onclick="setMontoNuevo(100000)" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$100,000</button>
+                <button type="button" onclick="setMontoNuevo(200000)" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$200,000</button>
+                <button type="button" onclick="setMontoNuevo(300000)" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$300,000</button>
+                <button type="button" onclick="setMontoNuevo(500000)" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold shrink-0 hover:text-white border border-slate-700 active:scale-95 transition-transform">$500,000</button>
+                <button type="button" onclick="setMontoNuevo(1000000)" class="px-2.5 py-1 rounded-lg bg-accent text-slate-900 text-[10px] font-black shrink-0 shadow active:scale-95 transition-transform">$1,000,000</button>
+              </div>
               <input name="monto" type="number" step="0.01" min="1" required id="campo-monto" placeholder="Ej: 300000" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-accent">
             </div>
             <div>
@@ -337,6 +346,14 @@
     tabla.innerHTML = tablaHtml;
     cardsPlan.innerHTML = cardsHtml;
   }
+
+  window.setMontoNuevo = function(val) {
+    const el = document.getElementById('campo-monto');
+    if (el) {
+      el.value = val;
+      el.dispatchEvent(new Event('input'));
+    }
+  };
 
   ['campo-monto', 'campo-tasa', 'campo-cuotas', 'campo-fecha', 'campo-frecuencia'].forEach(id => {
     const el = document.getElementById(id);
