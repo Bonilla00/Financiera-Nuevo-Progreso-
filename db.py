@@ -13,6 +13,7 @@ from typing import Optional
 
 import psycopg2
 import psycopg2.extras
+from psycopg2.pool import ThreadedConnectionPool
 from werkzeug.security import generate_password_hash
 
 logger = logging.getLogger(__name__)
@@ -27,9 +28,35 @@ def _dsn() -> str:
     return url
 
 
+_db_pool = None
+
+
+def init_db_pool(minconn=1, maxconn=15):
+    global _db_pool
+    if _db_pool is None:
+        try:
+            _db_pool = ThreadedConnectionPool(minconn, maxconn, _dsn())
+            logger.info("Connection pool de PostgreSQL (ThreadedConnectionPool) inicializado exitosamente.")
+        except Exception as e:
+            logger.error(f"Error inicializando connection pool: {e}")
+
+
 @contextmanager
 def get_conn():
-    conn = psycopg2.connect(_dsn())
+    global _db_pool
+    if _db_pool is None:
+        init_db_pool()
+
+    conn = None
+    if _db_pool:
+        try:
+            conn = _db_pool.getconn()
+        except Exception:
+            conn = None
+
+    if not conn:
+        conn = psycopg2.connect(_dsn())
+
     try:
         yield conn
         conn.commit()
@@ -37,7 +64,19 @@ def get_conn():
         conn.rollback()
         raise
     finally:
-        conn.close()
+        if _db_pool and conn:
+            try:
+                _db_pool.putconn(conn)
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        else:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def ensure_schema_migrations() -> None:
