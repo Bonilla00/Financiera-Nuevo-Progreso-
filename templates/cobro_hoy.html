@@ -76,12 +76,18 @@
 
       <div class="flex flex-col gap-2 shrink-0 justify-center">
         <a href="{{ url_for('prestamos_cobrar', pid=r[0]) }}" class="px-3 py-2 rounded-xl bg-accent text-slate-900 font-black text-xs uppercase shadow text-center">Cobrar</a>
-        <div class="flex gap-1 justify-center">
+        <div class="flex gap-1 justify-center flex-wrap">
           {% if tel_h %}
           <a href="{{ tel_h }}" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs" title="Llamar">📞</a>
           {% endif %}
+          {% if r[4] %}
+          {% set negocio_nombre = db.obtener_negocio_usuario(session.user_id).nombre_negocio %}
+          <a href="{{ url_whatsapp_camino(r[4], r[1], r[5], negocio_nombre) }}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded-lg bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 text-[10px] font-bold flex items-center gap-1" title="Avisar Voy en Camino">
+            <span>🛵</span> En camino
+          </a>
+          {% endif %}
           {% if wa_h %}
-          <a href="{{ wa_h }}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 text-xs" title="WhatsApp">💬</a>
+          <a href="{{ wa_h }}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-slate-800 text-emerald-400 text-xs" title="WhatsApp General">💬</a>
           {% endif %}
           {% if mapas %}
           <a href="{{ mapas }}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-blue-950/60 text-blue-400 border border-blue-800/50 text-xs" title="Google Maps">📍</a>

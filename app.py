@@ -39,6 +39,7 @@ from utils_web import (
     url_maps,
     url_tel,
     url_whatsapp,
+    url_whatsapp_camino,
 )
 
 try:
@@ -473,6 +474,7 @@ def inject_globals():
         "frecuencia_label": frecuencia_label,
         "url_tel": url_tel,
         "url_whatsapp": url_whatsapp,
+        "url_whatsapp_camino": url_whatsapp_camino,
         "url_maps": url_maps,
     }
 

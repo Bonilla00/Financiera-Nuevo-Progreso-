@@ -86,6 +86,16 @@ def url_whatsapp(tel, nombre="", valor=0, num_cuota=0):
     return f"https://wa.me/{d}"
 
 
+def url_whatsapp_camino(tel, nombre="", valor=0, negocio=""):
+    d = solo_digitos_telefono(tel)
+    if not d:
+        return ""
+    if len(d) <= 10 and not d.startswith("57"):
+        d = "57" + d
+    msg = f"Hola {nombre}, te informamos que vamos en camino a tu dirección para realizar el cobro de la cuota de hoy por ${int(valor):,}. ¡Muchas gracias! — {negocio or 'Financiera'}"
+    return f"https://wa.me/{d}?text=" + quote(msg)
+
+
 def url_maps(direccion, barrio):
     """Solo dirección y barrio (sin nombre del cliente) para que Maps geocodifique la ubicación."""
     parts = []
