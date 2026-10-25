@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Iniciar sesión — Financiera NP{% endblock %}
+{% block title %}Iniciar sesión — Ecosistema de Gestión Financiera{% endblock %}
 {% block content %}
 <style>
   @keyframes fadeInUp {
@@ -9,29 +9,99 @@
   .animate-enter {
     animation: fadeInUp 0.6s ease-out forwards;
   }
+  .login-glow-bg {
+    position: relative;
+    overflow: hidden;
+  }
+  .login-glow-bg::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 70% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
 </style>
 
-<div class="animate-enter">
-  <div class="flex flex-col items-center mb-6">
-    <p class="text-[10px] font-black text-slate-400 tracking-[0.25em] uppercase mb-1">Ecosistema de</p>
-    <h1 class="text-xl sm:text-2xl font-black text-white uppercase tracking-tight text-center leading-none">
-      Gestión <span class="text-accent">Financiera</span>
+<div class="login-glow-bg min-h-[85vh] flex flex-col items-center justify-center py-8 px-4 sm:px-6 relative z-10 animate-enter">
+
+  <!-- Encabezado y Logo -->
+  <div class="flex flex-col items-center text-center mb-8 max-w-2xl mx-auto">
+    <div class="mb-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-xl backdrop-blur-md">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+    </div>
+
+    <p class="text-[11px] sm:text-xs font-black text-slate-400 tracking-[0.3em] uppercase mb-1">Ecosistema de</p>
+    <h1 class="text-2xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tight leading-tight">
+      Gestión <span class="text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.4)]">Financiera</span>
     </h1>
-    <div class="w-12 h-0.5 bg-accent mt-3 rounded-full"></div>
+    <div class="w-16 h-1 bg-gradient-to-r from-emerald-500 to-cyan-400 mt-3 rounded-full shadow-lg shadow-emerald-500/20"></div>
+    <p class="text-slate-400 text-xs sm:text-sm mt-4 font-medium">Ingresa con tu usuario y clave.</p>
   </div>
-  <p class="text-slate-400 text-sm text-center mb-6">Ingresa con tu usuario y clave.</p>
-  <form method="post" class="space-y-4 bg-panel rounded-2xl border border-slate-700 p-5" data-loading-submit data-loading-label="Procesando…">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div>
-      <label class="block text-sm text-slate-400 mb-1">Usuario</label>
-      <input name="username" autocomplete="username" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white focus:ring-2 focus:ring-accent focus:border-accent outline-none">
-    </div>
-    <div>
-      <label class="block text-sm text-slate-400 mb-1">Clave</label>
-      <input type="password" name="password" autocomplete="current-password" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white focus:ring-2 focus:ring-accent outline-none">
-    </div>
-    <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold border border-cyan-300">Entrar</button>
-    <p class="text-center text-xs text-slate-500 mt-3">¿Olvidaste tu contraseña? Contacta al administrador.</p>
-  </form>
+
+  <!-- Tarjeta de Formulario Principal -->
+  <div class="w-full max-w-[850px] mx-auto bg-[#111827]/90 backdrop-blur-2xl border border-cyan-500/30 rounded-3xl p-6 sm:p-10 md:p-12 shadow-[0_25px_60px_rgba(0,0,0,0.6)] relative z-10">
+    <form method="post" class="space-y-6" data-loading-submit data-loading-label="Verificando acceso…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- Campo Usuario -->
+      <div class="space-y-2">
+        <label class="block text-xs sm:text-sm font-bold text-slate-300 uppercase tracking-wider ml-1">Usuario</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          </span>
+          <input name="username" autocomplete="username" required placeholder="Usuario"
+                 class="w-full rounded-2xl bg-[#0B132B]/80 border border-slate-700/80 pl-12 pr-4 py-3.5 sm:py-4 text-white text-sm sm:text-base font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all shadow-inner">
+        </div>
+      </div>
+
+      <!-- Campo Clave -->
+      <div class="space-y-2">
+        <label class="block text-xs sm:text-sm font-bold text-slate-300 uppercase tracking-wider ml-1">Clave</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </span>
+          <input type="password" id="input-password" name="password" autocomplete="current-password" required placeholder="Clave"
+                 class="w-full rounded-2xl bg-[#0B132B]/80 border border-slate-700/80 pl-12 pr-12 py-3.5 sm:py-4 text-white text-sm sm:text-base font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all shadow-inner">
+          <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-white transition-colors" title="Ver contraseña">
+            <svg id="eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Botón Entrar -->
+      <div class="pt-2">
+        <button type="submit" class="w-full py-4 sm:py-4.5 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 text-slate-950 font-black text-base sm:text-lg uppercase tracking-wider shadow-[0_10px_30px_rgba(16,185,129,0.4)] active:scale-[0.99] transition-all">
+          Entrar
+        </button>
+      </div>
+
+      <!-- Footer Olvido -->
+      <p class="text-center text-xs sm:text-sm text-slate-400 pt-3 border-t border-slate-800/80 mt-6">
+        ¿Olvidaste tu contraseña? Contacta al administrador.
+      </p>
+    </form>
+  </div>
+
 </div>
+
+<script>
+function togglePassword() {
+  const input = document.getElementById('input-password');
+  const icon = document.getElementById('eye-icon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.07 10.07 0 014.213-5.26m3.59-1.51a9.954 9.954 0 014.739-.81c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18"/>';
+  } else {
+    input.type = 'password';
+    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0 z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+  }
+}
+</script>
 {% endblock %}
