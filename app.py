@@ -4,6 +4,8 @@ import time
 import json
 import secrets
 import re
+import base64
+from PIL import Image
 from datetime import date, datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -462,7 +464,15 @@ def admin_required(f):
 
 @app.context_processor
 def inject_globals():
-    _, __, is_admin, rol, permisos = ctx_user()
+    uid, __, is_admin, rol, permisos = ctx_user()
+    negocio = db.obtener_negocio_usuario(uid) if uid else {
+        "nombre_negocio": "Financiera Nuevo Progreso",
+        "nombre_corto": "Financiera NP",
+        "telefono_negocio": "",
+        "logo_negocio": "",
+        "color_primario": "#22C55E",
+        "color_secundario": "#0F172A"
+    }
     return {
         "db": db,
         "fmt_money": fmt_money,
@@ -476,6 +486,7 @@ def inject_globals():
         "url_whatsapp": url_whatsapp,
         "url_whatsapp_camino": url_whatsapp_camino,
         "url_maps": url_maps,
+        "negocio": negocio,
     }
 
 
@@ -1849,14 +1860,36 @@ def configuracion():
                     flash("Usuario actualizado.", "ok")
                     return redirect(url_for("configuracion"))
         elif action == "cambiar_negocio":
-            nombre = request.form.get("nombre_negocio", "").strip()
-            telefono = request.form.get("telefono_negocio", "").strip()
-            if not nombre:
-                flash("El nombre del negocio es obligatorio.", "error")
-            else:
-                db.actualizar_negocio_usuario(uid, nombre, telefono)
-                flash("Nombre del negocio actualizado.", "ok")
-                return redirect(url_for("configuracion"))
+            nombre_negocio = request.form.get("nombre_negocio", "").strip()
+            nombre_corto = request.form.get("nombre_corto", "").strip()
+            telefono_negocio = request.form.get("telefono_negocio", "").strip()
+            color_primario = request.form.get("color_primario", "#22C55E").strip()
+            color_secundario = request.form.get("color_secundario", "#0F172A").strip()
+
+            logo_file = request.files.get("logo_file")
+            logo_base64 = None
+            if logo_file and logo_file.filename:
+                try:
+                    img = Image.open(logo_file)
+                    img.verify()
+                    logo_file.seek(0)
+                    raw_data = logo_file.read()
+                    if len(raw_data) > 2 * 1024 * 1024:
+                        flash("El logo no puede pesar más de 2 MB.", "error")
+                        return redirect(url_for("configuracion"))
+                    b64 = base64.b64encode(raw_data).decode("utf-8")
+                    mime = logo_file.mimetype or "image/png"
+                    logo_base64 = f"data:{mime};base64,{b64}"
+                except Exception as e:
+                    logger.error(f"Error procesando logo de empresa: {e}")
+                    flash("El archivo subido no es una imagen válida.", "error")
+                    return redirect(url_for("configuracion"))
+
+            db.actualizar_negocio_usuario(
+                uid, nombre_negocio, nombre_corto, telefono_negocio, color_primario, color_secundario, logo_base64
+            )
+            flash("Identidad empresarial actualizada correctamente.", "ok")
+            return redirect(url_for("configuracion"))
         elif action == "cambiar_password":
             actual = request.form.get("password_actual", "")
             n1 = request.form.get("password_nueva", "")

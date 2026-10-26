@@ -4,21 +4,58 @@
 <h1 class="text-xl font-bold mb-4">Más / Configuración</h1>
 <p class="text-slate-400 text-sm mb-4">Usuario: <span class="text-white">{{ session.username }}</span></p>
 
-<!-- Formulario de Marca Blanca (Nombre de Negocio) -->
-<form method="post" class="space-y-3 bg-panel rounded-2xl border border-slate-700 p-4 mb-6" data-loading-submit data-loading-label="Guardando…">
+<!-- Formulario de Identidad de mi Empresa (Marca Blanca) -->
+<form method="post" enctype="multipart/form-data" class="space-y-4 bg-panel rounded-2xl border border-slate-700 p-5 mb-6 shadow-xl" data-loading-submit data-loading-label="Guardando identidad…">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="accion" value="cambiar_negocio">
-  <h2 class="font-semibold text-accent text-sm">🏢 Nombre de tu Negocio (Marca Blanca)</h2>
-  <p class="text-xs text-slate-400">Personaliza el nombre de tu negocio para que aparezca en tus recibos impresos, PDF y planillas de cobro.</p>
-  <div class="space-y-1">
-    <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Nombre del Negocio</label>
-    <input type="text" name="nombre_negocio" value="{{ negocio.nombre_negocio }}" required class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs">
+
+  <div class="flex items-center gap-3 mb-2">
+    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-lg">🏢</div>
+    <h2 class="font-bold text-white text-base">Identidad de mi Empresa (Marca Blanca)</h2>
   </div>
-  <div class="space-y-1">
-    <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Teléfono de contacto</label>
-    <input type="text" name="telefono_negocio" value="{{ negocio.telefono_negocio }}" placeholder="Ej: 3001234567" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs">
+  <p class="text-xs text-slate-400">Personaliza el nombre, colores y logotipo de tu negocio. Estos datos aparecerán en tu menú, recibos, PDFs y planillas de cobro.</p>
+
+  <div class="space-y-3 pt-2">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Nombre Completo del Negocio</label>
+        <input type="text" name="nombre_negocio" value="{{ negocio.nombre_negocio }}" required class="w-full rounded-xl bg-panel2 border border-slate-700 px-3 py-2.5 text-white text-xs focus:border-accent outline-none">
+      </div>
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Nombre Corto (Encabezado)</label>
+        <input type="text" name="nombre_corto" value="{{ negocio.nombre_corto }}" required placeholder="Ej: Mi Financiera" class="w-full rounded-xl bg-panel2 border border-slate-700 px-3 py-2.5 text-white text-xs focus:border-accent outline-none">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Teléfono de Contacto</label>
+        <input type="text" name="telefono_negocio" value="{{ negocio.telefono_negocio }}" placeholder="Ej: 3001234567" class="w-full rounded-xl bg-panel2 border border-slate-700 px-3 py-2.5 text-white text-xs focus:border-accent outline-none">
+      </div>
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Color Principal</label>
+        <input type="color" name="color_primario" value="{{ negocio.color_primario }}" class="w-full h-10 rounded-xl bg-panel2 border border-slate-700 px-2 py-1 cursor-pointer">
+      </div>
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Color Secundario</label>
+        <input type="color" name="color_secundario" value="{{ negocio.color_secundario }}" class="w-full h-10 rounded-xl bg-panel2 border border-slate-700 px-2 py-1 cursor-pointer">
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Logotipo de la Empresa (PNG/JPG, Máx. 2MB)</label>
+      <div class="flex items-center gap-4">
+        {% if negocio.logo_negocio %}
+        <img src="{{ negocio.logo_negocio }}" alt="Logo empresa" class="w-12 h-12 rounded-xl object-cover border border-slate-600 shrink-0">
+        {% endif %}
+        <input type="file" name="logo_file" accept="image/png, image/jpeg, image/jpg" class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-800 file:text-accent file:font-bold hover:file:bg-slate-700">
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase tracking-wider shadow-lg">Guardar Identidad Empresarial</button>
+    </div>
   </div>
-  <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase shadow">Guardar Negocio</button>
 </form>
 
 <!-- Copia de seguridad personal -->

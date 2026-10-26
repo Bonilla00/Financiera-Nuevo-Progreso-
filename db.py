@@ -100,8 +100,11 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT TRUE",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_negocio VARCHAR(150) DEFAULT 'Financiera Nuevo Progreso'",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_corto VARCHAR(50) DEFAULT 'Financiera NP'",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono_negocio VARCHAR(50)",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS logo_negocio TEXT",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS color_primario VARCHAR(20) DEFAULT '#22C55E'",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS color_secundario VARCHAR(20) DEFAULT '#0F172A'",
         "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, user_id INT, accion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
         "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL",
@@ -2658,32 +2661,71 @@ def obtener_progreso_ruta_hoy(user_id: int, is_admin: bool) -> dict:
         }
 
 
-# ---------- configuración de negocio por usuario (puestos/marca blanca) ----------
+# ---------- configuración de negocio por usuario y notificaciones independientes ----------
 def obtener_negocio_usuario(user_id: int) -> dict:
     try:
         with get_conn() as conn:
             cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            cur.execute("SELECT nombre_negocio, telefono_negocio, logo_negocio FROM usuarios WHERE id = %s", (user_id,))
+            cur.execute("SELECT nombre_negocio, nombre_corto, telefono_negocio, logo_negocio, color_primario, color_secundario FROM usuarios WHERE id = %s", (user_id,))
             row = cur.fetchone()
             if row:
                 return {
                     "nombre_negocio": row["nombre_negocio"] or "Financiera Nuevo Progreso",
+                    "nombre_corto": row["nombre_corto"] or "Financiera NP",
                     "telefono_negocio": row["telefono_negocio"] or "",
-                    "logo_negocio": row["logo_negocio"] or ""
+                    "logo_negocio": row["logo_negocio"] or "",
+                    "color_primario": row["color_primario"] or "#22C55E",
+                    "color_secundario": row["color_secundario"] or "#0F172A"
                 }
     except Exception:
         pass
-    return {"nombre_negocio": "Financiera Nuevo Progreso", "telefono_negocio": "", "logo_negocio": ""}
+    return {
+        "nombre_negocio": "Financiera Nuevo Progreso",
+        "nombre_corto": "Financiera NP",
+        "telefono_negocio": "",
+        "logo_negocio": "",
+        "color_primario": "#22C55E",
+        "color_secundario": "#0F172A"
+    }
 
 
-def actualizar_negocio_usuario(user_id: int, nombre_negocio: str, telefono_negocio: str) -> bool:
+def actualizar_negocio_usuario(user_id: int, nombre_negocio: str, nombre_corto: str, telefono_negocio: str, color_primario: str, color_secundario: str, logo_negocio: str | None) -> bool:
     try:
         with get_conn() as conn:
             cur = conn.cursor()
-            cur.execute(
-                "UPDATE usuarios SET nombre_negocio = %s, telefono_negocio = %s WHERE id = %s",
-                (nombre_negocio.strip() or "Financiera Nuevo Progreso", telefono_negocio.strip(), user_id)
-            )
+            if logo_negocio is not None:
+                cur.execute(
+                    """
+                    UPDATE usuarios
+                    SET nombre_negocio = %s, nombre_corto = %s, telefono_negocio = %s, color_primario = %s, color_secundario = %s, logo_negocio = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        nombre_negocio.strip() or "Financiera Nuevo Progreso",
+                        nombre_corto.strip() or "Financiera NP",
+                        telefono_negocio.strip(),
+                        color_primario.strip() or "#22C55E",
+                        color_secundario.strip() or "#0F172A",
+                        logo_negocio,
+                        user_id
+                    )
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE usuarios
+                    SET nombre_negocio = %s, nombre_corto = %s, telefono_negocio = %s, color_primario = %s, color_secundario = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        nombre_negocio.strip() or "Financiera Nuevo Progreso",
+                        nombre_corto.strip() or "Financiera NP",
+                        telefono_negocio.strip(),
+                        color_primario.strip() or "#22C55E",
+                        color_secundario.strip() or "#0F172A",
+                        user_id
+                    )
+                )
             return cur.rowcount > 0
     except Exception as e:
         logger.error(f"Error actualizando negocio de usuario {user_id}: {e}")
