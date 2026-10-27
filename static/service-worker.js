@@ -1,4 +1,4 @@
-const CACHE = "ecosistema-financiero-v2";
+const CACHE = "ecosistema-financiero-v3";
 const OFFLINE_URL = "/";
 const ASSETS = [
   "/",
