@@ -1,7 +1,7 @@
 {
-  "name": "Financiera Nuevo Progreso",
-  "short_name": "Financiera NP",
-  "description": "Gestión de préstamos y pagos para tu financiera en móvil.",
+  "name": "Ecosistema de Gestión Financiera",
+  "short_name": "Ecosistema Financiero",
+  "description": "Ecosistema de Gestión Financiera para control de préstamos, clientes y cobros.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
