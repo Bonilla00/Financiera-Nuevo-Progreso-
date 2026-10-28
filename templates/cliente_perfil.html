@@ -1,251 +1,355 @@
 {% extends "base.html" %}
 {% block title %}{{ cliente[1] }} — Perfil{% endblock %}
+
 {% block content %}
-<div class="flex items-start justify-between gap-2 mb-4">
-  <div class="flex flex-col items-center gap-3">
-    {% if cliente[6] %}
-    <img src="{{ cliente[6] }}" id="avatar-img" class="w-20 h-20 rounded-full object-cover border-2 border-cyan-500 cursor-pointer hover:opacity-90 transition-opacity" onclick="document.getElementById('foto-modal').classList.remove('hidden')">
-    {% else %}
-    <div class="w-20 h-20 rounded-full bg-[#1F2937] flex items-center justify-center text-2xl font-bold text-[#22D3EE]">
-      {{ cliente[1][0].upper() }}
-    </div>
-    {% endif %}
-    {% if rol != 'solo_lectura' %}
-    <input type="file" id="input-foto" accept="image/*" class="hidden">
-    <button onclick="document.getElementById('input-foto').click()" class="px-3 py-1 rounded-lg bg-panel2 border border-cyan-600/50 text-xs text-cyan-400">Cambiar foto</button>
-    {% endif %}
-  </div>
+<div class="space-y-6 pb-8">
+
+  <!-- Enlace Volver -->
   <div>
-    <h1 class="text-xl font-bold text-white leading-tight uppercase">{{ cliente[1] }}</h1>
-    <p class="text-slate-400 text-sm">{{ cliente[2] }}</p>
+    <a href="{{ url_for('clientes_list') }}" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white font-bold transition-colors">
+      ← Volver a clientes
+    </a>
   </div>
-  <a href="{{ url_for('clientes_list') }}" class="text-xs text-accent shrink-0 mt-1">← Clientes</a>
-</div>
 
-<script>
-const clienteId = {{ cliente[0] }};
-if (document.getElementById('input-foto')) {
-  document.getElementById('input-foto').addEventListener('change', async function() {
-    const file = this.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = document.getElementById('avatar-img');
-      if (img && img.tagName === 'IMG') {
-        img.src = e.target.result;
-      } else {
-        location.reload();
-      }
-    };
-    reader.readAsDataURL(file);
-    const fd = new FormData();
-    fd.append('foto', file);
-    try {
-      const r = await fetch(`/clientes/${clienteId}/foto`, {method: 'POST', body: fd});
-      const d = await r.json();
-      if (!d.ok) alert(d.error || 'Error al subir');
-    } catch(e) { alert('Error de conexión'); }
-  });
-}
-</script>
+  <!-- ENCABEZADO DEL CLIENTE -->
+  {% set r_nivel = (cliente[8] or 'excelente')|lower %}
+  <div class="bg-panel rounded-3xl border border-slate-800 p-6 shadow-2xl space-y-6">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
 
-<section class="mb-6 bg-panel rounded-2xl border border-slate-700 p-4">
-  <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Información personal</h2>
-  <form method="post" class="space-y-3" data-loading-submit data-loading-label="Procesando…">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="accion" value="guardar_datos">
-    <div class="space-y-1">
-      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Nombre Completo</label>
-      <input name="nombre" placeholder="Nombre" required value="{{ cliente[1] }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
-    </div>
-    <div class="space-y-1">
-      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Identificación</label>
-      <input name="identificacion" placeholder="Identificación" required value="{{ cliente[2] }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
-    </div>
-    <div class="space-y-1">
-      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Teléfono</label>
-      <input name="telefono" placeholder="Teléfono" value="{{ cliente[3] or '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
-    </div>
-    <div class="space-y-1">
-      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Barrio</label>
-      <input name="barrio" placeholder="Barrio" value="{{ cliente[4] or '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
-    </div>
-    <div class="space-y-1">
-      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Dirección</label>
-      <input name="direccion" placeholder="Dirección" value="{{ cliente[5] or '' }}" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
-    </div>
-    <div class="space-y-1">
-      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Observaciones / Notas adicionales del cliente</label>
-      <textarea name="notas" rows="3" placeholder="Información adicional o notas sobre el cliente..." class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>{{ cliente[7] or '' }}</textarea>
-    </div>
-    <div class="space-y-1">
-      <label class="text-[10px] text-slate-500 font-bold uppercase ml-1">Semáforo de Riesgo de Pago</label>
-      {% set r_nivel = (cliente[8] or 'excelente')|lower %}
-      <select name="nivel_riesgo" class="w-full rounded-xl bg-panel2 border border-slate-600 px-3 py-2 text-white text-xs font-bold outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}">
-        <option value="excelente" {% if r_nivel == 'excelente' %}selected{% endif %}>🟢 Cliente Excelente (Puntual / Sin riesgo)</option>
-        <option value="regular" {% if r_nivel == 'regular' %}selected{% endif %}>🟡 Cliente Regular (Atrasos leves)</option>
-        <option value="riesgo" {% if r_nivel == 'riesgo' %}selected{% endif %}>🔴 Cliente de Riesgo / Moroso (Alta precaución)</option>
-      </select>
-    </div>
-
-    {% if rol != 'solo_lectura' %}
-    <button type="submit" class="w-full py-3 rounded-xl bg-accent text-slate-900 font-bold shadow-lg active:scale-95 transition-transform">Guardar cambios</button>
-    {% endif %}
-  </form>
-
-    {% if cliente[3] or cliente[4] or cliente[5] %}
-  <div class="flex gap-2 mt-4 pt-4 border-t border-slate-700">
-    {% if cliente[3] %}
-    <a href="{{ url_whatsapp(cliente[3]) }}" target="_blank" rel="noopener noreferrer" class="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">💬 WhatsApp</a>
-    <a href="{{ url_tel(cliente[3]) }}" class="flex items-center justify-center px-3 py-2 rounded-xl bg-slate-700 text-slate-300 text-xs font-bold" title="Llamar">📞</a>
-    {% endif %}
-    {% if cliente[4] or cliente[5] %}
-    <a href="{{ url_maps(cliente[5], cliente[4]) }}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold" title="Google Maps">📍</a>
-    {% endif %}
-  </div>
-  {% endif %}
-</section>
-
-<section class="bg-panel rounded-2xl border border-slate-700 p-4">
-  <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Préstamos Activos</h2>
-  <div class="space-y-3">
-    {% for pr in prestamos %}
-    <div class="rounded-xl border {% if pr.en_mora %}border-red-500/50 bg-red-900/10{% else %}border-slate-600 bg-panel2/50{% endif %} p-3">
-      <div class="flex justify-between items-start gap-2 mb-2">
-        <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest {% if pr.estado == 'PAGADO' %}bg-emerald-900/60 text-emerald-200{% else %}bg-amber-900/50 text-amber-200{% endif %}">{{ pr.estado }}</span>
-      </div>
-
-      {% if pr.en_mora %}
-      <p class="text-[10px] text-red-400 font-bold uppercase tracking-tighter mb-2">⚠️ ESTE PRÉSTAMO SE ENCUENTRA EN MORA</p>
-      {% endif %}
-
-      <div class="grid grid-cols-2 gap-2 text-xs">
-        <div>
-          <p class="text-slate-500 font-bold uppercase text-[9px]">Monto original</p>
-          <p class="text-white font-medium">{{ fmt_money(pr.monto) }}</p>
-        </div>
-        <div>
-          <p class="text-slate-500 font-bold uppercase text-[9px]">Cuotas pagadas</p>
-          <p class="text-accent font-semibold">{{ pr.pagadas }} / {{ pr.cuotas }}</p>
-        </div>
-        <div>
-          <p class="text-slate-500 font-bold uppercase text-[9px]">Próximo pago</p>
-          <p class="text-white font-bold">{{ fecha_proximo_pago_texto(pr.proximo_pago) or 'Finalizado' }}</p>
-        </div>
-        <div>
-          <p class="text-slate-500 font-bold uppercase text-[9px]">Saldo Pendiente</p>
-          <p class="text-accent font-bold">{{ fmt_money(pr.saldo) }}</p>
-        </div>
-      </div>
-
-      <!-- Plan de Pagos / Cuotas -->
-      <div class="mt-4 pt-4 border-t border-slate-800 space-y-2">
-        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Plan de Pagos</h3>
-        <div class="space-y-1.5">
-          {% for pg in pr.pagos|reverse %}
-          <div class="flex justify-between items-center bg-slate-900/50 rounded-xl px-3 py-2 border border-slate-800">
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-bold text-emerald-400">CUOTA {{ pg.cuota }}</span>
-              <span class="text-[10px] text-slate-500">{{ pg.fecha }}</span>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="text-xs font-bold text-white">{{ fmt_money(pg.valor) }}</span>
-              {% if permisos.get('eliminar_cuotas_pagadas') or is_admin %}
-              <button type="button"
-                      onclick="abrirModalRevertir({{ pg.id }}, {{ pr.id }}, '{{ cliente[1] }}', {{ pg.cuota }}, {{ pg.valor }}, '{{ pg.fecha }}')"
-                      class="text-[10px] font-bold text-rose-500 hover:text-rose-400 uppercase">Eliminar</button>
-              {% endif %}
-            </div>
-          </div>
-          {% endfor %}
-
-          {% if pr.pagadas < pr.cuotas %}
-          <div class="flex justify-between items-center bg-slate-800/20 rounded-xl px-3 py-2 border border-dashed {% if pr.en_mora %}border-rose-500/50{% else %}border-slate-700{% endif %}">
-            <div>
-              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Cuota {{ pr.pagadas + 1 }} - Pendiente</span>
-              {% if pr.en_mora %}
-              <p class="text-[9px] text-rose-400 font-bold uppercase mt-0.5">Vencida: + {{ fmt_money(pr.mora_estimada) }} mora</p>
-              {% endif %}
-            </div>
-            <span class="text-[10px] font-bold {% if pr.en_mora %}text-rose-500{% else %}text-slate-600{% endif %} uppercase">
-              {% if pr.en_mora %}EN MORA{% else %}PENDIENTE{% endif %}
-            </span>
+      <!-- Avatar + Datos Principales -->
+      <div class="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+        <div class="relative group shrink-0">
+          {% if cliente[6] %}
+          <img src="{{ cliente[6] }}" id="avatar-img" class="w-24 h-24 rounded-full object-cover border-2 border-emerald-500 shadow-xl cursor-pointer hover:opacity-90 transition-opacity" onclick="document.getElementById('foto-modal').classList.remove('hidden')">
+          {% else %}
+          <div class="w-24 h-24 rounded-full bg-slate-800 border-2 border-emerald-500/50 flex items-center justify-center text-3xl font-black text-emerald-400 shadow-xl">
+            {{ cliente[1][0].upper() }}
           </div>
           {% endif %}
+          {% if rol != 'solo_lectura' %}
+          <input type="file" id="input-foto" accept="image/*" class="hidden">
+          <button type="button" onclick="document.getElementById('input-foto').click()" class="absolute bottom-0 right-0 p-2 rounded-full bg-cyan-500 text-slate-950 shadow-lg hover:scale-110 active:scale-95 transition-all" title="Cambiar foto">
+            📷
+          </button>
+          {% endif %}
+        </div>
+
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight leading-tight">{{ cliente[1] }}</h1>
+          <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
+            <span class="text-xs text-slate-400 font-mono font-bold">ID: {{ cliente[2] }}</span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {% if r_nivel == 'riesgo' %}bg-rose-950/60 text-rose-400 border-rose-800/50{% elif r_nivel == 'regular' %}bg-amber-950/60 text-amber-400 border-amber-800/50{% else %}bg-emerald-950/60 text-emerald-400 border-emerald-800/50{% endif %}">
+              {{ '🔴 Cliente de Riesgo / Moroso' if r_nivel == 'riesgo' else ('🟡 Cliente Regular (Atrasos)' if r_nivel == 'regular' else '🟢 Cliente Excelente (Puntual)') }}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div class="flex flex-col gap-2 mt-4">
-        <a href="{{ url_for('pagos_list', prestamo_id=pr.id) }}" class="block text-center py-2 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold uppercase tracking-widest">Ver Historial de Pagos</a>
-
-        {% if pr.estado == 'ACTIVO' and rol != 'solo_lectura' %}
-        <a href="{{ url_for('prestamos_cobrar', pid=pr.id) }}" class="js-action-busy block text-center py-2 rounded-xl bg-accent text-slate-900 text-xs font-bold uppercase tracking-widest shadow-lg">Registrar Cobro</a>
-        {% endif %}
-
-        {% if pr.estado|lower == 'activo' and (is_admin or rol == 'cobrador') %}
-        <a href="{{ url_for('prestamos_editar', pid=pr.id) }}" class="btn-editar">
-          ✏ Editar crédito
+      <!-- Acciones Rápidas Superiores -->
+      <div class="flex items-center gap-2 flex-wrap justify-center md:justify-end w-full md:w-auto">
+        {% if cliente[3] %}
+        <a href="{{ url_whatsapp(cliente[3]) }}" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white font-bold text-xs uppercase tracking-wider border border-emerald-500/30 transition-all flex items-center gap-1.5">
+          <span>💬</span> WhatsApp
         </a>
         {% endif %}
-
-        <!-- Botón Renovar Préstamo: visible para cualquier crédito activo -->
-        {% if pr.estado == 'ACTIVO' and (is_admin or rol == 'cobrador') %}
-        <div class="relative">
-          <a href="{{ url_for('prestamos_renovar', pid=pr.id) }}" class="block text-center py-2 rounded-xl bg-purple-600 text-white text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-purple-700 transition-colors">
-              Renovar Préstamo
-          </a>
-          <p class="text-[9px] text-slate-500 text-center mt-1">
-            Lleva {{ pr.pagadas }} de {{ pr.cuotas }} cuotas pagadas ({{ pr.cuotas - pr.pagadas }} restantes)
-          </p>
-        </div>
+        {% if rol != 'solo_lectura' %}
+        <button type="button" onclick="document.getElementById('form-info-personal').scrollIntoView({behavior: 'smooth'})" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider border border-slate-700 transition-all flex items-center gap-1.5">
+          <span>✏️</span> Editar
+        </button>
         {% endif %}
-
-        <!-- Historial de renovaciones: visible si hay renovaciones -->
         {% if is_admin %}
-        <a href="{{ url_for('prestamos_historial_renovaciones', pid=pr.id) }}" class="block text-center py-2 rounded-xl bg-slate-800/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border border-slate-700">
-            Ver Historial de Renovaciones
-        </a>
+        <form action="{{ url_for('clientes_eliminar', cid=cliente[0]) }}" method="POST" onsubmit="return confirm('¿Eliminar cliente y TODO su historial? Esta acción no se puede deshacer.');" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-400 border border-rose-800/50 font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5">
+            <span>🗑️</span> Eliminar
+          </button>
+        </form>
         {% endif %}
       </div>
     </div>
-    {% else %}
-    <div class="py-6 text-center">
-      <p class="text-slate-500 text-sm">Este cliente no tiene préstamos registrados.</p>
-    </div>
-    {% endfor %}
-  </div>
-</section>
 
-{% if is_admin and auditoria %}
-<section class="bg-panel rounded-2xl border border-slate-700 p-4 mt-4">
-  <h2 class="text-sm uppercase tracking-wide text-slate-400 font-semibold mb-3">Auditoría del Sistema</h2>
-  <div class="space-y-2">
-    {% for a in auditoria %}
-    <div class="text-[10px] border-b border-slate-800 pb-2">
-      <p class="text-slate-400">
-        <span class="text-accent font-bold">{{ a[4] }}</span> modificó
-        <span class="text-white">{{ a[1] }}</span>:
-        <span class="line-through text-slate-600">{{ a[2] or '—' }}</span> →
-        <span class="text-emerald-400 font-bold">{{ a[3] }}</span>
-      </p>
-      <p class="text-slate-600 font-mono mt-0.5">{{ a[0].strftime('%Y-%m-%d %H:%M') if a[0] }}</p>
-    </div>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
+    <!-- Fichas de Contacto Compactas (Teléfono, Barrio, Dirección) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-slate-800/80">
+      <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-lg shrink-0">📞</div>
+        <div class="min-w-0">
+          <p class="text-xs font-bold text-white font-mono truncate">{{ cliente[3] or 'Sin teléfono' }}</p>
+          <p class="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Teléfono</p>
+        </div>
+      </div>
 
-{% if is_admin %}
-<div class="mt-8 mb-4">
-  <form action="{{ url_for('clientes_eliminar', cid=cliente[0]) }}" method="POST" onsubmit="return confirm('¿Eliminar cliente y TODO su historial? Esta acción no se puede deshacer.');">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="w-full py-3 rounded-xl border border-red-500/30 text-red-500 text-xs font-bold uppercase tracking-widest hover:bg-red-500/10 transition-colors">
-      Eliminar Cliente Permanentemente
-    </button>
-  </form>
+      <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-lg shrink-0">📍</div>
+        <div class="min-w-0">
+          <p class="text-xs font-bold text-white truncate">{{ cliente[4] or 'Sin barrio' }}</p>
+          <p class="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Barrio</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-lg shrink-0">🏠</div>
+        <div class="min-w-0">
+          <p class="text-xs font-bold text-white truncate">{{ cliente[5] or 'Sin dirección' }}</p>
+          <p class="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Dirección</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORMULARIO DE INFORMACIÓN PERSONAL -->
+  <div id="form-info-personal" class="bg-panel rounded-3xl border border-slate-800 p-6 shadow-2xl space-y-4">
+    <form method="post" class="space-y-4" data-loading-submit data-loading-label="Guardando cambios…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="accion" value="guardar_datos">
+
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h2 class="text-xs font-black text-accent uppercase tracking-widest flex items-center gap-2">
+          <span>ℹ️</span> Información personal
+        </h2>
+        {% if rol != 'solo_lectura' %}
+        <button type="submit" class="px-5 py-2.5 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase tracking-wider shadow-lg shadow-accent/20 active:scale-95 transition-all">
+          💾 Guardar cambios
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Nombre completo</label>
+          <input name="nombre" required value="{{ cliente[1] }}" class="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-white text-xs font-medium focus:border-accent outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Identificación</label>
+          <input name="identificacion" required value="{{ cliente[2] }}" class="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-white text-xs font-medium focus:border-accent outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Dirección</label>
+          <input name="direccion" value="{{ cliente[5] or '' }}" class="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-white text-xs font-medium focus:border-accent outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Teléfono</label>
+          <input name="telefono" value="{{ cliente[3] or '' }}" class="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-white text-xs font-medium focus:border-accent outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Barrio</label>
+          <input name="barrio" value="{{ cliente[4] or '' }}" class="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-white text-xs font-medium focus:border-accent outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Semáforo de riesgo de pago</label>
+          <select name="nivel_riesgo" class="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-white text-xs font-bold outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}">
+            <option value="excelente" {% if r_nivel == 'excelente' %}selected{% endif %}>🟢 Cliente Excelente (Puntual / Sin riesgo)</option>
+            <option value="regular" {% if r_nivel == 'regular' %}selected{% endif %}>🟡 Cliente Regular (Atrasos leves)</option>
+            <option value="riesgo" {% if r_nivel == 'riesgo' %}selected{% endif %}>🔴 Cliente de Riesgo / Moroso (Alta precaución)</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 ml-1">Observaciones / Notas adicionales del cliente</label>
+        <textarea name="notas" rows="3" placeholder="Información adicional o notas sobre el cliente..." class="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-white text-xs focus:border-accent outline-none {% if rol == 'solo_lectura' %}pointer-events-none opacity-70{% endif %}" {% if rol == 'solo_lectura' %}readonly{% endif %}>{{ cliente[7] or '' }}</textarea>
+      </div>
+    </form>
+  </div>
+
+  <!-- RESUMEN FINANCIERO DEL CLIENTE (4 TARJETAS) -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Card 1 -->
+    <div class="bg-panel rounded-3xl border border-slate-800 p-5 shadow-xl flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-2xl shrink-0">💰</div>
+      <div class="min-w-0">
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto total prestado</p>
+        <h3 class="text-xl font-black text-white tracking-tight mt-0.5">{{ fmt_money(total_prestado_cliente) }}</h3>
+        <p class="text-[10px] text-emerald-400 font-bold mt-0.5">{{ prestamos|length }} préstamo(s) en curso</p>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="bg-panel rounded-3xl border border-slate-800 p-5 shadow-xl flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl shrink-0">👛</div>
+      <div class="min-w-0">
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Saldo pendiente</p>
+        <h3 class="text-xl font-black text-white tracking-tight mt-0.5">{{ fmt_money(saldo_pendiente_cliente) }}</h3>
+        <p class="text-[10px] text-cyan-400 font-bold mt-0.5">{{ cuotas_totales_cliente - cuotas_pagadas_cliente }} cuota(s) pendiente(s)</p>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    {% set pct_comp = ((cuotas_pagadas_cliente / cuotas_totales_cliente)*100)|round|int if cuotas_totales_cliente > 0 else 0 %}
+    <div class="bg-panel rounded-3xl border border-slate-800 p-5 shadow-xl flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-2xl shrink-0">📊</div>
+      <div class="min-w-0">
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cuotas pagadas</p>
+        <h3 class="text-xl font-black text-white tracking-tight mt-0.5">{{ cuotas_pagadas_cliente }} / {{ cuotas_totales_cliente }}</h3>
+        <p class="text-[10px] text-purple-400 font-bold mt-0.5">{{ pct_comp }}% completado</p>
+      </div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="bg-panel rounded-3xl border border-slate-800 p-5 shadow-xl flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl shrink-0">📅</div>
+      <div class="min-w-0">
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Próximo vencimiento</p>
+        <h3 class="text-xs font-black text-white tracking-tight mt-1 truncate">{{ fecha_proximo_pago_texto(proximo_vencimiento_cliente) or 'Sin vencimiento' }}</h3>
+        <p class="text-[10px] text-amber-400 font-bold mt-0.5">Programado</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRÉSTAMOS ACTIVOS (DISPOSICIÓN EJECUTIVA) -->
+  <div class="bg-panel rounded-3xl border border-slate-800 p-6 shadow-2xl space-y-5">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <h2 class="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+        <span>💳</span> Préstamos activos
+      </h2>
+      {% if rol != 'solo_lectura' %}
+      <a href="{{ url_for('prestamos_nuevo') }}" class="px-4 py-2 rounded-xl bg-accent text-slate-900 font-bold text-xs uppercase tracking-wider shadow active:scale-95 transition-all">
+        + Nuevo préstamo
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="space-y-6">
+      {% for pr in prestamos %}
+      {% set pct_pr = ((pr.pagadas / pr.cuotas)*100)|round|int if pr.cuotas > 0 else 0 %}
+      <div class="rounded-2xl border {% if pr.en_mora %}border-rose-500/50 bg-rose-950/10{% else %}border-slate-800 bg-slate-900/50{% endif %} p-5 space-y-4 shadow-lg">
+
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <!-- Columna Izquierda: Datos del Crédito -->
+          <div class="space-y-3 flex-1 w-full">
+            <div class="flex items-center gap-3">
+              <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest {% if pr.estado == 'PAGADO' %}bg-emerald-900/60 text-emerald-300 border border-emerald-800/40{% else %}bg-amber-950/60 text-amber-300 border border-amber-800/40{% endif %}">
+                {{ pr.estado }}
+              </span>
+              <h3 class="text-base font-black text-white uppercase tracking-tight">Préstamo #{{ "%04d"|format(pr.id) }}</h3>
+              {% if pr.en_mora %}
+              <span class="text-[9px] font-black px-2 py-0.5 rounded bg-rose-500 text-white uppercase animate-pulse">EN MORA</span>
+              {% endif %}
+            </div>
+
+            <!-- Métricas Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-900/80 p-3.5 rounded-xl border border-slate-800/80 font-mono">
+              <div>
+                <p class="text-[9px] font-bold text-slate-500 uppercase">Monto original</p>
+                <p class="text-sm font-black text-white mt-0.5">{{ fmt_money(pr.monto) }}</p>
+              </div>
+              <div>
+                <p class="text-[9px] font-bold text-slate-500 uppercase">Saldo pendiente</p>
+                <p class="text-sm font-black text-emerald-400 mt-0.5">{{ fmt_money(pr.saldo) }}</p>
+              </div>
+              <div>
+                <p class="text-[9px] font-bold text-slate-500 uppercase">Cuotas pagadas</p>
+                <p class="text-sm font-black text-white mt-0.5">{{ pr.pagadas }} / {{ pr.cuotas }}</p>
+              </div>
+              <div>
+                <p class="text-[9px] font-bold text-slate-500 uppercase">Próximo pago</p>
+                <p class="text-xs font-black text-amber-300 mt-0.5">{{ fecha_proximo_pago_texto(pr.proximo_pago) or 'Finalizado' }}</p>
+              </div>
+            </div>
+
+            <!-- Barra de Progreso Visual -->
+            <div class="space-y-1.5 pt-1">
+              <div class="flex justify-between items-center text-[10px] font-mono">
+                <span class="text-slate-400 font-bold uppercase">{{ pct_pr }}% completado</span>
+                <span class="text-slate-500 font-bold uppercase">{{ pr.cuotas - pr.pagadas }} cuotas restantes de {{ pr.cuotas }} en total</span>
+              </div>
+              <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                <div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full transition-all duration-500" style="width: {{ pct_pr }}%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Acciones Rápidas -->
+          <div class="flex flex-col gap-2 w-full md:w-56 shrink-0 pt-2 md:pt-0">
+            {% if pr.estado == 'ACTIVO' and rol != 'solo_lectura' %}
+            <a href="{{ url_for('prestamos_cobrar', pid=pr.id) }}" class="py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider text-center shadow-lg active:scale-95 transition-all">
+              💰 Registrar cobro
+            </a>
+            {% endif %}
+
+            <a href="{{ url_for('pagos_list', prestamo_id=pr.id) }}" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider text-center border border-slate-700 transition-colors">
+              📋 Ver historial de pagos
+            </a>
+
+            {% if pr.estado|lower == 'activo' and (is_admin or rol == 'cobrador') %}
+            <a href="{{ url_for('prestamos_editar', pid=pr.id) }}" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold text-xs uppercase tracking-wider text-center border border-slate-700 transition-colors">
+              ✏️ Editar crédito
+            </a>
+            {% endif %}
+
+            {% if pr.estado == 'ACTIVO' and (is_admin or rol == 'cobrador') %}
+            <a href="{{ url_for('prestamos_renovar', pid=pr.id) }}" class="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider text-center shadow-lg active:scale-95 transition-all">
+              🔄 Renovar préstamo
+            </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Plan de Pagos / Cuotas Desplegable -->
+        <details class="group mt-3 pt-3 border-t border-slate-800/80">
+          <summary class="cursor-pointer text-xs font-bold text-slate-400 hover:text-white uppercase tracking-wider flex items-center justify-between select-none">
+            <span>📜 Ver Desglose de Pagos Registrados ({{ pr.pagos|length }})</span>
+            <span class="group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div class="mt-3 space-y-1.5">
+            {% for pg in pr.pagos|reverse %}
+            <div class="flex justify-between items-center bg-slate-900/70 rounded-xl px-3.5 py-2 border border-slate-800">
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold text-emerald-400 font-mono">CUOTA {{ pg.cuota }}</span>
+                <span class="text-[10px] text-slate-400 font-mono">{{ pg.fecha }}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-bold text-white font-mono">{{ fmt_money(pg.valor) }}</span>
+                {% if permisos.get('eliminar_cuotas_pagadas') or is_admin %}
+                <button type="button"
+                        onclick="abrirModalRevertir({{ pg.id }}, {{ pr.id }}, '{{ cliente[1] }}', {{ pg.cuota }}, {{ pg.valor }}, '{{ pg.fecha }}')"
+                        class="text-[10px] font-bold text-rose-500 hover:text-rose-400 uppercase">Eliminar</button>
+                {% endif %}
+              </div>
+            </div>
+            {% else %}
+            <p class="text-xs text-slate-500 italic py-2 text-center">No hay cuotas pagadas aún en este préstamo.</p>
+            {% endfor %}
+          </div>
+        </details>
+      </div>
+      {% else %}
+      <div class="py-10 text-center bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
+        <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Este cliente no tiene préstamos activos actualmente.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- AUDITORÍA DEL SISTEMA (ADMIN) -->
+  {% if is_admin and auditoria %}
+  <div class="bg-panel rounded-3xl border border-slate-800 p-6 shadow-xl space-y-3">
+    <h2 class="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+      <span>📋</span> Historial de Ediciones y Auditoría del Cliente
+    </h2>
+    <div class="space-y-2">
+      {% for a in auditoria %}
+      <div class="text-xs border-b border-slate-800/60 pb-2 flex items-center justify-between">
+        <p class="text-slate-300">
+          <span class="text-accent font-bold uppercase">👤 {{ a[4] or 'Usuario' }}</span> modificó
+          <span class="text-white font-bold uppercase">{{ a[1] }}</span>:
+          <span class="line-through text-slate-500">{{ a[2] or '—' }}</span> ➔
+          <span class="text-emerald-400 font-bold">{{ a[3] }}</span>
+        </p>
+        <span class="text-slate-500 font-mono text-[10px]">{{ a[0].strftime('%d/%m/%Y %H:%M') if a[0] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
 </div>
-{% endif %}
 
+<!-- Modal Foto -->
 <div id="foto-modal" class="hidden fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
   <div class="relative max-w-lg w-full" onclick="event.stopPropagation()">
     <button onclick="document.getElementById('foto-modal').classList.add('hidden')" class="absolute -top-10 right-0 text-white text-2xl font-bold hover:text-cyan-400 transition-colors">✕</button>
@@ -284,6 +388,31 @@ if (document.getElementById('input-foto')) {
 </div>
 
 <script>
+const clienteId = {{ cliente[0] }};
+if (document.getElementById('input-foto')) {
+  document.getElementById('input-foto').addEventListener('change', async function() {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.getElementById('avatar-img');
+      if (img && img.tagName === 'IMG') {
+        img.src = e.target.result;
+      } else {
+        location.reload();
+      }
+    };
+    reader.readAsDataURL(file);
+    const fd = new FormData();
+    fd.append('foto', file);
+    try {
+      const r = await fetch(`/clientes/${clienteId}/foto`, {method: 'POST', body: fd});
+      const d = await r.json();
+      if (!d.ok) alert(d.error || 'Error al subir');
+    } catch(e) { alert('Error de conexión'); }
+  });
+}
+
 function abrirModalRevertir(id, pid, cliente, cuota, valor, fecha) {
     const modal = document.getElementById('modal-revertir');
     const info = document.getElementById('cuota-info');

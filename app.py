@@ -1003,12 +1003,26 @@ def clientes_perfil(cid):
     auditoria = []
     if prestamos_view:
         auditoria = db.listar_auditoria_prestamo(prestamos_view[0]["id"], uid, is_admin)
+
+    total_prestado_cliente = sum(p['monto'] for p in prestamos_view if p['estado'] == 'ACTIVO')
+    saldo_pendiente_cliente = sum(p['saldo'] for p in prestamos_view if p['estado'] == 'ACTIVO')
+    cuotas_pagadas_cliente = sum(p['pagadas'] for p in prestamos_view if p['estado'] == 'ACTIVO')
+    cuotas_totales_cliente = sum(p['cuotas'] for p in prestamos_view if p['estado'] == 'ACTIVO')
+
+    activos_list = [p for p in prestamos_view if p['estado'] == 'ACTIVO' and p['proximo_pago']]
+    proximo_vencimiento_cliente = min((p['proximo_pago'] for p in activos_list), default=None)
+
     return render_template(
         "cliente_perfil.html",
         cliente=row,
         prestamos=prestamos_view,
         is_admin=is_admin,
         auditoria=auditoria,
+        total_prestado_cliente=total_prestado_cliente,
+        saldo_pendiente_cliente=saldo_pendiente_cliente,
+        cuotas_pagadas_cliente=cuotas_pagadas_cliente,
+        cuotas_totales_cliente=cuotas_totales_cliente,
+        proximo_vencimiento_cliente=proximo_vencimiento_cliente,
     )
 
 
