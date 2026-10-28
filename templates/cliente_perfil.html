@@ -19,15 +19,16 @@
       <!-- Avatar + Datos Principales -->
       <div class="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
         <div class="relative group shrink-0">
-          {% if cliente[6] %}
-          <img src="{{ cliente[6] }}" id="avatar-img" class="w-24 h-24 rounded-full object-cover border-2 border-emerald-500 shadow-xl cursor-pointer hover:opacity-90 transition-opacity" onclick="document.getElementById('foto-modal').classList.remove('hidden')">
-          {% else %}
-          <div class="w-24 h-24 rounded-full bg-slate-800 border-2 border-emerald-500/50 flex items-center justify-center text-3xl font-black text-emerald-400 shadow-xl">
-            {{ cliente[1][0].upper() }}
+          <div id="avatar-container" class="w-24 h-24 rounded-full overflow-hidden border-2 border-emerald-500 shadow-xl cursor-pointer hover:opacity-90 transition-opacity flex items-center justify-center bg-slate-800" onclick="document.getElementById('foto-modal').classList.remove('hidden')">
+            {% if cliente[6] %}
+            <img src="{{ cliente[6] }}" id="avatar-img" alt="Foto cliente" class="w-full h-full object-cover">
+            {% else %}
+            <span id="avatar-initials" class="text-3xl font-black text-emerald-400 uppercase">{{ cliente[1][0].upper() }}</span>
+            <img id="avatar-img-new" alt="Foto cliente" class="hidden w-full h-full object-cover">
+            {% endif %}
           </div>
-          {% endif %}
           {% if rol != 'solo_lectura' %}
-          <input type="file" id="input-foto" accept="image/*" class="hidden">
+          <input type="file" id="input-foto" accept="image/jpeg,image/png,image/webp" class="hidden">
           <button type="button" onclick="document.getElementById('input-foto').click()" class="absolute bottom-0 right-0 p-2 rounded-full bg-cyan-500 text-slate-950 shadow-lg hover:scale-110 active:scale-95 transition-all" title="Cambiar foto">
             📷
           </button>
@@ -389,27 +390,74 @@
 
 <script>
 const clienteId = {{ cliente[0] }};
-if (document.getElementById('input-foto')) {
-  document.getElementById('input-foto').addEventListener('change', async function() {
+const csrfToken = "{{ csrf_token() }}";
+const inputFoto = document.getElementById('input-foto');
+
+if (inputFoto) {
+  inputFoto.addEventListener('change', async function() {
     const file = this.files[0];
     if (!file) return;
+
+    // 1. Validar extensión de archivo
+    const filename = file.name.toLowerCase();
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const isValid = validExtensions.some(ext => filename.endsWith(ext));
+    if (!isValid) {
+      alert('⚠️ Formato no permitido. Por favor selecciona una imagen JPG, PNG o WebP.');
+      this.value = '';
+      return;
+    }
+
+    // 2. Validar tamaño máximo (2 MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('⚠️ La imagen sobrepasa el tamaño máximo permitido de 2 MB.');
+      this.value = '';
+      return;
+    }
+
+    // 3. Vista previa inmediata
     const reader = new FileReader();
     reader.onload = e => {
-      const img = document.getElementById('avatar-img');
-      if (img && img.tagName === 'IMG') {
+      const img = document.getElementById('avatar-img') || document.getElementById('avatar-img-new');
+      const initials = document.getElementById('avatar-initials');
+      const modalImg = document.getElementById('modal-foto-img');
+      if (img) {
         img.src = e.target.result;
-      } else {
-        location.reload();
+        img.classList.remove('hidden');
       }
+      if (initials) initials.classList.add('hidden');
+      if (modalImg) modalImg.src = e.target.result;
     };
     reader.readAsDataURL(file);
+
+    // 4. Enviar mediante Fetch con FormData + CSRF Token
     const fd = new FormData();
     fd.append('foto', file);
+    fd.append('csrf_token', csrfToken);
+
     try {
-      const r = await fetch(`/clientes/${clienteId}/foto`, {method: 'POST', body: fd});
+      const r = await fetch(`/clientes/${clienteId}/foto`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken
+        },
+        body: fd
+      });
       const d = await r.json();
-      if (!d.ok) alert(d.error || 'Error al subir');
-    } catch(e) { alert('Error de conexión'); }
+      if (d.ok) {
+        if (d.foto) {
+          const img = document.getElementById('avatar-img') || document.getElementById('avatar-img-new');
+          if (img) img.src = d.foto;
+        }
+        alert('✅ Foto de perfil actualizada correctamente.');
+      } else {
+        alert('❌ Error: ' + (d.error || 'No se pudo guardar la imagen.'));
+        location.reload();
+      }
+    } catch(e) {
+      alert('❌ Error de conexión al guardar la imagen.');
+      location.reload();
+    }
   });
 }
 
