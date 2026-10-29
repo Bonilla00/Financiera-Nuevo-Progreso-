@@ -1,9 +1,11 @@
-const CACHE = "ecosistema-financiero-v4";
+const CACHE = "ecosistema-financiero-v5";
 const OFFLINE_URL = "/";
 const ASSETS = [
   "/",
   "/static/manifest.json",
   "/static/logo.png",
+  "/static/icons/icon-192.png",
+  "/static/icons/icon-512.png",
   "/static/icons/icon.svg",
   "/static/service-worker.js"
 ];
