@@ -594,8 +594,9 @@ def login():
 def admin_dashboard():
     stats = db.obtener_metricas_globales()
     usuarios_stats = db.listar_usuarios_con_estadisticas()
+    mensualidades_resumen = db.obtener_resumen_mensualidades_admin()
     logs = db.obtener_logs_recientes(20)
-    return render_template("admin_dashboard.html", stats=stats, usuarios_stats=usuarios_stats, logs=logs)
+    return render_template("admin_dashboard.html", stats=stats, usuarios_stats=usuarios_stats, mensualidades_resumen=mensualidades_resumen, logs=logs)
 
 
 @app.route("/admin/usuarios_full")
@@ -1958,7 +1959,35 @@ def admin_usuarios():
         return redirect(url_for('admin_usuarios'))
 
     usuarios = db.listar_usuarios_admin()
-    return render_template("admin_usuarios.html", usuarios=usuarios)
+    mensualidades_resumen = db.obtener_resumen_mensualidades_admin()
+    return render_template("admin_usuarios.html", usuarios=usuarios, mensualidades_resumen=mensualidades_resumen)
+
+
+@app.route("/admin/usuarios/<int:uid>/mensualidad/configurar", methods=["POST"])
+@admin_required
+def admin_usuario_mensualidad_configurar(uid):
+    valor = request.form.get("mensualidad_valor", "0")
+    dia_pago = request.form.get("mensualidad_dia_pago", "1")
+    vencimiento = request.form.get("mensualidad_proximo_vencimiento", "").strip()
+
+    if db.configurar_mensualidad_usuario(uid, float(valor or 0), int(dia_pago or 1), vencimiento):
+        db.registrar_log(session["user_id"], f"Configurada mensualidad para usuario #{uid}")
+        flash("Configuración de mensualidad guardada.", "ok")
+    else:
+        flash("Error al guardar configuración de mensualidad.", "error")
+    return redirect(url_for("admin_usuarios"))
+
+
+@app.route("/admin/usuarios/<int:uid>/mensualidad/pagar", methods=["POST"])
+@admin_required
+def admin_usuario_mensualidad_pagar(uid):
+    ok, msg = db.registrar_pago_mensualidad(uid, session["user_id"])
+    if ok:
+        db.registrar_log(session["user_id"], f"Registrado pago de mensualidad para usuario #{uid}")
+        flash(msg, "ok")
+    else:
+        flash(msg, "error")
+    return redirect(url_for("admin_usuarios"))
 
 
 @app.route("/admin/usuarios/<int:uid>/editar", methods=["GET", "POST"])

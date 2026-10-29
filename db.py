@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import logging
 import json
+import calendar
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -105,6 +106,12 @@ def ensure_schema_migrations() -> None:
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS logo_negocio TEXT",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS color_primario VARCHAR(20) DEFAULT '#22C55E'",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS color_secundario VARCHAR(20) DEFAULT '#0F172A'",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mensualidad_valor DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mensualidad_dia_pago INTEGER DEFAULT 1",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mensualidad_proximo_vencimiento DATE",
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mensualidad_estado VARCHAR(20) DEFAULT 'al_dia'",
+        "CREATE TABLE IF NOT EXISTS mensualidades_log (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE, monto DOUBLE PRECISION NOT NULL, periodo_mes VARCHAR(7) NOT NULL, fecha_pago TIMESTAMPTZ DEFAULT NOW(), fecha_vencimiento_siguiente DATE NOT NULL, registrado_por INTEGER REFERENCES usuarios(id), UNIQUE(user_id, periodo_mes))",
+        "CREATE INDEX IF NOT EXISTS idx_mensualidades_user ON mensualidades_log(user_id)",
         "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, user_id INT, accion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "UPDATE usuarios SET activo = TRUE WHERE activo IS NULL",
         "UPDATE usuarios SET debe_cambiar_password = TRUE WHERE debe_cambiar_password IS NULL",
@@ -476,10 +483,10 @@ def actualizar_password_usuario(uid: int, password_hash: str) -> None:
 
 
 def listar_usuarios_admin():
-    """Lista todos los usuarios para la gestión administrativa."""
+    """Lista todos los usuarios para la gestión administrativa con sus mensualidades."""
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT id, username, rol, activo, creado_en, permisos FROM usuarios ORDER BY id ASC")
+        cur.execute("SELECT id, username, rol, activo, creado_en, permisos, mensualidad_valor, mensualidad_dia_pago, mensualidad_proximo_vencimiento, mensualidad_estado FROM usuarios ORDER BY id ASC")
         return cur.fetchall()
 
 
@@ -2730,3 +2737,133 @@ def actualizar_negocio_usuario(user_id: int, nombre_negocio: str, nombre_corto: 
     except Exception as e:
         logger.error(f"Error actualizando negocio de usuario {user_id}: {e}")
         return False
+
+
+# ---------- Control Manual de Mensualidades (Admin) ----------
+def calcular_siguiente_vencimiento(fecha_base: date, dia_habitual: int) -> date:
+    """Calcula el siguiente vencimiento mensual respetando el día habitual (manejando meses de 28, 29, 30 y 31 días)."""
+    year = fecha_base.year
+    month = fecha_base.month + 1
+    if month > 12:
+        month = 1
+        year += 1
+    max_dias = calendar.monthrange(year, month)[1]
+    dia_efectivo = min(max(1, dia_habitual), max_dias)
+    return date(year, month, dia_efectivo)
+
+
+def configurar_mensualidad_usuario(user_id: int, valor: float, dia_habitual: int, proximo_vencimiento_str: str) -> bool:
+    try:
+        dia_clean = min(31, max(1, int(dia_habitual or 1)))
+        monto_clean = max(0.0, float(valor or 0))
+
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE usuarios
+                SET mensualidad_valor = %s, mensualidad_dia_pago = %s, mensualidad_proximo_vencimiento = %s
+                WHERE id = %s
+                """,
+                (monto_clean, dia_clean, proximo_vencimiento_str or None, user_id)
+            )
+            return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"Error configurando mensualidad de usuario {user_id}: {e}")
+        return False
+
+
+def registrar_pago_mensualidad(user_id: int, registrado_por: int) -> tuple[bool, str]:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(
+                "SELECT id, username, mensualidad_valor, mensualidad_dia_pago, mensualidad_proximo_vencimiento FROM usuarios WHERE id = %s",
+                (user_id,)
+            )
+            u = cur.fetchone()
+            if not u:
+                return False, "Usuario no encontrado."
+
+            monto = float(u["mensualidad_valor"] or 0)
+            dia_habitual = int(u["mensualidad_dia_pago"] or 1)
+            venc_actual = u["mensualidad_proximo_vencimiento"]
+
+            if not venc_actual:
+                venc_actual = date.today()
+            elif isinstance(venc_actual, str):
+                try:
+                    venc_actual = datetime.strptime(venc_actual[:10], "%Y-%m-%d").date()
+                except Exception:
+                    venc_actual = date.today()
+
+            periodo_mes = venc_actual.strftime("%Y-%m")
+            siguiente_venc = calcular_siguiente_vencimiento(venc_actual, dia_habitual)
+
+            # Insertar en historial con UNIQUE(user_id, periodo_mes)
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO mensualidades_log (user_id, monto, periodo_mes, fecha_vencimiento_siguiente, registrado_por)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (user_id, monto, periodo_mes, siguiente_venc, registrado_por)
+                )
+            except psycopg2.IntegrityError:
+                conn.rollback()
+                return False, f"La mensualidad del período {periodo_mes} ya fue registrada previamente."
+
+            # Actualizar próximo vencimiento en el usuario
+            cur.execute(
+                """
+                UPDATE usuarios
+                SET mensualidad_proximo_vencimiento = %s, mensualidad_estado = 'al_dia'
+                WHERE id = %s
+                """,
+                (siguiente_venc, user_id)
+            )
+            return True, f"Pago del período {periodo_mes} registrado exitosamente. Próximo vencimiento: {siguiente_venc}."
+    except Exception as e:
+        logger.error(f"Error registrando pago de mensualidad para usuario {user_id}: {e}")
+        return False, f"Error al procesar el pago: {e}"
+
+
+def obtener_resumen_mensualidades_admin() -> dict:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(
+                """
+                SELECT
+                    COUNT(CASE WHEN mensualidad_proximo_vencimiento < CURRENT_DATE THEN 1 END) as pendientes,
+                    COUNT(CASE WHEN mensualidad_proximo_vencimiento = CURRENT_DATE THEN 1 END) as vence_hoy,
+                    COUNT(CASE WHEN mensualidad_proximo_vencimiento > CURRENT_DATE THEN 1 END) as al_dia,
+                    COALESCE(SUM(CASE WHEN mensualidad_proximo_vencimiento < CURRENT_DATE THEN mensualidad_valor ELSE 0 END), 0) as monto_pendiente,
+                    COALESCE(SUM(CASE WHEN mensualidad_proximo_vencimiento = CURRENT_DATE THEN mensualidad_valor ELSE 0 END), 0) as monto_hoy
+                FROM usuarios
+                WHERE rol IN ('cobrador', 'usuario') AND activo = TRUE
+                """
+            )
+            row = cur.fetchone()
+            return dict(row) if row else {"pendientes": 0, "vence_hoy": 0, "al_dia": 0, "monto_pendiente": 0, "monto_hoy": 0}
+    except Exception:
+        return {"pendientes": 0, "vence_hoy": 0, "al_dia": 0, "monto_pendiente": 0, "monto_hoy": 0}
+
+
+def listar_historial_mensualidades(user_id: int) -> list[dict]:
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(
+                """
+                SELECT m.id, m.user_id, m.monto, m.periodo_mes, m.fecha_pago, m.fecha_vencimiento_siguiente, u.username as registrado_por_nombre
+                FROM mensualidades_log m
+                LEFT JOIN usuarios u ON u.id = m.registrado_por
+                WHERE m.user_id = %s
+                ORDER BY m.fecha_pago DESC
+                """,
+                (user_id,)
+            )
+            return cur.fetchall()
+    except Exception:
+        return []
