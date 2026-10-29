@@ -55,13 +55,15 @@ app = Flask(__name__)
 # Security: Validate SECRET_KEY
 _secret_key = os.environ.get("SECRET_KEY")
 if not _secret_key or _secret_key in ("cambia-esto-en-produccion", "secret", "flask-secret-key"):
-    # Generate a secure random key for development
-    _secret_key = secrets.token_hex(32)
-    logging.warning("SECRET_KEY no configurado o inseguro. Usando clave aleatoria. Configura SECRET_KEY en producción.")
+    _db_url = os.environ.get("DATABASE_URL", "fnp-default-db-secret-key")
+    _secret_key = f"fnp-secret-{_db_url[:24]}-v1"
+    logging.warning("SECRET_KEY no configurado en entorno. Usando clave consistente para mantener coherencia CSRF entre workers.")
+
 app.secret_key = _secret_key
 
 # Session security configuration
 app.config.update(
+    WTF_CSRF_SECRET_KEY=_secret_key,
     SESSION_COOKIE_SECURE=True,  # Only send cookies over HTTPS
     SESSION_COOKIE_HTTPONLY=True,  # Prevent JavaScript access
     SESSION_COOKIE_SAMESITE="Lax",  # CSRF protection
